@@ -17,29 +17,33 @@ struct FrameStudioView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 14) {
+            VStack(spacing: 0) {
                 ZStack {
                     if let preview {
                         Image(uiImage: preview).resizable().scaledToFit()
-                            .shadow(color: .black.opacity(0.5), radius: 20, y: 8)
                     } else {
                         ProgressView()
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, 16)
+                .padding(24)
 
-                styleStrip
-                controls
+                Hairline()
+                VStack(alignment: .leading, spacing: 16) {
+                    styleStrip
+                    controls
+                }
+                .padding(.top, 14)
             }
             .padding(.bottom, 8)
-            .background(Color(white: 0.04))
+            .background(Color(white: 0.07))
             .navigationTitle("Frame")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
                 ToolbarItemGroup(placement: .confirmationAction) {
                     Button { Task { await share() } } label: { Image(systemName: "square.and.arrow.up") }
+                        .accessibilityLabel("Share")
                     Button { Task { await save() } } label: {
                         if saving { ProgressView() } else { Text("Save").bold() }
                     }
@@ -47,6 +51,7 @@ struct FrameStudioView: View {
             }
             .sheet(item: $shareItem) { item in ActivityView(items: [item.image]) }
         }
+        .environment(\.colorScheme, .dark)
         .task {
             proxy = await Task.detached { ImageDecode.downsample(image.normalized().jpegData(compressionQuality: 0.9) ?? Data(), maxPixel: 1400) }.value ?? image
             if let loc = resolvedLocation {
@@ -64,45 +69,65 @@ struct FrameStudioView: View {
 
     private var styleStrip: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 8) {
+            HStack(spacing: 22) {
                 ForEach(FrameStyle.allCases) { s in
+                    let on = options.style == s
+                    let locked = s.isPro && !app.pro.isPro
                     Button {
-                        if s.isPro && !app.pro.isPro { app.showPaywall = true; return }
-                        options.style = s
+                        if locked { app.showPaywall = true; return }
+                        withAnimation(.snappy(duration: 0.2)) { options.style = s }
                         Haptics.tap()
                     } label: {
-                        HStack(spacing: 4) {
-                            Text(s.label)
-                            if s.isPro && !app.pro.isPro { Image(systemName: "lock.fill").font(.caption2) }
+                        VStack(spacing: 7) {
+                            HStack(spacing: 4) {
+                                Text(s.label).font(.subheadline.weight(on ? .semibold : .regular))
+                                if locked { Image(systemName: "lock.fill").font(.system(size: 9)) }
+                            }
+                            .foregroundStyle(on ? Mono.ink : Mono.dim)
+                            Rectangle().fill(on ? Mono.ink : .clear).frame(height: 1.5)
                         }
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14).padding(.vertical, 9)
-                        .background(options.style == s ? Theme.accent : Theme.card, in: Capsule())
-                        .foregroundStyle(options.style == s ? .black : .primary)
+                        .fixedSize()
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, Mono.gutter)
         }
         .scrollIndicators(.hidden)
     }
 
     private var controls: some View {
-        VStack(spacing: 10) {
-            Picker("Aspect", selection: $options.aspect) {
-                ForEach(FrameAspect.allCases) { Text($0.label).tag($0) }
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 0) {
+                CapsLabel("Ratio").frame(width: 64, alignment: .leading)
+                ForEach(FrameAspect.allCases) { a in
+                    Button { options.aspect = a; Haptics.tap() } label: {
+                        Text(a.label)
+                            .font(Mono.data(.footnote, weight: options.aspect == a ? .semibold : .regular))
+                            .foregroundStyle(options.aspect == a ? Mono.ink : Mono.dim)
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .overlay(alignment: .bottom) {
+                                if options.aspect == a { Rectangle().fill(Mono.ink).frame(height: 1.5) }
+                            }
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .pickerStyle(.segmented)
-            HStack(spacing: 8) {
-                Toggle("Dark", isOn: $options.dark).toggleStyle(ChipToggle())
-                Toggle("Exposure", isOn: $options.showExposure).toggleStyle(ChipToggle())
-                Toggle(meta?.recipe != nil ? "Recipe" : "Look", isOn: $options.showRecipe).toggleStyle(ChipToggle())
-                Toggle("Date", isOn: $options.showDate).toggleStyle(ChipToggle())
-                if place != nil { Toggle("Place", isOn: $options.showPlace).toggleStyle(ChipToggle()) }
+            .padding(.horizontal, Mono.gutter)
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    Toggle("Dark", isOn: $options.dark).toggleStyle(ChipToggle())
+                    Toggle("Exposure", isOn: $options.showExposure).toggleStyle(ChipToggle())
+                    Toggle(meta?.recipe != nil ? "Recipe" : "Look", isOn: $options.showRecipe).toggleStyle(ChipToggle())
+                    Toggle("Date", isOn: $options.showDate).toggleStyle(ChipToggle())
+                    if place != nil { Toggle("Place", isOn: $options.showPlace).toggleStyle(ChipToggle()) }
+                }
+                .padding(.horizontal, Mono.gutter)
             }
+            .scrollIndicators(.hidden)
         }
-        .padding(.horizontal, 16)
     }
 
     private var resolvedLocation: CLLocation? {
@@ -161,20 +186,6 @@ struct FrameStudioView: View {
 struct ShareImage: Identifiable {
     let id = UUID()
     let image: UIImage
-}
-
-struct ChipToggle: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle(); Haptics.tap() } label: {
-            configuration.label
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(configuration.isOn ? Theme.accent.opacity(0.22) : Theme.card, in: Capsule())
-                .foregroundStyle(configuration.isOn ? Theme.accent : .secondary)
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 struct ActivityView: UIViewControllerRepresentable {

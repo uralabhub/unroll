@@ -8,18 +8,9 @@ struct UnrollApp: App {
         WindowGroup {
             RootView()
                 .environment(app)
-                .preferredColorScheme(.dark)
-                .tint(Theme.accent)
+                .tint(Mono.ink)
         }
     }
-}
-
-enum Theme {
-    static let accent = Color(red: 1.0, green: 0.66, blue: 0.25)
-    static let card = Color(white: 0.11)
-    static let cardHi = Color(white: 0.16)
-    static let star = Color(red: 1.0, green: 0.8, blue: 0.2)
-    static let lock = Color(red: 0.45, green: 0.75, blue: 1.0)
 }
 
 struct RootView: View {

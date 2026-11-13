@@ -9,25 +9,28 @@ struct RecipesView: View {
     var body: some View {
         List {
             if app.recipes.items.isEmpty {
-                ContentUnavailableView("No recipes yet", systemImage: "camera.filters",
-                                       description: Text("Import Fujifilm shots and every film-simulation recipe you used is collected here — ready to share or recreate."))
+                QuietMessage(title: "No recipes yet",
+                             message: "Import Fujifilm shots and every recipe you used is collected here, ready to share or dial back in.")
+                    .listRowInsets(EdgeInsets())
             }
             ForEach(app.recipes.sorted) { item in
                 NavigationLink { RecipeDetailView(item: item) } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(item.title).font(.headline)
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(item.title).font(.body.weight(.medium))
                             Spacer()
-                            Text("\(item.count)×").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                            Text(item.count == 1 ? "1 shot" : "\(item.count) shots").font(Mono.data(.caption)).foregroundStyle(Mono.dim)
                         }
-                        Text(item.recipe.shortLine).font(.caption).foregroundStyle(Theme.accent)
-                        if let c = item.camera { Text(c).font(.caption2).foregroundStyle(.secondary) }
+                        Text(item.recipe.shortLine.replacingOccurrences(of: item.recipe.filmSimulation + " · ", with: "")).font(Mono.data(.caption)).foregroundStyle(Mono.dim)
+                        if let c = item.camera { Text(c.uppercased()).font(Mono.caps(10)).tracking(1).foregroundStyle(Mono.faint) }
                     }
+                    .padding(.vertical, 4)
                 }
                 .swipeActions { Button("Delete", role: .destructive) { app.recipes.delete(item.id) } }
             }
         }
-        .navigationTitle("Recipes")
+        .listStyle(.plain)
+        .navigationTitle("Film recipes")
     }
 }
 
@@ -45,15 +48,15 @@ struct RecipeDetailView: View {
             }
             Section("Settings") {
                 ForEach(item.recipe.rows, id: \.0) { k, v in
-                    LabeledContent(k, value: v)
+                    LabeledContent(k) { Text(v).font(Mono.data(.subheadline)) }
                 }
             }
             Section {
-                Button { shareItem = ShareImage(image: card()) } label: { Label("Share recipe card", systemImage: "square.and.arrow.up") }
+                Button("Share recipe card") { shareItem = ShareImage(image: card()) }
                 Button {
                     UIPasteboard.general.string = ([name.isEmpty ? item.title : name] + item.recipe.rows.map { "\($0.0): \($0.1)" }).joined(separator: "\n")
                     app.toast = "Recipe copied"
-                } label: { Label("Copy as text", systemImage: "doc.on.doc") }
+                } label: { Text("Copy as text") }
             }
         }
         .navigationTitle(item.title)
@@ -67,11 +70,13 @@ struct RecipeDetailView: View {
         let size = CGSize(width: 1080, height: 360 + CGFloat(rows.count) * 76)
         let f = UIGraphicsImageRendererFormat(); f.scale = 1
         return UIGraphicsImageRenderer(size: size, format: f).image { ctx in
-            UIColor(white: 0.07, alpha: 1).setFill(); ctx.fill(CGRect(origin: .zero, size: size))
-            let amber = UIColor(red: 1, green: 0.66, blue: 0.25, alpha: 1)
-            FrameRenderer.draw("FILM RECIPE", at: CGPoint(x: 80, y: 100), size: 30, weight: .bold, color: amber, align: .left, kern: 6)
+            UIColor.black.setFill(); ctx.fill(CGRect(origin: .zero, size: size))
+            let mono = UIFont.monospacedSystemFont(ofSize: 26, weight: .medium)
+            NSAttributedString(string: "FILM RECIPE", attributes: [.font: mono, .foregroundColor: UIColor(white: 1, alpha: 0.5), .kern: 5])
+                .draw(at: CGPoint(x: 80, y: 84))
             FrameRenderer.draw(name.isEmpty ? item.title : name, at: CGPoint(x: 80, y: 170), size: 64, weight: .bold, color: .white, align: .left)
             FrameRenderer.draw(item.camera ?? "", at: CGPoint(x: 80, y: 235), size: 30, weight: .regular, color: UIColor(white: 1, alpha: 0.5), align: .left)
+            UIColor(white: 1, alpha: 0.2).setFill(); ctx.fill(CGRect(x: 80, y: 280, width: 920, height: 2))
             var y: CGFloat = 320
             for (k, v) in rows {
                 FrameRenderer.draw(k.uppercased(), at: CGPoint(x: 80, y: y), size: 26, weight: .semibold, color: UIColor(white: 1, alpha: 0.5), align: .left, kern: 2)
@@ -94,67 +99,74 @@ struct ClockSyncView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
-                Text("Camera clocks drift minutes per month and ignore time zones — which puts your photos in the wrong place. Fix it once:")
-                    .font(.subheadline).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 28) {
+                Text("Camera clocks drift and ignore time zones, which puts photos in the wrong place on the map. Fix it once per camera.")
+                    .font(.subheadline).foregroundStyle(Mono.dim)
+                    .padding(.horizontal, Mono.gutter)
+
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                    VStack(spacing: 10) {
+                    VStack(spacing: 14) {
                         if let qr = ClockSync.qr(for: ctx.date, size: 520) {
                             Image(uiImage: qr).interpolation(.none).resizable().scaledToFit()
-                                .frame(maxWidth: 260)
-                                .padding(16).background(.white, in: RoundedRectangle(cornerRadius: 16))
+                                .frame(maxWidth: 240)
+                                .padding(14).background(.white)
                         }
-                        Text(ctx.date.formatted(.dateTime.hour().minute().second()))
-                            .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                        Text(ctx.date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits)))
+                            .font(.system(size: 40, weight: .medium, design: .monospaced))
                     }
+                    .frame(maxWidth: .infinity)
                 }
+
+                MonoSection("How") {
+                    step(1, "Turn the screen brightness up and photograph this code with the camera.")
+                    step(2, "Connect the camera by cable or card.")
+                    step(3, "Tap Read from camera. Unroll compares the code with the photo’s timestamp.")
+                }
+
                 VStack(alignment: .leading, spacing: 10) {
-                    step(1, "Turn your screen brightness up and take a photo of this code with your camera.")
-                    step(2, "Connect the camera (cable or card).")
-                    step(3, "Tap “Read from camera”. Unroll compares the code with the photo’s timestamp.")
+                    Button {
+                        Task { await read() }
+                    } label: {
+                        if reading { ProgressView() } else { Text("Read from camera") }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(app.session == nil || reading)
+                    if app.session == nil { Text("Connect a camera first.").font(.footnote).foregroundStyle(Mono.dim) }
+                    if let result { Text(result).font(.subheadline.weight(.medium)) }
                 }
-                Button {
-                    Task { await read() }
-                } label: {
-                    Group { if reading { ProgressView() } else { Label("Read from camera", systemImage: "qrcode.viewfinder") } }
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(app.session == nil || reading)
-                if app.session == nil { Text("Connect a camera first.").font(.caption).foregroundStyle(.secondary) }
-                if let result { Text(result).font(.callout.weight(.semibold)).multilineTextAlignment(.center).foregroundStyle(Theme.accent) }
+                .padding(.horizontal, Mono.gutter)
 
                 if !app.settings.clockOffsets.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Corrections in use").font(.headline)
+                    MonoSection("Corrections in use") {
                         ForEach(app.settings.clockOffsets.sorted(by: { $0.key < $1.key }), id: \.key) { model, off in
                             HStack {
                                 Text(model)
                                 Spacer()
-                                Text(ClockSyncView.describe(off)).foregroundStyle(.secondary)
-                                Button { app.settings.clockOffsets[model] = nil } label: { Image(systemName: "xmark.circle.fill") }
-                                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                                Text(ClockSyncView.describe(off)).font(Mono.data(.subheadline)).foregroundStyle(Mono.dim)
+                                Button { app.settings.clockOffsets[model] = nil } label: { Image(systemName: "xmark") }
+                                    .buttonStyle(.plain).foregroundStyle(Mono.dim).padding(.leading, 8)
+                                    .accessibilityLabel("Remove correction")
                             }
-                            .font(.subheadline)
+                            .padding(.horizontal, Mono.gutter).padding(.vertical, 14)
                         }
                     }
-                    .padding(14)
-                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
                 }
             }
-            .padding(16)
+            .padding(.vertical, 16)
         }
-        .navigationTitle("Clock Sync")
+        .background(Mono.bg)
+        .navigationTitle("Clock sync")
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
     }
 
     private func step(_ n: Int, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text("\(n)").font(.caption.bold()).foregroundStyle(.black).frame(width: 22, height: 22).background(Theme.accent, in: Circle())
-            Text(text).font(.subheadline)
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            Text(String(format: "%02d", n)).font(Mono.data(.footnote, weight: .medium)).foregroundStyle(Mono.dim)
+            Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Mono.gutter).padding(.vertical, 12)
     }
 
     static func describe(_ off: Double) -> String {
@@ -199,13 +211,13 @@ struct SettingsView: View {
                 Picker("When a camera connects", selection: $s.autoImport) {
                     ForEach(AutoImportRule.allCases) { Text($0.label).tag($0) }
                 }
-                Toggle("Include RAW twin (JPG+RAW as one photo)", isOn: $s.includeRAW)
+                Toggle("Keep RAW with JPEG", isOn: $s.includeRAW)
                 Picker("Save to", selection: $s.albumMode) {
                     ForEach(AlbumMode.allCases) { Text($0.label).tag($0) }
                 }
                 Toggle("Eject camera when done", isOn: $s.autoEject)
             } header: { Text("Import") } footer: {
-                Text("“★ & 🔒 shots” pulls only what you rated or protected on the camera body — Pro.")
+                Text("Picks are shots you rated or protected on the camera body. Auto-import of picks is part of Pro.")
             }
 
             Section {
@@ -218,7 +230,7 @@ struct SettingsView: View {
 
             Section("Unroll Pro") {
                 if app.pro.isPro {
-                    Label("Pro unlocked — thank you!", systemImage: "checkmark.seal.fill").foregroundStyle(Theme.accent)
+                    Text("Pro is unlocked. Thank you.")
                 } else {
                     Button("See Pro") { dismiss(); app.showPaywall = true }
                     LabeledContent("Free imports left today", value: "\(app.quota.remaining)")
@@ -247,49 +259,73 @@ struct SettingsView: View {
 struct PaywallView: View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @State private var plan: Plan = .lifetime
 
-    private let perks: [(String, String, String)] = [
-        ("infinity", "Unlimited imports", "Free plan: \(Quota.freePerDay) a day"),
-        ("star.circle", "Auto-pull ★ & 🔒 shots", "Plug in → your keepers land in Photos, hands-free"),
-        ("location.circle", "Auto-geotag every import", "From your walk or iPhone photos, clock-corrected"),
-        ("rectangle.portrait.on.rectangle.portrait", "All frame styles", "Recipe card, Instant, Film strip — full resolution"),
-        ("eye.slash", "No watermark", "On frames, recaps and recipe cards"),
+    enum Plan { case lifetime, yearly }
+
+    private let perks: [(String, String)] = [
+        ("Unlimited imports", "Free plan: \(Quota.freePerDay) a day"),
+        ("Auto-import picks", "Plug in and your rated or protected shots go straight to Photos"),
+        ("Automatic locations", "From your walk or iPhone photos, corrected for clock drift"),
+        ("Every frame style", "Recipe card, Instant and Film strip at full resolution"),
+        ("No watermark", "On frames, recaps and recipe cards"),
     ]
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 22) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "bolt.circle.fill").font(.system(size: 56)).foregroundStyle(Theme.accent)
-                        Text("Unroll Pro").font(.largeTitle.bold())
-                        Text("From camera to posted in seconds.").foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 30) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        CapsLabel("Unroll Pro")
+                        Text("Camera to posted, without the busywork.")
+                            .font(.system(size: 30, weight: .semibold)).tracking(-0.4)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.top, 10)
+                    .padding(.horizontal, Mono.gutter)
 
-                    VStack(alignment: .leading, spacing: 14) {
-                        ForEach(perks, id: \.1) { icon, title, sub in
-                            HStack(spacing: 14) {
-                                Image(systemName: icon).font(.title2).foregroundStyle(Theme.accent).frame(width: 32)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(title).font(.headline)
-                                    Text(sub).font(.caption).foregroundStyle(.secondary)
-                                }
+                    MonoSection {
+                        ForEach(perks, id: \.0) { title, sub in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(title).font(.body.weight(.medium))
+                                Text(sub).font(.footnote).foregroundStyle(Mono.dim)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, Mono.gutter).padding(.vertical, 12)
                         }
                     }
-                    .padding(18)
-                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 20))
 
                     VStack(spacing: 10) {
-                        planButton(app.pro.lifetime, title: "Founder Lifetime", fallbackPrice: "$29.99", note: "Pay once. Yours forever.", highlight: true)
-                        planButton(app.pro.yearly, title: "Yearly", fallbackPrice: "$14.99 / year", note: "7-day free trial", highlight: false)
+                        planRow(.lifetime, title: "Lifetime", price: app.pro.lifetime?.displayPrice ?? "$29.99", note: "Pay once. Founder price.")
+                        planRow(.yearly, title: "Yearly", price: (app.pro.yearly?.displayPrice ?? "$14.99") + " / yr", note: "7-day free trial")
                     }
+                    .padding(.horizontal, Mono.gutter)
 
-                    if let m = app.pro.message { Text(m).font(.footnote).foregroundStyle(.secondary) }
-                    Button("Restore purchases") { Task { await app.pro.restore() } }.font(.footnote)
                 }
-                .padding(16)
+                .padding(.vertical, 12)
+            }
+            .background(Mono.bg)
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 0) {
+                    Hairline()
+                    VStack(spacing: 12) {
+                        Button {
+                            let product = plan == .lifetime ? app.pro.lifetime : app.pro.yearly
+                            guard let product else { app.pro.message = "The App Store isn’t reachable right now. Try again shortly."; return }
+                            Task { await app.pro.buy(product) }
+                        } label: {
+                            if app.pro.purchasing { ProgressView() } else { Text(plan == .lifetime ? "Buy lifetime" : "Start free trial") }
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(app.pro.purchasing)
+
+                        if let m = app.pro.message { Text(m).font(.footnote).foregroundStyle(Mono.dim) }
+                        Button("Restore purchases") { Task { await app.pro.restore() } }
+                            .font(.footnote).foregroundStyle(Mono.dim)
+                    }
+                    .padding(.horizontal, Mono.gutter)
+                    .padding(.top, 12)
+                }
+                .background(Mono.bg)
             }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Not now") { dismiss() } } }
         }
@@ -297,26 +333,26 @@ struct PaywallView: View {
         .presentationDragIndicator(.visible)
     }
 
-    private func planButton(_ product: Product?, title: String, fallbackPrice: String, note: String, highlight: Bool) -> some View {
-        Button {
-            guard let product else { app.pro.message = "Store unavailable right now — try again shortly."; return }
-            Task { await app.pro.buy(product) }
-        } label: {
-            HStack {
+    private func planRow(_ p: Plan, title: String, price: String, note: String) -> some View {
+        let on = plan == p
+        return Button { plan = p; Haptics.tap() } label: {
+            HStack(spacing: 14) {
+                Image(systemName: on ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 20, weight: .light))
+                    .foregroundStyle(on ? Mono.ink : Mono.faint)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline)
-                    Text(note).font(.caption).opacity(0.75)
+                    Text(title).font(.body.weight(.semibold))
+                    Text(note).font(.footnote).foregroundStyle(Mono.dim)
                 }
                 Spacer()
-                Text(product?.displayPrice ?? fallbackPrice).font(.headline.monospacedDigit())
+                Text(price).font(Mono.data(.subheadline, weight: .medium))
             }
             .padding(16)
-            .frame(maxWidth: .infinity)
-            .background(highlight ? Theme.accent : Theme.card, in: RoundedRectangle(cornerRadius: 16))
-            .foregroundStyle(highlight ? .black : .primary)
+            .overlay(RoundedRectangle(cornerRadius: Mono.radius, style: .continuous)
+                .strokeBorder(on ? Mono.ink : Mono.line, lineWidth: on ? 1.5 : 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(app.pro.purchasing)
     }
 }
 
@@ -328,41 +364,48 @@ struct ImportHUD: View {
 
     var body: some View {
         let imp = app.importer
-        Group {
-            if imp.isRunning {
-                HStack(spacing: 12) {
-                    ProgressView(value: imp.progress).progressViewStyle(.circular).tint(Theme.accent)
-                    VStack(alignment: .leading, spacing: 1) {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                if imp.isRunning {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)").font(.subheadline.weight(.semibold))
                         Text(imp.throughputMBps.map { String(format: "%.0f MB/s", $0) } ?? (imp.current?.primary.name ?? ""))
-                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                     }
                     Spacer()
-                    Button { imp.cancelAll() } label: { Image(systemName: "xmark.circle.fill").font(.title3) }
-                        .buttonStyle(.plain).foregroundStyle(.secondary)
-                }
-            } else if showDone, let run = imp.lastFinishedRun {
-                HStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(.green)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("\(run.count) in Photos · \(String(format: "%.1f", run.seconds))s").font(.subheadline.weight(.semibold))
-                        Text(run.geotagged > 0 ? "\(run.geotagged) geotagged" : "Originals saved untouched").font(.caption).foregroundStyle(.secondary)
+                    Button("Cancel") { imp.cancelAll() }
+                        .buttonStyle(OutlineChipStyle())
+                } else if showDone, let run = imp.lastFinishedRun {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(run.count) saved to Photos").font(.subheadline.weight(.semibold))
+                        Text("\(String(format: "%.1f", run.seconds)) s" + (run.geotagged > 0 ? "  ·  \(run.geotagged) with location" : "  ·  originals untouched"))
+                            .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                     }
                     Spacer()
                     Button("Open Photos") {
                         if let u = URL(string: "photos-redirect://") { UIApplication.shared.open(u) }
                     }
-                    .font(.subheadline.weight(.semibold))
+                    .buttonStyle(OutlineChipStyle(filled: true))
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            if imp.isRunning {
+                GeometryReader { g in
+                    Rectangle().fill(Mono.ink).frame(width: g.size.width * imp.progress)
+                }
+                .frame(height: 2)
+                .animation(.linear(duration: 0.2), value: imp.progress)
+            }
         }
-        .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(Mono.bg, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Mono.radius, style: .continuous).strokeBorder(Mono.line, lineWidth: 1))
         .padding(.horizontal, 12)
         .opacity(imp.isRunning || showDone ? 1 : 0)
-        .offset(y: imp.isRunning || showDone ? -70 : 120)
-        .animation(.spring(duration: 0.4), value: imp.isRunning)
-        .animation(.spring(duration: 0.4), value: showDone)
+        .offset(y: imp.isRunning || showDone ? -78 : 120)
+        .animation(.snappy(duration: 0.35), value: imp.isRunning)
+        .animation(.snappy(duration: 0.35), value: showDone)
         .onChange(of: imp.isRunning) { _, running in
             if !running, imp.lastFinishedRun != nil {
                 showDone = true
@@ -381,8 +424,9 @@ struct ToastView: View {
             if let t = app.toast ?? app.importer.lastError {
                 Text(t)
                     .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Mono.bg)
                     .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(.regularMaterial, in: Capsule())
+                    .background(Mono.ink, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
                     .padding(.top, 6)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: t) {
@@ -392,6 +436,6 @@ struct ToastView: View {
                     }
             }
         }
-        .animation(.spring(duration: 0.35), value: app.toast)
+        .animation(.snappy(duration: 0.3), value: app.toast)
     }
 }

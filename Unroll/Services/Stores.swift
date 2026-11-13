@@ -106,7 +106,7 @@ enum AutoImportRule: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .off: return "Ask me"
-        case .keepers: return "★ & 🔒 shots"
+        case .keepers: return "Picks only"
         case .allNew: return "Everything new"
         }
     }

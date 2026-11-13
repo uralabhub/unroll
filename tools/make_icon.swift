@@ -4,18 +4,19 @@ let out = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "icon-102
 let S: CGFloat = 1024
 let cs = CGColorSpaceCreateDeviceRGB()
 let ctx = CGContext(data: nil, width: Int(S), height: Int(S), bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
-let bg = CGGradient(colorsSpace: cs, colors: [CGColor(red: 0.13, green: 0.11, blue: 0.10, alpha: 1), CGColor(red: 0.04, green: 0.04, blue: 0.045, alpha: 1)] as CFArray, locations: nil)!
-ctx.drawLinearGradient(bg, start: CGPoint(x: 0, y: S), end: CGPoint(x: S, y: 0), options: [])
-let amber = CGColor(red: 1, green: 0.66, blue: 0.25, alpha: 1)
+// Flat black, white mark: matches the app's monochrome UI.
+ctx.setFillColor(CGColor(gray: 0.04, alpha: 1))
+ctx.fill(CGRect(x: 0, y: 0, width: S, height: S))
+let ink = CGColor(gray: 0.96, alpha: 1)
 // Film roll "unrolling" into frames.
-ctx.setFillColor(amber)
+ctx.setFillColor(ink)
 ctx.fillEllipse(in: CGRect(x: 170, y: 380, width: 300, height: 300))
-ctx.setFillColor(CGColor(red: 0.07, green: 0.06, blue: 0.06, alpha: 1))
+ctx.setFillColor(CGColor(gray: 0.04, alpha: 1))
 ctx.fillEllipse(in: CGRect(x: 265, y: 475, width: 110, height: 110))
-ctx.setFillColor(amber)
+ctx.setFillColor(ink)
 let strip = CGRect(x: 320, y: 380, width: 560, height: 170)
 ctx.fill(strip)
-ctx.setFillColor(CGColor(red: 0.07, green: 0.06, blue: 0.06, alpha: 1))
+ctx.setFillColor(CGColor(gray: 0.04, alpha: 1))
 for i in 0..<3 {
     ctx.fill(CGRect(x: 500 + CGFloat(i) * 128, y: 412, width: 104, height: 106))
 }

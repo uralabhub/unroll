@@ -9,25 +9,64 @@ struct HomeView: View {
     @State private var framePick: PhotosPickerItem?
     @State private var framing: FrameSubject?
 
+    private let pair = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .padding(.bottom, 20)
+
                 ConnectHero()
-                sourceButtons
+
+                blockTitle("Or import from")
+                LazyVGrid(columns: pair, spacing: 10) {
+                    Button { pickingFolder = true } label: {
+                        Tile(symbol: "sdcard", title: "SD card", caption: "Card reader or Files")
+                    }
+                    Button { Task { await app.connectRicoh() } } label: {
+                        Tile(symbol: "wifi", title: "Ricoh GR", caption: "Over the camera’s Wi-Fi", tag: "Beta")
+                    }
+                }
+
+                blockTitle("Photo walk")
                 PhotoWalkCard()
-                tools
-                if !app.pro.isPro { ProBanner() }
-                privacyNote
+
+                blockTitle("Tools")
+                LazyVGrid(columns: pair, spacing: 10) {
+                    NavigationLink { RecipesView() } label: {
+                        Tile(symbol: "camera.filters", title: "Recipes", caption: "Saved from your shots",
+                             count: app.recipes.items.count)
+                    }
+                    NavigationLink { ClockSyncView() } label: {
+                        Tile(symbol: "clock", title: "Clock sync", caption: "Fix camera time drift",
+                             count: app.settings.clockOffsets.count)
+                    }
+                    PhotosPicker(selection: $framePick, matching: .images, preferredItemEncoding: .current) {
+                        Tile(symbol: "photo.artframe", title: "Frame", caption: "EXIF border, any photo")
+                    }
+                    NavigationLink { WalksView() } label: {
+                        Tile(symbol: "map", title: "Walks", caption: "Routes and recap cards",
+                             count: app.location.walks.count)
+                    }
+                }
+
+                if !app.pro.isPro {
+                    QuotaCard().padding(.top, 28)
+                }
+
+                Text("No account · No cloud · Originals untouched".uppercased())
+                    .font(Mono.caps(10)).tracking(1.2)
+                    .foregroundStyle(Mono.faint)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 32)
             }
+            .buttonStyle(TileButtonStyle())
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
         }
-        .navigationTitle("Unroll")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showSettings = true } label: { Image(systemName: "gearshape") }
-            }
-        }
+        .background(Mono.bg)
+        .toolbar(.hidden, for: .navigationBar)
         .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result { Task { await app.openFolder(url) } }
         }
@@ -46,37 +85,36 @@ struct HomeView: View {
         .fullScreenCover(item: $framing) { s in FrameStudioView(image: s.image, meta: s.meta, location: s.location) }
     }
 
-    private var sourceButtons: some View {
-        HStack(spacing: 10) {
-            SourceButton(title: "SD Card", subtitle: "or Files", symbol: "sdcard.fill") { pickingFolder = true }
-            SourceButton(title: "Ricoh GR", subtitle: "Wi-Fi beta", symbol: "wifi") { Task { await app.connectRicoh() } }
-            SourceButton(title: "Demo Roll", subtitle: "try it now", symbol: "sparkles") { Task { await app.openDemo() } }
+    private var header: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Date.now.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased())
+                    .font(Mono.caps(11)).tracking(1.2)
+                    .foregroundStyle(Mono.dim)
+                Text("Unroll")
+                    .font(.system(size: 40, weight: .bold))
+                    .tracking(-1.2)
+            }
+            Spacer()
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 40, height: 40)
+                    .background(Mono.tile, in: Circle())
+            }
+            .buttonStyle(TileButtonStyle())
+            .accessibilityLabel("Settings")
+            .padding(.bottom, 4)
         }
+        .padding(.top, 8)
+        .padding(.horizontal, 4)
     }
 
-    private var tools: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-            NavigationLink { RecipesView() } label: {
-                ToolTile(symbol: "camera.filters", title: "Recipes", detail: app.recipes.items.isEmpty ? "Collected as you import" : "\(app.recipes.items.count) saved")
-            }
-            NavigationLink { ClockSyncView() } label: {
-                ToolTile(symbol: "clock.badge.checkmark", title: "Clock Sync", detail: app.settings.clockOffsets.isEmpty ? "Fix camera time drift" : "\(app.settings.clockOffsets.count) camera(s) synced")
-            }
-            PhotosPicker(selection: $framePick, matching: .images, preferredItemEncoding: .current) {
-                ToolTile(symbol: "rectangle.portrait.on.rectangle.portrait", title: "Frame Studio", detail: "EXIF frames for any photo")
-            }
-            NavigationLink { WalksView() } label: {
-                ToolTile(symbol: "map", title: "Walks & Recaps", detail: "\(app.location.walks.count) walks")
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var privacyNote: some View {
-        Label("No account. No cloud. Your originals are saved bit-for-bit — recipes and maker notes intact.", systemImage: "lock.shield")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .padding(.top, 4)
+    private func blockTitle(_ text: String) -> some View {
+        CapsLabel(text)
+            .padding(.horizontal, 4)
+            .padding(.top, 28)
+            .padding(.bottom, 10)
     }
 }
 
@@ -87,164 +125,248 @@ struct FrameSubject: Identifiable {
     var location: CLLocation? = nil
 }
 
-/// The big "plug it in" card. Pulses while listening for a camera.
+// MARK: - Pieces
+
+/// Pressed state for tiles and cards: a slight sink, no colour.
+struct TileButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Mono.ink)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.snappy(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+/// Square-ish grey tile: glyph top-left, optional count or tag top-right, title and caption at the bottom.
+struct Tile: View {
+    let symbol: String
+    let title: String
+    var caption: String? = nil
+    var count: Int = 0
+    var tag: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                Image(systemName: symbol)
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 20, weight: .regular))
+                    .frame(height: 24, alignment: .leading)
+                Spacer()
+                if let tag {
+                    Text(tag.uppercased())
+                        .font(Mono.caps(9)).tracking(1)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .overlay(Capsule().strokeBorder(Mono.ink.opacity(0.3), lineWidth: 1))
+                } else if count > 0 {
+                    Text("\(count)").font(Mono.data(.footnote, weight: .medium)).foregroundStyle(Mono.dim)
+                }
+            }
+            Spacer(minLength: 18)
+            Text(title).font(.body.weight(.semibold))
+            if let caption {
+                Text(caption).font(.footnote).foregroundStyle(Mono.dim).lineLimit(1)
+                    .padding(.top, 1)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+        .background(Mono.tile, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+/// Top of Home: a dark strip of film that says what to do.
 struct ConnectHero: View {
     @Environment(AppState.self) private var app
-    @State private var pulse = false
+    @Environment(\.colorScheme) private var scheme
+    @State private var blink = false
+
+    private var denied: Bool { app.usb.authorization == .denied }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                ZStack {
-                    Circle().fill(Theme.accent.opacity(0.18)).frame(width: 64, height: 64)
-                        .scaleEffect(pulse ? 1.25 : 0.9).opacity(pulse ? 0 : 1)
-                    Circle().fill(Theme.accent.opacity(0.22)).frame(width: 56, height: 56)
-                    Image(systemName: "cable.connector.horizontal").font(.title2.weight(.semibold)).foregroundStyle(Theme.accent)
+        VStack(alignment: .leading, spacing: 0) {
+            Sprockets()
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 6, height: 6)
+                        .opacity(denied ? 0.4 : (blink ? 0.15 : 1))
+                    Text((denied ? "Camera access off" : "Waiting for a camera").uppercased())
+                        .font(Mono.caps(10)).tracking(1.2)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Spacer()
+                    Text("USB-C").font(Mono.caps(10)).tracking(1.2).foregroundStyle(.white.opacity(0.4))
                 }
-                Spacer()
-                Label(app.usb.authorization == .denied ? "Access off" : "Listening", systemImage: app.usb.authorization == .denied ? "exclamationmark.triangle" : "dot.radiowaves.left.and.right")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(.white.opacity(0.08), in: Capsule())
-                    .foregroundStyle(app.usb.authorization == .denied ? .orange : .secondary)
-            }
-            Text("Plug in your camera").font(.title.bold())
-            Text("USB-C cable or card reader. Fujifilm, Sony, Canon, Nikon, Leica, Ricoh, OM, Panasonic — no pairing, no Bluetooth, no account. Newest shots appear first.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                Pill(text: "RAW + JPEG", symbol: "square.stack.3d.up")
-                Pill(text: "★ & lock", symbol: "line.3.horizontal.decrease")
-                Pill(text: "Auto GPS", symbol: "location")
-            }
-            if app.usb.authorization == .denied {
-                Button("Allow camera access in Settings") {
-                    if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+
+                Text("Plug in\nyour camera.")
+                    .font(.system(size: 36, weight: .semibold))
+                    .tracking(-1)
+                    .lineSpacing(-2)
+                    .foregroundStyle(.white)
+                    .padding(.top, 22)
+
+                Text("Newest shots load first. RAW, star ratings and locked frames come across as they are.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.55))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 10)
+
+                Text("Fujifilm  Sony  Canon  Nikon  Leica  Ricoh  OM  Lumix".uppercased())
+                    .font(Mono.caps(9)).tracking(1)
+                    .foregroundStyle(.white.opacity(0.35))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .padding(.top, 18)
+
+                Group {
+                    if denied {
+                        Button("Allow access in Settings") {
+                            if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+                        }
+                    } else {
+                        Button { Task { await app.openDemo() } } label: {
+                            HStack {
+                                Text("No camera? Open the demo roll")
+                                Spacer()
+                                Image(systemName: "arrow.right")
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    }
                 }
-                .font(.footnote.weight(.semibold))
+                .buttonStyle(HeroButtonStyle())
+                .padding(.top, 22)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 18)
+            Sprockets()
+        }
+        .background(Color(white: scheme == .dark ? 0.13 : 0.07), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .environment(\.colorScheme, .dark)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { blink = true }
+        }
+    }
+}
+
+/// Row of film perforations along the hero's edge.
+private struct Sprockets: View {
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<16, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(.white.opacity(0.13))
+                    .frame(width: 10, height: 6)
+                    .frame(maxWidth: .infinity)
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(colors: [Theme.cardHi, Theme.card], startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.white.opacity(0.06)))
-        .onAppear { withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { pulse = true } }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
     }
 }
 
-struct Pill: View {
-    let text: String
-    let symbol: String
-    var body: some View {
-        Label(text, systemImage: symbol)
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 8).padding(.vertical, 5)
-            .background(.white.opacity(0.07), in: Capsule())
-            .lineLimit(1)
+private struct HeroButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.black)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(.white.opacity(configuration.isPressed ? 0.8 : 1),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
-struct SourceButton: View {
-    let title: String
-    let subtitle: String
-    let symbol: String
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: symbol).font(.title3).foregroundStyle(Theme.accent)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                    Text(subtitle).font(.caption2).foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct ToolTile: View {
-    let symbol: String
-    let title: String
-    let detail: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: symbol).font(.title3).foregroundStyle(Theme.accent)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-        .padding(14)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .contentShape(Rectangle())
-    }
-}
-
+/// GPS logger: a big running clock and a single round start / stop control.
 struct PhotoWalkCard: View {
     @Environment(AppState.self) private var app
 
     var body: some View {
         let rec = app.location
         TimelineView(.periodic(from: .now, by: 1)) { _ in
-            HStack(spacing: 14) {
-                Image(systemName: rec.isRecording ? "figure.walk.motion" : "figure.walk")
-                    .font(.title2)
-                    .foregroundStyle(rec.isRecording ? .green : Theme.accent)
-                    .frame(width: 44, height: 44)
-                    .background((rec.isRecording ? Color.green : Theme.accent).opacity(0.15), in: Circle())
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(rec.isRecording ? "Photo walk in progress" : "Start a photo walk").font(.headline)
-                    if let w = rec.current {
-                        Text("\(Duration.seconds(w.duration).formatted(.time(pattern: .hourMinuteSecond)))  ·  \(String(format: "%.2f km", w.distanceMeters / 1000))  ·  \(w.points.count) fixes")
-                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            let w = rec.current
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        if rec.isRecording {
+                            Circle().fill(Mono.ink).frame(width: 6, height: 6)
+                        }
+                        Text(rec.isRecording ? "RECORDING" : "GPS LOG")
+                            .font(Mono.caps(10)).tracking(1.2)
+                            .foregroundStyle(rec.isRecording ? Mono.ink : Mono.dim)
+                    }
+                    Text(Duration.seconds(w?.duration ?? 0).formatted(.time(pattern: .hourMinuteSecond(padHourToLength: 2))))
+                        .font(.system(size: 30, weight: .regular, design: .monospaced))
+                        .monospacedDigit()
+                        .foregroundStyle(w == nil ? Mono.faint : Mono.ink)
+                        .contentTransition(.numericText())
+                    if let w {
+                        Text(String(format: "%.2f km  ·  %d fixes", w.distanceMeters / 1000, w.points.count))
+                            .font(Mono.data(.caption)).foregroundStyle(Mono.dim)
                     } else {
-                        Text("Light GPS log on your phone → every import gets a location. No camera Bluetooth needed.")
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        Text("Log your route while you shoot. Imports get locations on their own.")
+                            .font(.footnote).foregroundStyle(Mono.dim)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 0)
-                Button(rec.isRecording ? "Stop" : "Start") {
+                Button {
                     rec.isRecording ? rec.stopWalk() : rec.startWalk()
                     Haptics.tap()
+                } label: {
+                    Image(systemName: rec.isRecording ? "stop.fill" : "play.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Mono.bg)
+                        .frame(width: 56, height: 56)
+                        .background(Mono.ink, in: Circle())
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(rec.isRecording ? .red : Theme.accent)
-                .controlSize(.small)
+                .buttonStyle(TileButtonStyle())
+                .accessibilityLabel(rec.isRecording ? "Stop walk" : "Start walk")
             }
-            .padding(14)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(16)
+            .background(Mono.tile, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
 }
 
-struct ProBanner: View {
+/// Free tier meter: ten segments, one per import left today.
+struct QuotaCard: View {
     @Environment(AppState.self) private var app
+
     var body: some View {
+        let left = app.quota.remaining
+        let total = Quota.freePerDay
         Button { app.showPaywall = true } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "bolt.fill").foregroundStyle(.black)
-                    .frame(width: 36, height: 36).background(Theme.accent, in: Circle())
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Unroll Pro").font(.headline)
-                    Text("Unlimited imports · auto-pull ★ shots · all frames · no watermark")
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("FREE TODAY").font(Mono.caps(10)).tracking(1.2).foregroundStyle(Mono.dim)
+                    Spacer()
+                    Text("\(left) of \(total) left").font(Mono.data(.caption, weight: .medium))
                 }
-                Spacer()
-                Text("\(app.quota.remaining)/\(Quota.freePerDay) left today")
-                    .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    ForEach(0..<total, id: \.self) { i in
+                        Capsule()
+                            .fill(i < left ? Mono.ink : Mono.ink.opacity(0.12))
+                            .frame(height: 4)
+                    }
+                }
+                HStack {
+                    Text("Unlimited imports, auto-import picks, every frame, no watermark.")
+                        .font(.footnote).foregroundStyle(Mono.dim)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 12)
+                    Text("Get Pro")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Mono.bg)
+                        .padding(.horizontal, 14).frame(height: 32)
+                        .background(Mono.ink, in: Capsule())
+                }
             }
-            .padding(14)
-            .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.accent.opacity(0.35)))
+            .padding(16)
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Mono.line, lineWidth: 1))
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
     }
 }

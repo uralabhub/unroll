@@ -22,29 +22,38 @@ struct RecapBuilderView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if let rendered {
                         Image(uiImage: rendered).resizable().scaledToFit()
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
                             .frame(maxHeight: 460)
                             .frame(maxWidth: .infinity)
                     } else {
-                        RoundedRectangle(cornerRadius: 16).fill(Theme.card).frame(height: 300)
-                            .overlay { if busy { ProgressView() } else { Text("Pick up to 6 photos").foregroundStyle(.secondary) } }
+                        Rectangle().fill(Mono.raised).frame(height: 300)
+                            .overlay { if busy { ProgressView() } else { Text("Pick up to 6 photos").foregroundStyle(Mono.dim) } }
                     }
-                    TextField("Title", text: $title)
-                        .font(.title3.weight(.semibold))
-                        .padding(12)
-                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
-                        .onSubmit { Task { await render() } }
-                    Text("Photos (\(chosen.count)/6)").font(.headline)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 4), spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        CapsLabel("Title")
+                        TextField("Title", text: $title)
+                            .font(.title3.weight(.semibold))
+                            .padding(.vertical, 8)
+                            .overlay(alignment: .bottom) { Hairline() }
+                            .onSubmit { Task { await render() } }
+                    }
+                    HStack {
+                        CapsLabel("Photos")
+                        Spacer()
+                        Text("\(chosen.count) / 6").font(Mono.data(.caption)).foregroundStyle(Mono.dim)
+                    }
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: 4), spacing: 1) {
                         ForEach(pool) { s in
-                            Color(white: 0.12).aspectRatio(1, contentMode: .fit)
+                            Mono.raised.aspectRatio(1, contentMode: .fit)
                                 .overlay { if let t = s.thumbnail { Image(uiImage: t).resizable().scaledToFill() } }
                                 .clipped()
                                 .overlay(alignment: .topTrailing) {
                                     if let i = chosen.firstIndex(of: s.id) {
-                                        Text("\(i + 1)").font(.caption.bold()).foregroundStyle(.black)
-                                            .frame(width: 22, height: 22).background(Theme.accent, in: Circle()).padding(4)
+                                        Text("\(i + 1)").font(Mono.data(.caption, weight: .semibold)).foregroundStyle(.black)
+                                            .frame(width: 22, height: 22).background(.white)
                                     }
+                                }
+                                .overlay {
+                                    if chosen.contains(s.id) { Rectangle().strokeBorder(.white, lineWidth: 2) }
                                 }
                                 .onTapGesture { toggle(s) }
                                 .task { await Previews.thumbnail(s) }
@@ -53,6 +62,7 @@ struct RecapBuilderView: View {
                 }
                 .padding(16)
             }
+            .background(Mono.bg)
             .navigationTitle("Recap card")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -138,32 +148,35 @@ struct WalksView: View {
     var body: some View {
         List {
             if app.location.walks.isEmpty {
-                ContentUnavailableView("No walks yet", systemImage: "figure.walk",
-                                       description: Text("Start a photo walk before you head out. Imports are geotagged from it automatically."))
+                QuietMessage(title: "No walks yet",
+                             message: "Start a photo walk before you head out. Imports get their location from it automatically.")
+                    .listRowInsets(EdgeInsets())
             }
             ForEach(app.location.walks.reversed(), id: \.id) { (w: PhotoWalk) in
                 VStack(alignment: .leading, spacing: 8) {
                     if w.points.count > 1 {
                         Map(interactionModes: []) {
-                            MapPolyline(coordinates: w.points.map(\.coordinate)).stroke(Theme.accent, lineWidth: 4)
+                            MapPolyline(coordinates: w.points.map(\.coordinate)).stroke(.black, lineWidth: 3)
                         }
+                        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+                        .saturation(0)
                         .frame(height: 140)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                         .allowsHitTesting(false)
                     }
                     HStack {
-                        Text(w.start.formatted(date: .abbreviated, time: .shortened)).font(.headline)
-                        if w.isDemo { Text("DEMO").font(.caption2.bold()).foregroundStyle(Theme.accent) }
+                        Text(w.start.formatted(date: .abbreviated, time: .shortened)).font(.body.weight(.medium))
+                        if w.isDemo { CapsLabel("Demo") }
                         Spacer()
                         Text(w.end == nil ? "Recording" : String(format: "%.2f km", w.distanceMeters / 1000))
-                            .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                            .font(Mono.data(.subheadline)).foregroundStyle(Mono.dim)
                     }
-                    Text("\(Duration.seconds(w.duration).formatted(.time(pattern: .hourMinute))) · \(w.points.count) GPS fixes")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text("\(Duration.seconds(w.duration).formatted(.time(pattern: .hourMinute)))  ·  \(w.points.count) GPS fixes")
+                        .font(Mono.data(.caption)).foregroundStyle(Mono.dim)
                 }
                 .swipeActions { Button("Delete", role: .destructive) { app.location.delete(w) } }
             }
         }
+        .listStyle(.plain)
         .navigationTitle("Walks")
     }
 }

@@ -18,7 +18,7 @@ enum SourceKind: String {
         case .usb: return "cable.connector"
         case .card: return "sdcard"
         case .wifi: return "wifi"
-        case .demo: return "sparkles"
+        case .demo: return "photo.stack"
         }
     }
 }

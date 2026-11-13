@@ -40,6 +40,7 @@ struct ShotPagerView: View {
         .navigationTitle(current?.primary.name ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .environment(\.colorScheme, .dark)
         .fullScreenCover(item: $framing) { f in FrameStudioView(image: f.image, meta: f.meta, location: f.location) }
     }
 
@@ -70,8 +71,8 @@ struct ShotPreview: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .topTrailing) {
             if let ms = loadMs, shot.primary.isRemote {
-                Text("\(ms) ms").font(.caption2.monospacedDigit()).padding(6)
-                    .background(.black.opacity(0.4), in: Capsule()).padding(8).foregroundStyle(.secondary)
+                Text("\(ms) ms").font(Mono.data(.caption2)).padding(.horizontal, 6).padding(.vertical, 3)
+                    .background(.black.opacity(0.6)).padding(10).foregroundStyle(.white.opacity(0.7))
             }
         }
         .task(id: shot.id) {
@@ -87,70 +88,72 @@ struct ShotInfoPanel: View {
     let shot: Shot
     let framing: () async -> Void
     let loadingFrame: Bool
+    @State private var showRecipe = false
 
     var body: some View {
         let m = shot.meta
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(m?.cameraName ?? "—").font(.headline)
-                    if let lens = m?.lens { Text(lens).font(.caption).foregroundStyle(.secondary) }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(m?.cameraName ?? "Unknown camera").font(.headline)
+                    if let lens = m?.lens { Text(lens).font(.footnote).foregroundStyle(Mono.dim) }
                 }
                 Spacer()
-                HStack(spacing: 2) {
-                    ForEach(1...5, id: \.self) { n in
-                        Image(systemName: n <= shot.rating ? "star.fill" : "star").font(.caption)
-                            .foregroundStyle(n <= shot.rating ? Theme.star : .secondary.opacity(0.4))
-                    }
-                    if shot.isLocked { Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.lock).padding(.leading, 4) }
+                HStack(spacing: 8) {
+                    if shot.rating > 0 { StarRow(rating: shot.rating) }
+                    if shot.isLocked { Image(systemName: "lock.fill").font(.system(size: 11)) }
                 }
             }
 
             if let m, !m.exposureLine.isEmpty {
-                HStack(spacing: 14) {
+                HStack(spacing: 0) {
                     ForEach([m.focalText, m.apertureText, m.shutterText, m.isoText, m.biasText].compactMap { $0 }, id: \.self) {
-                        Text($0).font(.subheadline.monospacedDigit().weight(.medium))
+                        Text($0).font(Mono.data(.subheadline, weight: .medium))
+                            .lineLimit(1).minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .padding(.vertical, 10)
+                .overlay(alignment: .top) { Hairline() }
+                .overlay(alignment: .bottom) { Hairline() }
             }
 
             if let r = m?.recipe {
-                RecipeChips(recipe: r)
+                RecipeSummary(recipe: r, expanded: $showRecipe)
             } else if let look = m?.look {
-                Label(look, systemImage: "camera.filters").font(.caption).foregroundStyle(.secondary)
+                DataRow(key: "Look", value: look)
             }
 
             HStack(spacing: 8) {
-                Label(locationText, systemImage: m?.hasGPS == true ? "location.fill" : "location")
+                Text(locationText)
                 Spacer()
-                Text("\(shot.formatBadge) · \(sizeText)")
+                Text("\(shot.formatBadge)  \(sizeText)")
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .font(Mono.data(.caption2))
+            .foregroundStyle(Mono.dim)
 
             HStack(spacing: 10) {
                 Button {
                     app.importShots([shot])
                 } label: {
-                    Label(shot.wasImported ? "Imported" : importLabel, systemImage: shot.wasImported ? "checkmark" : "square.and.arrow.down")
-                        .frame(maxWidth: .infinity)
+                    Text(shot.wasImported ? "In Photos" : importLabel)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(shot.wasImported || shot.importState == .queued)
 
                 Button { Task { await framing() } } label: {
-                    Group {
-                        if loadingFrame { ProgressView() } else { Label("Frame", systemImage: "rectangle.portrait.inset.filled") }
-                    }.frame(maxWidth: .infinity)
+                    if loadingFrame { ProgressView() } else { Text("Frame") }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(SecondaryButtonStyle())
+                .frame(width: 110)
                 .disabled(shot.isVideo)
             }
-            .controlSize(.large)
         }
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 10)
+        .padding(.horizontal, Mono.gutter)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+        .background(Color.black.opacity(0.92).ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) { Hairline() }
     }
 
     private var importLabel: String {
@@ -169,37 +172,42 @@ struct ShotInfoPanel: View {
 
     private var locationText: String {
         if shot.meta?.hasGPS == true { return "GPS in file" }
-        if app.location.location(at: app.correctedDate(for: shot)) != nil { return "Will geotag from your walk" }
-        return app.settings.borrowPhoneLocations ? "Will borrow iPhone photo location" : "No location"
+        if app.location.location(at: app.correctedDate(for: shot)) != nil { return "Location from your walk" }
+        return app.settings.borrowPhoneLocations ? "Location from iPhone photos" : "No location"
     }
 }
 
-struct RecipeChips: View {
+/// Film simulation on one line; tap to see every setting.
+struct RecipeSummary: View {
     let recipe: FilmRecipe
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(recipe.filmSimulation, systemImage: "film").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
-            FlowLayout(spacing: 6) {
-                ForEach(recipe.rows.dropFirst(), id: \.0) { k, v in
-                    Text(k == "Dynamic Range" ? v : "\(abbrev(k)) \(v)")
-                        .font(.caption2.weight(.medium))
-                        .padding(.horizontal, 7).padding(.vertical, 4)
-                        .background(.white.opacity(0.08), in: Capsule())
-                }
-            }
-        }
-    }
+    @Binding var expanded: Bool
 
-    private func abbrev(_ k: String) -> String {
-        switch k {
-        case "Grain Effect": return "Grain"
-        case "Color Chrome Effect": return "CCE"
-        case "Color Chrome FX Blue": return "CCB"
-        case "White Balance": return "WB"
-        case "Dynamic Range": return "DR"
-        case "High ISO NR": return "NR"
-        case "Monochromatic Color": return "Mono"
-        default: return k
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.25)) { expanded.toggle() }
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        CapsLabel("Recipe")
+                        Text(recipe.filmSimulation).font(.subheadline.weight(.semibold))
+                    }
+                    Spacer()
+                    Text(expanded ? "Hide" : "\(recipe.rows.count - 1) settings")
+                        .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+                        .rotationEffect(.degrees(expanded ? 180 : 0)).foregroundStyle(Mono.dim)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if expanded {
+                VStack(spacing: 0) {
+                    ForEach(recipe.rows.dropFirst(), id: \.0) { k, v in DataRow(key: k, value: v) }
+                }
+                .padding(.top, 6)
+                .transition(.opacity)
+            }
         }
     }
 }

@@ -146,7 +146,7 @@ enum FrameRenderer {
                 if o.style == .minimal || o.style == .film {
                     draw(wm, at: CGPoint(x: canvas.width - 1.5 * u, y: canvas.height - 1.2 * u), size: 1.0 * u, weight: .medium, color: sub, align: .right)
                 } else {
-                    draw("◐ " + wm, at: CGPoint(x: canvas.width - 2 * u, y: canvas.height - 2 * u), size: 1.1 * u, weight: .medium, color: sub.withAlphaComponent(0.4), align: .right)
+                    draw(wm, at: CGPoint(x: canvas.width - 2 * u, y: canvas.height - 2 * u), size: 1.1 * u, weight: .medium, color: sub.withAlphaComponent(0.4), align: .right)
                 }
             }
         }
