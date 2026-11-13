@@ -28,13 +28,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -50,10 +47,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -144,10 +143,8 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
     LaunchedEffect(chosen, title) { delay(150); render() }
 
     Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
-        TopBar("Recap card", onBack = { app.pop() }, backIcon = Icons.Filled.Close) {
-            Box(Modifier.size(44.dp).clickable(enabled = rendered != null) { rendered?.let { shareJpeg(context, it.jpeg(), "unroll-recap.jpg") } }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Share, "Share", tint = if (rendered != null) Mono.c.ink else Mono.c.faint)
-            }
+        TopBar("Recap card", onBack = { app.pop() }, backIcon = Ph.close) {
+            IconButton(Ph.share, "Share") { rendered?.let { shareJpeg(context, it.jpeg(), "unroll-recap.jpg") } }
             TextAction("Save", bold = true, enabled = rendered != null) {
                 val r = rendered ?: return@TextAction
                 scope.launch {
@@ -213,17 +210,23 @@ fun RecipesScreen(app: AppState) {
             if (items.isEmpty()) {
                 QuietMessage("No recipes yet", "Import Fujifilm shots and every recipe you used is collected here, ready to share or dial back in.")
             }
-            items.forEach { item ->
-                Column(Modifier.fillMaxWidth().clickable { app.push(Screen.RecipeDetail(item.id)) }.padding(horizontal = Mono.gutter, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(item.title, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Mono.c.ink)
-                        Text(if (item.count == 1) "1 shot" else "${item.count} shots", style = Mono.data(12.sp), color = Mono.c.dim)
+            items.forEachIndexed { i, item ->
+                Row(
+                    Modifier.riseIn(i).padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth()
+                        .tilePress(0.98f) { app.push(Screen.RecipeDetail(item.id)) }.card(elevation = 6.dp).padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(44.dp).background(Mono.c.raised, CircleShape), contentAlignment = Alignment.Center) { PhIcon(Ph.film, null, size = 22.dp) }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(item.title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
+                        Text(item.recipe.shortLine.removePrefix(item.recipe.filmSimulation + " · "), style = Mono.data(13.sp), color = Mono.c.dim)
+                        item.camera?.let { CapsLabel(it, color = Mono.c.faint, size = 10.sp) }
                     }
-                    Text(item.recipe.shortLine.removePrefix(item.recipe.filmSimulation + " · "), style = Mono.data(12.sp), color = Mono.c.dim)
-                    item.camera?.let { CapsLabel(it, color = Mono.c.faint, size = 10.sp) }
+                    Text(if (item.count == 1) "1 shot" else "${item.count} shots", style = Mono.data(13.sp, FontWeight.Bold), color = Mono.c.dim)
                 }
-                Hairline(Modifier.padding(start = Mono.gutter))
             }
+            Spacer(Modifier.height(12.dp))
         }
     }
 }
@@ -236,7 +239,7 @@ fun RecipeDetailScreen(app: AppState, id: String) {
     DisposableEffect(Unit) { onDispose { app.recipes.rename(id, name) } }
     Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
         TopBar(item.title, onBack = { app.pop() }) {
-            Box(Modifier.size(44.dp).clickable { app.recipes.delete(id); app.pop() }, contentAlignment = Alignment.Center) { Icon(Icons.Filled.Delete, "Delete", tint = Mono.c.ink) }
+            IconButton(Ph.trash, "Delete") { app.recipes.delete(id); app.pop() }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -324,7 +327,7 @@ fun ClockSyncScreen(app: AppState) {
                             Text(model, Modifier.weight(1f), color = Mono.c.ink)
                             Text(ClockSync.describe(off), style = Mono.data(14.sp), color = Mono.c.dim)
                             Box(Modifier.padding(start = 8.dp).size(32.dp).clickable { app.settings.setClockOffset(model, null) }, contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.Close, "Remove correction", Modifier.size(16.dp), tint = Mono.c.dim)
+                                PhIcon(Ph.close, "Remove correction", size = 16.dp, tint = Mono.c.dim)
                             }
                         }
                     }
@@ -451,7 +454,10 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
         "No watermark" to "On frames, recaps and recipe cards",
     )
     Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
-        TopBar("", onBack = onClose, backIcon = Icons.Filled.Close)
+        Box(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+            Box(Modifier.align(Alignment.TopCenter).size(40.dp, 5.dp).background(Mono.c.faint, CircleShape))
+            IconButton(Ph.close, "Close", Modifier.align(Alignment.TopEnd).padding(end = 10.dp, top = 6.dp), filled = true, onClick = onClose)
+        }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(30.dp)) {
             Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CapsLabel("Unroll Pro")
@@ -488,19 +494,21 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
 
 @Composable
 private fun PlanRow(on: Boolean, title: String, price: String, note: String, onClick: () -> Unit) {
+    val border by androidx.compose.animation.animateColorAsState(if (on) Mono.c.ink else Mono.c.line, Mono.settle(), label = "plan")
+    val dot by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0f, Mono.press(), label = "dot")
     Row(
-        Modifier.fillMaxWidth().border(if (on) 1.5.dp else 1.dp, if (on) Mono.c.ink else Mono.c.line, RoundedCornerShape(Mono.radius))
-            .clickable(onClick = onClick).padding(16.dp),
+        Modifier.fillMaxWidth().tilePress(0.98f, onClick = onClick).card(RoundedCornerShape(20.dp), if (on) 12.dp else 4.dp)
+            .border(2.dp, border, RoundedCornerShape(20.dp)).padding(18.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(20.dp).border(1.dp, if (on) Mono.c.ink else Mono.c.faint, RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-            if (on) Box(Modifier.size(10.dp).background(Mono.c.ink, RoundedCornerShape(5.dp)))
+        Box(Modifier.size(22.dp).border(2.dp, border, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(11.dp).graphicsLayer { scaleX = dot; scaleY = dot }.background(Mono.c.ink, CircleShape))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.ink)
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
             Text(note, fontSize = 13.sp, color = Mono.c.dim)
         }
-        Text(price, style = Mono.data(14.sp, FontWeight.Medium), color = Mono.c.ink)
+        Text(price, style = Mono.data(16.sp, FontWeight.ExtraBold), color = Mono.c.ink)
     }
 }
 
@@ -514,14 +522,14 @@ fun WalksScreen(app: AppState) {
             val walks = app.walks.walks.reversed()
             if (walks.isEmpty()) QuietMessage("No walks yet", "Start a photo walk before you head out. Imports get their location from it automatically.")
             walks.forEach { w ->
-                Column(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().card(elevation = 6.dp).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (w.points.size > 1) {
                         val bmp = remember(w.id, w.points.size) {
                             val b = Bitmap.createBitmap(936, 280, Bitmap.Config.ARGB_8888)
                             RecapRenderer.drawRoute(android.graphics.Canvas(b), w.points.map { it.lat to it.lon }, android.graphics.RectF(0f, 0f, 936f, 280f))
                             b.asImageBitmap()
                         }
-                        Image(bmp, null, Modifier.fillMaxWidth().height(140.dp), contentScale = ContentScale.Crop)
+                        Image(bmp, null, Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(Instant.ofEpochMilli(w.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.getDefault())),

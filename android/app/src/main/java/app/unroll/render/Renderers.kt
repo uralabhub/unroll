@@ -26,19 +26,13 @@ import kotlin.math.ceil
 enum class Align { LEFT, CENTER, RIGHT }
 
 object Text {
-    /** Montserrat (bundled) for words, monospace for data — same as the UI. */
-    private val montserrat: Typeface by lazy {
-        runCatching { ResourcesCompat.getFont(UnrollApplication.context, R.font.montserrat_regular) }.getOrNull() ?: Typeface.DEFAULT
-    }
-    private val cache = HashMap<Pair<Int, Boolean>, Typeface>()
+    /** Nunito (bundled) everywhere; [mono] now means tabular figures, so numbers align. */
+    private val cache = HashMap<Int, Typeface>()
 
-    private fun face(weight: Int, mono: Boolean): Typeface = synchronized(cache) {
-        cache.getOrPut(weight to mono) {
-            if (mono) Typeface.create(Typeface.MONOSPACE, weight, false)
-            else {
-                val res = when { weight >= 700 -> R.font.montserrat_bold; weight >= 600 -> R.font.montserrat_semibold; weight >= 500 -> R.font.montserrat_medium; else -> R.font.montserrat_regular }
-                runCatching { ResourcesCompat.getFont(UnrollApplication.context, res) }.getOrNull() ?: Typeface.create(montserrat, weight, false)
-            }
+    private fun face(weight: Int): Typeface = synchronized(cache) {
+        cache.getOrPut(weight) {
+            val res = when { weight >= 800 -> R.font.nunito_extrabold; weight >= 700 -> R.font.nunito_bold; weight >= 600 -> R.font.nunito_semibold; weight >= 500 -> R.font.nunito_medium; else -> R.font.nunito_regular }
+            runCatching { ResourcesCompat.getFont(UnrollApplication.context, res) }.getOrNull() ?: Typeface.create(Typeface.DEFAULT, weight, false)
         }
     }
 
@@ -46,7 +40,7 @@ object Text {
     fun draw(c: Canvas, s: String, x: Float, y: Float, size: Float, weight: Int, color: Int, align: Align, tracking: Float = 0f, mono: Boolean = false) {
         if (s.isEmpty()) return
         val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
-            textSize = size; typeface = face(weight, mono); this.color = color
+            textSize = size; typeface = face(weight); this.color = color; if (mono) fontFeatureSettings = "tnum"
             letterSpacing = if (size > 0) tracking / size else 0f
         }
         val w = p.measureText(s)
@@ -57,7 +51,7 @@ object Text {
     }
 
     fun width(s: String, size: Float, weight: Int, mono: Boolean = false): Float =
-        Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = face(weight, mono) }.measureText(s)
+        Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = face(weight); if (mono) fontFeatureSettings = "tnum" }.measureText(s)
 }
 
 private fun white(a: Float, alpha: Float = 1f) = Color.argb((alpha * 255).toInt(), (a * 255).toInt(), (a * 255).toInt(), (a * 255).toInt())

@@ -5,6 +5,20 @@ import android.location.Geocoder
 import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,12 +40,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,25 +95,33 @@ fun ShotPagerScreen(app: AppState, shots: List<Shot>, startId: String) {
 
     DarkSurface {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(pager, Modifier.fillMaxSize().clickable(interactionSource = null, indication = null) { showInfo = !showInfo }) { page ->
-                ShotPreview(shots[page], session)
+            HorizontalPager(
+                pager, Modifier.fillMaxSize().clickable(interactionSource = null, indication = null) { showInfo = !showInfo },
+                pageSpacing = 12.dp, beyondViewportPageCount = 1,
+            ) { page ->
+                // Pages shrink and dim as they slide away, so swiping feels like moving prints on a table.
+                val off = ((pager.currentPage - page) + pager.currentPageOffsetFraction).let { kotlin.math.abs(it) }.coerceIn(0f, 1f)
+                Box(Modifier.graphicsLayer { val k = 1f - off * 0.12f; scaleX = k; scaleY = k; alpha = 1f - off * 0.5f }) {
+                    ShotPreview(shots[page], session, sharedKey = page == start)
+                }
             }
             Column(Modifier.align(Alignment.TopStart)) {
                 TopBar(current?.primary?.name ?: "", onBack = { app.pop() })
             }
-            if (showInfo && current != null) {
-                Box(Modifier.align(Alignment.BottomCenter)) {
-                    ShotInfoPanel(app, current, loadingFrame) {
-                        scope.launch {
-                            loadingFrame = true
-                            val img = Previews.full(current, session)
-                            loadingFrame = false
-                            if (img != null) {
-                                val m = current.meta
-                                val loc = if (m?.latitude != null && m.longitude != null) Fix(m.latitude!!, m.longitude!!, 0.0)
-                                else app.walks.location(app.correctedDate(current))
-                                app.push(Screen.Frame(img, m, loc))
-                            }
+            AnimatedVisibility(
+                showInfo && current != null, Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically(Mono.press()) { it / 2 } + fadeIn(), exit = slideOutVertically(Mono.settle()) { it / 2 } + fadeOut(),
+            ) {
+                if (current != null) ShotInfoPanel(app, current, loadingFrame) {
+                    scope.launch {
+                        loadingFrame = true
+                        val img = Previews.full(current, session)
+                        loadingFrame = false
+                        if (img != null) {
+                            val m = current.meta
+                            val loc = if (m?.latitude != null && m.longitude != null) Fix(m.latitude!!, m.longitude!!, 0.0)
+                            else app.walks.location(app.correctedDate(current))
+                            app.push(Screen.Frame(img, m, loc))
                         }
                     }
                 }
@@ -115,7 +131,7 @@ fun ShotPagerScreen(app: AppState, shots: List<Shot>, startId: String) {
 }
 
 @Composable
-private fun ShotPreview(shot: Shot, session: CameraSession?) {
+private fun ShotPreview(shot: Shot, session: CameraSession?, sharedKey: Boolean) {
     var image by remember(shot.id) { mutableStateOf<Bitmap?>(null) }
     var loadMs by remember(shot.id) { mutableStateOf<Long?>(null) }
     LaunchedEffect(shot.id) {
@@ -125,8 +141,12 @@ private fun ShotPreview(shot: Shot, session: CameraSession?) {
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val bmp = image?.asImageBitmap() ?: shot.thumbnail
-        bmp?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
-        if (image == null) Spinner(Color.White)
+        // The opened photo morphs out of its grid cell (shared element), then the sharp preview fades in over it.
+        bmp?.let {
+            val ratio = it.width.toFloat() / it.height.coerceAtLeast(1)
+            Image(it, null, Modifier.fillMaxWidth().aspectRatio(ratio).then(if (sharedKey) Modifier.sharedPhoto(shot.id) else Modifier), contentScale = ContentScale.Fit)
+        }
+        AnimatedVisibility(image == null, enter = fadeIn(), exit = fadeOut()) { Spinner(Color.White) }
         val ms = loadMs
         if (ms != null && shot.primary.isRemote) {
             Text("$ms ms", style = Mono.data(11.sp), color = Color.White.copy(alpha = 0.7f),
@@ -142,19 +162,18 @@ private fun ShotInfoPanel(app: AppState, shot: Shot, loadingFrame: Boolean, onFr
     var showRecipe by remember { mutableStateOf(false) }
     var showExif by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.92f)).navigationBarsPadding()
-            .heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp).navigationBarsPadding().padding(bottom = 8.dp)
+            .card(RoundedCornerShape(26.dp)).heightIn(max = 560.dp).verticalScroll(rememberScrollState()).animateContentSize(Mono.settle()),
     ) {
-        Hairline()
         Column(Modifier.padding(horizontal = Mono.gutter).padding(top = 16.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(m?.cameraName ?: "Unknown camera", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.ink)
+                    Text(m?.cameraName ?: "Unknown camera", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
                     m?.lens?.let { Text(it, fontSize = 13.sp, color = Mono.c.dim) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (shot.rating > 0) StarRow(shot.rating)
-                    if (shot.isLocked) Icon(Icons.Filled.Lock, "Protected", Modifier.size(12.dp), tint = Mono.c.ink)
+                    if (shot.isLocked) PhIcon(Ph.lock, "Protected", size = 13.dp)
                 }
             }
             if (m != null && m.exposureLine.isNotEmpty()) {
@@ -162,7 +181,7 @@ private fun ShotInfoPanel(app: AppState, shot: Shot, loadingFrame: Boolean, onFr
                     Hairline()
                     Row(Modifier.padding(vertical = 10.dp)) {
                         for (t in listOfNotNull(m.focalText, m.apertureText, m.shutterText, m.isoText, m.biasText)) {
-                            Text(t, Modifier.weight(1f), style = Mono.data(14.sp, FontWeight.Medium), color = Mono.c.ink, maxLines = 1, overflow = TextOverflow.Clip)
+                            Text(t, Modifier.weight(1f), style = Mono.data(15.sp, FontWeight.ExtraBold), color = Mono.c.ink, maxLines = 1, overflow = TextOverflow.Clip)
                         }
                     }
                     Hairline()
@@ -206,12 +225,12 @@ fun RecipeSummary(recipe: FilmRecipe, expanded: Boolean, onToggle: () -> Unit) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 CapsLabel("Recipe")
-                Text(recipe.filmSimulation, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.ink)
+                Text(recipe.filmSimulation, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
             }
             Text(if (expanded) "Hide" else "${recipe.rows.size - 1} settings", style = Mono.data(11.sp), color = Mono.c.dim)
-            Icon(if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, Modifier.size(16.dp), tint = Mono.c.dim)
+            Disclosure(expanded)
         }
-        AnimatedVisibility(expanded) {
+        AnimatedVisibility(expanded, enter = expandVertically(Mono.settle()) + fadeIn(), exit = shrinkVertically(Mono.settle()) + fadeOut()) {
             Column(Modifier.padding(top = 6.dp)) { recipe.rows.drop(1).forEach { (k, v) -> DataRow(k, v) } }
         }
     }
@@ -234,9 +253,9 @@ private fun ExifSummary(m: ShotMeta, expanded: Boolean, onToggle: () -> Unit) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
             CapsLabel("EXIF", Modifier.weight(1f))
             Text(if (expanded) "Hide" else "${rows.size} fields", style = Mono.data(11.sp), color = Mono.c.dim)
-            Icon(if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, Modifier.size(16.dp), tint = Mono.c.dim)
+            Disclosure(expanded)
         }
-        AnimatedVisibility(expanded) { Column(Modifier.padding(top = 6.dp)) { rows.forEach { (k, v) -> DataRow(k, v) } } }
+        AnimatedVisibility(expanded, enter = expandVertically(Mono.settle()) + fadeIn(), exit = shrinkVertically(Mono.settle()) + fadeOut()) { Column(Modifier.padding(top = 6.dp)) { rows.forEach { (k, v) -> DataRow(k, v) } } }
     }
 }
 
@@ -284,10 +303,8 @@ fun FrameStudioScreen(app: AppState, image: Bitmap, meta: ShotMeta?, location: F
 
     DarkSurface {
         Column(Modifier.fillMaxSize().background(Color(0xFF121212))) {
-            TopBar("Frame", onBack = { app.pop() }, backIcon = Icons.Filled.Close) {
-                Box(Modifier.size(44.dp).clickable { scope.launch { shareJpeg(context, renderFull(), "unroll-frame.jpg") } }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Share, "Share", tint = Mono.c.ink)
-                }
+            TopBar("Frame", onBack = { app.pop() }, backIcon = Ph.close) {
+                IconButton(Ph.share, "Share") { scope.launch { shareJpeg(context, renderFull(), "unroll-frame.jpg") } }
                 TextAction(if (saving) "Saving…" else "Save", bold = true, enabled = !saving) {
                     scope.launch {
                         saving = true
@@ -302,7 +319,10 @@ fun FrameStudioScreen(app: AppState, image: Bitmap, meta: ShotMeta?, location: F
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                preview?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) } ?: Spinner(Color.White)
+                // Each option change cross-fades to the new render with a slight settle, like a print being swapped.
+                AnimatedContent(preview, label = "frame", transitionSpec = {
+                    (fadeIn(tween(220)) + scaleIn(Mono.press(), initialScale = 0.97f)).togetherWith(fadeOut(tween(160)))
+                }) { b -> if (b != null) Image(b.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Spinner(Color.White) } }
             }
             Hairline()
             Column(Modifier.padding(top = 14.dp, bottom = 8.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -314,7 +334,7 @@ fun FrameStudioScreen(app: AppState, image: Bitmap, meta: ShotMeta?, location: F
                         Column(Modifier.clickable { if (locked) app.showPaywall = true else options = options.copy(style = s) }, horizontalAlignment = Alignment.CenterHorizontally) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(s.label, fontSize = 15.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, color = if (on) Mono.c.ink else Mono.c.dim)
-                                if (locked) Icon(Icons.Filled.Lock, "Pro", Modifier.size(10.dp), tint = Mono.c.dim)
+                                if (locked) PhIcon(Ph.lock, "Pro", size = 11.dp, tint = Mono.c.dim)
                             }
                             Spacer(Modifier.height(7.dp))
                             Box(Modifier.height(1.5.dp).width(40.dp).background(if (on) Mono.c.ink else Color.Transparent))
