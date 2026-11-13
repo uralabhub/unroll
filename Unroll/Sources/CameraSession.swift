@@ -15,10 +15,10 @@ enum SourceKind: String {
 
     var symbol: String {
         switch self {
-        case .usb: return "cable.connector"
-        case .card: return "sdcard"
-        case .wifi: return "wifi"
-        case .demo: return "photo.stack"
+        case .usb: return "usb"
+        case .card: return "sd-card"
+        case .wifi: return "wifi-high"
+        case .demo: return "images"
         }
     }
 }

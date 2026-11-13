@@ -12,11 +12,63 @@ enum Mono {
     static let line = Color(uiColor: .separator)
     /// Neutral grey surface for tiles (systemGray6 has a blue cast; this does not).
     static let tile = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.1, alpha: 1) : UIColor(white: 0.955, alpha: 1) })
+    /// Page canvas behind raised cards (Home, tools). A touch darker than `surface` so cards lift off it.
+    static let canvas = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.0, alpha: 1) : UIColor(white: 0.955, alpha: 1) })
+    /// Raised card on the canvas.
+    static let surface = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.11, alpha: 1) : UIColor(white: 1, alpha: 1) })
     /// Near-black feature surface, same in both modes.
     static let hero = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.14, alpha: 1) : UIColor(white: 0.07, alpha: 1) })
 
     static let gutter: CGFloat = 20
     static let radius: CGFloat = 10
+
+    // MARK: Type — Nunito for words, monospace for data (same split as the Android app).
+
+    /// PostScript names of the bundled Nunito faces (UIAppFonts in Info.plist).
+    static func fontName(_ w: Font.Weight) -> String {
+        switch w {
+        case .heavy, .black: return "Nunito-ExtraBold"
+        case .bold: return "Nunito-Bold"
+        case .semibold: return "Nunito-SemiBold"
+        case .medium: return "Nunito-Medium"
+        default: return "Nunito-Regular"
+        }
+    }
+
+    /// Default point size of each text style at the standard Dynamic Type setting.
+    private static func pointSize(_ style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: return 34
+        case .title: return 28
+        case .title2: return 22
+        case .title3: return 20
+        case .headline, .body: return 17
+        case .callout: return 16
+        case .subheadline: return 15
+        case .footnote: return 13
+        case .caption: return 12
+        case .caption2: return 11
+        @unknown default: return 17
+        }
+    }
+
+    /// Nunito sized like a system text style and scaling with Dynamic Type.
+    /// `.headline` defaults to semibold, as the system style does.
+    static func sans(_ style: Font.TextStyle = .body, weight: Font.Weight? = nil) -> Font {
+        let w = weight ?? (style == .headline ? .semibold : .regular)
+        return .custom(fontName(w), size: pointSize(style), relativeTo: style)
+    }
+
+    /// Nunito at a fixed size (display numbers and titles).
+    static func sans(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom(fontName(weight), fixedSize: size)
+    }
+
+    /// UIKit counterpart for renderers and navigation bars. Falls back to the system font.
+    static func uiSans(_ size: CGFloat, weight: UIFont.Weight = .regular) -> UIFont {
+        let w: Font.Weight = weight >= .heavy ? .heavy : weight >= .bold ? .bold : weight >= .semibold ? .semibold : weight >= .medium ? .medium : .regular
+        return UIFont(name: fontName(w), size: size) ?? .systemFont(ofSize: size, weight: weight)
+    }
 
     /// Small uppercase monospaced label used for section headers and data captions.
     static func caps(_ size: CGFloat = 11) -> Font { .system(size: size, weight: .medium, design: .monospaced) }
@@ -31,6 +83,21 @@ enum Theme {
     static let card = Mono.raised
     static let star = Mono.ink
     static let lock = Mono.ink
+}
+
+// MARK: - Icons
+
+/// Phosphor icon (MIT) from the asset catalog: vector, template-tinted by `foregroundStyle`.
+/// Names match phosphoricons.com; filled variants end in `-fill`.
+struct Icon: View {
+    let name: String
+    var size: CGFloat
+    init(_ name: String, size: CGFloat = 20) { self.name = name; self.size = size }
+    var body: some View {
+        Image("ph.\(name)").resizable().renderingMode(.template).scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
 }
 
 // MARK: - Text
@@ -101,9 +168,9 @@ struct MonoRow<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.body).foregroundStyle(Mono.ink)
+                Text(title).font(Mono.sans(.body)).foregroundStyle(Mono.ink)
                 if let detail {
-                    Text(detail).font(.footnote).foregroundStyle(Mono.dim).lineLimit(2)
+                    Text(detail).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -111,7 +178,7 @@ struct MonoRow<Trailing: View>: View {
             if let value { Text(value).font(Mono.data(.subheadline)).foregroundStyle(Mono.dim) }
             trailing
             if chevron {
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Mono.faint)
+                Icon("caret-right", size: 14).foregroundStyle(Mono.faint)
             }
         }
         .padding(.horizontal, Mono.gutter)
@@ -148,11 +215,16 @@ struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.semibold))
+            .font(Mono.sans(.body, weight: .semibold))
             .frame(maxWidth: .infinity, minHeight: 50)
             .foregroundStyle(enabled ? Mono.bg : Mono.ink.opacity(0.45))
-            .background(Mono.ink.opacity(enabled ? (configuration.isPressed ? 0.75 : 1) : 0.1),
-                        in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
+            .background(Mono.ink.opacity(enabled ? 1 : 0.1),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(Motion.press, value: configuration.isPressed)
+            .animation(Motion.snap, value: enabled)
+            .sensoryFeedback(.impact(weight: .medium, intensity: 0.7), trigger: configuration.isPressed) { _, new in new }
     }
 }
 
@@ -161,13 +233,16 @@ struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.medium))
+            .font(Mono.sans(.body, weight: .medium))
             .frame(maxWidth: .infinity, minHeight: 50)
             .foregroundStyle(Mono.ink.opacity(enabled ? 1 : 0.3))
             .background(Mono.ink.opacity(configuration.isPressed ? 0.08 : 0),
-                        in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Mono.radius, style: .continuous)
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Mono.ink.opacity(enabled ? 0.35 : 0.12), lineWidth: 1))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(Motion.press, value: configuration.isPressed)
+            .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: configuration.isPressed) { _, new in new }
     }
 }
 
@@ -176,12 +251,14 @@ struct OutlineChipStyle: ButtonStyle {
     var filled = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.footnote.weight(.semibold))
+            .font(Mono.sans(.footnote, weight: .semibold))
             .padding(.horizontal, 14).frame(minHeight: 32)
             .foregroundStyle(filled ? Mono.bg : Mono.ink)
             .background(filled ? Mono.ink : Color.clear, in: Capsule())
             .overlay(Capsule().strokeBorder(Mono.ink.opacity(filled ? 0 : 0.35), lineWidth: 1))
-            .opacity(configuration.isPressed ? 0.6 : 1)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .animation(Motion.press, value: configuration.isPressed)
     }
 }
 
@@ -192,6 +269,7 @@ struct TabStrip<T: Hashable>: View {
     let label: (T) -> String
     var count: ((T) -> Int?)? = nil
     var scrolls = true
+    @Namespace private var underline
 
     var body: some View {
         Group {
@@ -209,18 +287,25 @@ struct TabStrip<T: Hashable>: View {
             ForEach(items, id: \.self) { item in
                 let on = item == selection
                 Button {
-                    withAnimation(.snappy(duration: 0.2)) { selection = item }
+                    withAnimation(Motion.snap) { selection = item }
                     Haptics.tap()
                 } label: {
                     VStack(spacing: 7) {
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Text(label(item)).font(.subheadline.weight(on ? .semibold : .regular))
+                            Text(label(item)).font(Mono.sans(.subheadline, weight: on ? .semibold : .regular))
                             if let n = count?(item) {
-                                Text("\(n)").font(Mono.data(.caption2))
+                                Text("\(n)").font(Mono.data(.caption2)).rollingNumber(n)
                             }
                         }
                         .foregroundStyle(on ? Mono.ink : Mono.dim)
-                        Rectangle().fill(on ? Mono.ink : .clear).frame(height: 1.5)
+                        ZStack {
+                            Rectangle().fill(.clear)
+                            if on {
+                                Capsule().fill(Mono.ink)
+                                    .matchedGeometryEffect(id: "underline", in: underline)
+                            }
+                        }
+                        .frame(height: 2)
                     }
                     .fixedSize()
                     .contentShape(Rectangle())
@@ -234,9 +319,9 @@ struct TabStrip<T: Hashable>: View {
 /// On/off chip for option toggles.
 struct ChipToggle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle(); Haptics.tap() } label: {
+        Button { withAnimation(Motion.snap) { configuration.isOn.toggle() }; Haptics.tap() } label: {
             configuration.label
-                .font(.footnote.weight(.medium))
+                .font(Mono.sans(.footnote, weight: .medium))
                 .lineLimit(1)
                 .padding(.horizontal, 12).frame(minHeight: 32)
                 .foregroundStyle(configuration.isOn ? Mono.bg : Mono.dim)
@@ -254,8 +339,7 @@ struct StarRow: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(1...5, id: \.self) { n in
-                Image(systemName: n <= rating ? "star.fill" : "star")
-                    .font(.system(size: size, weight: .medium))
+                Icon(n <= rating ? "star-fill" : "star", size: size + 1)
                     .foregroundStyle(n <= rating ? Mono.ink : Mono.faint)
             }
         }
@@ -268,8 +352,8 @@ struct QuietMessage: View {
     var message: String? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.headline)
-            if let message { Text(message).font(.subheadline).foregroundStyle(Mono.dim) }
+            Text(title).font(Mono.sans(.headline))
+            if let message { Text(message).font(Mono.sans(.subheadline)).foregroundStyle(Mono.dim) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Mono.gutter)

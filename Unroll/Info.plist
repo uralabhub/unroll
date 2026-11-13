@@ -28,6 +28,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>nunito_regular.ttf</string>
+		<string>nunito_medium.ttf</string>
+		<string>nunito_semibold.ttf</string>
+		<string>nunito_bold.ttf</string>
+		<string>nunito_extrabold.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array><string>location</string></array>
 	<key>NSCameraUsageDescription</key>

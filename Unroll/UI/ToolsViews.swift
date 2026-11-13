@@ -17,7 +17,7 @@ struct RecipesView: View {
                 NavigationLink { RecipeDetailView(item: item) } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text(item.title).font(.body.weight(.medium))
+                            Text(item.title).font(Mono.sans(.body, weight: .medium))
                             Spacer()
                             Text(item.count == 1 ? "1 shot" : "\(item.count) shots").font(Mono.data(.caption)).foregroundStyle(Mono.dim)
                         }
@@ -101,7 +101,7 @@ struct ClockSyncView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 Text("Camera clocks drift and ignore time zones, which puts photos in the wrong place on the map. Fix it once per camera.")
-                    .font(.subheadline).foregroundStyle(Mono.dim)
+                    .font(Mono.sans(.subheadline)).foregroundStyle(Mono.dim)
                     .padding(.horizontal, Mono.gutter)
 
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -131,8 +131,8 @@ struct ClockSyncView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(app.session == nil || reading)
-                    if app.session == nil { Text("Connect a camera first.").font(.footnote).foregroundStyle(Mono.dim) }
-                    if let result { Text(result).font(.subheadline.weight(.medium)) }
+                    if app.session == nil { Text("Connect a camera first.").font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
+                    if let result { Text(result).font(Mono.sans(.subheadline, weight: .medium)) }
                 }
                 .padding(.horizontal, Mono.gutter)
 
@@ -143,7 +143,7 @@ struct ClockSyncView: View {
                                 Text(model)
                                 Spacer()
                                 Text(ClockSyncView.describe(off)).font(Mono.data(.subheadline)).foregroundStyle(Mono.dim)
-                                Button { app.settings.clockOffsets[model] = nil } label: { Image(systemName: "xmark") }
+                                Button { app.settings.clockOffsets[model] = nil } label: { Icon("x", size: 16) }
                                     .buttonStyle(.plain).foregroundStyle(Mono.dim).padding(.leading, 8)
                                     .accessibilityLabel("Remove correction")
                             }
@@ -163,7 +163,7 @@ struct ClockSyncView: View {
     private func step(_ n: Int, _ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
             Text(String(format: "%02d", n)).font(Mono.data(.footnote, weight: .medium)).foregroundStyle(Mono.dim)
-            Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            Text(text).font(Mono.sans(.subheadline)).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Mono.gutter).padding(.vertical, 12)
@@ -278,7 +278,7 @@ struct PaywallView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         CapsLabel("Unroll Pro")
                         Text("Camera to posted, without the busywork.")
-                            .font(.system(size: 30, weight: .semibold)).tracking(-0.4)
+                            .font(Mono.sans(size: 28, weight: .semibold)).tracking(-0.6)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.horizontal, Mono.gutter)
@@ -286,8 +286,8 @@ struct PaywallView: View {
                     MonoSection {
                         ForEach(perks, id: \.0) { title, sub in
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(title).font(.body.weight(.medium))
-                                Text(sub).font(.footnote).foregroundStyle(Mono.dim)
+                                Text(title).font(Mono.sans(.body, weight: .medium))
+                                Text(sub).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, Mono.gutter).padding(.vertical, 12)
@@ -318,9 +318,9 @@ struct PaywallView: View {
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(app.pro.purchasing)
 
-                        if let m = app.pro.message { Text(m).font(.footnote).foregroundStyle(Mono.dim) }
+                        if let m = app.pro.message { Text(m).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
                         Button("Restore purchases") { Task { await app.pro.restore() } }
-                            .font(.footnote).foregroundStyle(Mono.dim)
+                            .font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
                     }
                     .padding(.horizontal, Mono.gutter)
                     .padding(.top, 12)
@@ -337,12 +337,12 @@ struct PaywallView: View {
         let on = plan == p
         return Button { plan = p; Haptics.tap() } label: {
             HStack(spacing: 14) {
-                Image(systemName: on ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 20, weight: .light))
+                Icon(on ? "radio-button-fill" : "circle", size: 22)
+                    .contentTransition(.opacity)
                     .foregroundStyle(on ? Mono.ink : Mono.faint)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.body.weight(.semibold))
-                    Text(note).font(.footnote).foregroundStyle(Mono.dim)
+                    Text(title).font(Mono.sans(.body, weight: .semibold))
+                    Text(note).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
                 }
                 Spacer()
                 Text(price).font(Mono.data(.subheadline, weight: .medium))
@@ -370,7 +370,8 @@ struct ImportHUD: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(imp.isPaused ? "Paused · \(imp.completedInRun) of \(imp.totalInRun)"
                                           : "Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)")
-                            .font(.subheadline.weight(.semibold))
+                            .font(Mono.sans(.subheadline, weight: .semibold))
+                            .rollingNumber(imp.completedInRun)
                         Text(imp.isPaused ? "Resumes when Unroll is open" : imp.throughputMBps.map { String(format: "%.0f MB/s", $0) } ?? (imp.current?.primary.name ?? ""))
                             .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                     }
@@ -379,7 +380,7 @@ struct ImportHUD: View {
                         .buttonStyle(OutlineChipStyle())
                 } else if showDone, let run = imp.lastFinishedRun {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(run.count) saved to Photos").font(.subheadline.weight(.semibold))
+                        Text("\(run.count) saved to Photos").font(Mono.sans(.subheadline, weight: .semibold))
                         Text("\(String(format: "%.1f", run.seconds)) s" + (run.geotagged > 0 ? "  ·  \(run.geotagged) with location" : "  ·  originals untouched"))
                             .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                     }
@@ -397,17 +398,19 @@ struct ImportHUD: View {
                     Rectangle().fill(Mono.ink).frame(width: g.size.width * imp.progress)
                 }
                 .frame(height: 2)
-                .animation(.linear(duration: 0.2), value: imp.progress)
+                .animation(Motion.snap, value: imp.progress)
             }
         }
-        .background(Mono.bg, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Mono.radius, style: .continuous).strokeBorder(Mono.line, lineWidth: 1))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Mono.line.opacity(0.6), lineWidth: 1))
+        .depth(1.4)
         .padding(.horizontal, 12)
         .opacity(imp.isRunning || showDone ? 1 : 0)
-        .offset(y: imp.isRunning || showDone ? -78 : 120)
-        .animation(.snappy(duration: 0.35), value: imp.isRunning)
-        .animation(.snappy(duration: 0.35), value: showDone)
+        .scaleEffect(imp.isRunning || showDone ? 1 : 0.9, anchor: .bottom)
+        .offset(y: imp.isRunning || showDone ? -78 : 140)
+        .animation(Motion.glide, value: imp.isRunning)
+        .animation(Motion.glide, value: showDone)
         .onChange(of: imp.isRunning) { _, running in
             if !running, imp.lastFinishedRun != nil {
                 showDone = true
@@ -425,12 +428,13 @@ struct ToastView: View {
         Group {
             if let t = app.toast ?? app.importer.lastError {
                 Text(t)
-                    .font(.subheadline.weight(.medium))
+                    .font(Mono.sans(.subheadline, weight: .medium))
                     .foregroundStyle(Mono.bg)
                     .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(Mono.ink, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
+                    .background(Mono.ink, in: Capsule())
+                    .depth(1.2)
                     .padding(.top, 6)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(.move(edge: .top).combined(with: .scale(scale: 0.8, anchor: .top)).combined(with: .opacity))
                     .task(id: t) {
                         try? await Task.sleep(for: .seconds(3))
                         app.toast = nil
@@ -438,6 +442,6 @@ struct ToastView: View {
                     }
             }
         }
-        .animation(.snappy(duration: 0.3), value: app.toast)
+        .animation(Motion.glide, value: app.toast)
     }
 }

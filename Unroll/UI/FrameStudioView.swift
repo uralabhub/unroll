@@ -42,7 +42,7 @@ struct FrameStudioView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
                 ToolbarItemGroup(placement: .confirmationAction) {
-                    Button { Task { await share() } } label: { Image(systemName: "square.and.arrow.up") }
+                    Button { Task { await share() } } label: { Icon("export", size: 22) }
                         .accessibilityLabel("Share")
                     Button { Task { await save() } } label: {
                         if saving { ProgressView() } else { Text("Save").bold() }
@@ -75,13 +75,13 @@ struct FrameStudioView: View {
                     let locked = s.isPro && !app.pro.isPro
                     Button {
                         if locked { app.showPaywall = true; return }
-                        withAnimation(.snappy(duration: 0.2)) { options.style = s }
+                        withAnimation(Motion.snap) { options.style = s }
                         Haptics.tap()
                     } label: {
                         VStack(spacing: 7) {
                             HStack(spacing: 4) {
-                                Text(s.label).font(.subheadline.weight(on ? .semibold : .regular))
-                                if locked { Image(systemName: "lock.fill").font(.system(size: 9)) }
+                                Text(s.label).font(Mono.sans(.subheadline, weight: on ? .semibold : .regular))
+                                if locked { Icon("lock-simple-fill", size: 10) }
                             }
                             .foregroundStyle(on ? Mono.ink : Mono.dim)
                             Rectangle().fill(on ? Mono.ink : .clear).frame(height: 1.5)

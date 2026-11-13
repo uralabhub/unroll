@@ -30,7 +30,7 @@ struct ShotPagerView: View {
         .scrollIndicators(.hidden)
         .background(Color.black)
         .onAppear { currentID = startID }
-        .onTapGesture { withAnimation(.snappy) { showInfo.toggle() } }
+        .onTapGesture { withAnimation(Motion.glide) { showInfo.toggle() } }
         .safeAreaInset(edge: .bottom) {
             if showInfo, let s = current {
                 ShotInfoPanel(shot: s, framing: { await openFrame(s) }, loadingFrame: loadingFrame)
@@ -95,13 +95,13 @@ struct ShotInfoPanel: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(m?.cameraName ?? "Unknown camera").font(.headline)
-                    if let lens = m?.lens { Text(lens).font(.footnote).foregroundStyle(Mono.dim) }
+                    Text(m?.cameraName ?? "Unknown camera").font(Mono.sans(.headline))
+                    if let lens = m?.lens { Text(lens).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
                 }
                 Spacer()
                 HStack(spacing: 8) {
                     if shot.rating > 0 { StarRow(rating: shot.rating) }
-                    if shot.isLocked { Image(systemName: "lock.fill").font(.system(size: 11)) }
+                    if shot.isLocked { Icon("lock-simple-fill", size: 12) }
                 }
             }
 
@@ -185,17 +185,17 @@ struct RecipeSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.snappy(duration: 0.25)) { expanded.toggle() }
+                withAnimation(Motion.glide) { expanded.toggle() }
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         CapsLabel("Recipe")
-                        Text(recipe.filmSimulation).font(.subheadline.weight(.semibold))
+                        Text(recipe.filmSimulation).font(Mono.sans(.subheadline, weight: .semibold))
                     }
                     Spacer()
                     Text(expanded ? "Hide" : "\(recipe.rows.count - 1) settings")
                         .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
-                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+                    Icon("caret-down", size: 14)
                         .rotationEffect(.degrees(expanded ? 180 : 0)).foregroundStyle(Mono.dim)
                 }
                 .contentShape(Rectangle())
@@ -203,10 +203,12 @@ struct RecipeSummary: View {
             .buttonStyle(.plain)
             if expanded {
                 VStack(spacing: 0) {
-                    ForEach(recipe.rows.dropFirst(), id: \.0) { k, v in DataRow(key: k, value: v) }
+                    ForEach(Array(recipe.rows.dropFirst().enumerated()), id: \.element.0) { i, row in
+                        DataRow(key: row.0, value: row.1).rise(i, step: 0.03, distance: 8)
+                    }
                 }
                 .padding(.top, 6)
-                .transition(.opacity)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
