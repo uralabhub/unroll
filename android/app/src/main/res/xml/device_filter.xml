@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- USB class 6 = Still Image (PTP). Most cameras expose it, incl. in "MTP/PTP" USB mode. -->
+    <usb-device class="6" />
+</resources>
