@@ -105,6 +105,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
     var columns by rememberSaveable { mutableIntStateOf(3) }
     var menu by remember { mutableStateOf(false) }
     val grid = rememberLazyGridState()
+    val view = androidx.compose.ui.platform.LocalView.current
 
     // Location sources and the import notification, asked once, where they start to matter.
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
@@ -221,10 +222,10 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
                                 session, shot, list.indexOf(shot), columns, selecting, shot.id in selection,
                                 Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = Mono.press()),
                                 onTap = {
-                                    if (selecting) selection = if (shot.id in selection) selection - shot.id else selection + shot.id
+                                    if (selecting) { Haptics.tick(view); selection = if (shot.id in selection) selection - shot.id else selection + shot.id }
                                     else app.push(Screen.Detail(visible, shot.id))
                                 },
-                                onLong = { selecting = true; selection = selection + shot.id },
+                                onLong = { Haptics.press(view); selecting = true; selection = selection + shot.id },
                             )
                         }
                     }

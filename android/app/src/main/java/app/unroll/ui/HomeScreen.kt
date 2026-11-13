@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -167,10 +168,13 @@ private fun ConnectHero(app: AppState, scroll: ScrollState, modifier: Modifier) 
     val usb = app.usb
     val denied = usb.authorization == UsbCameraService.Authorization.DENIED
     val attached = usb.attached
+    val reduce = LocalReduceMotion.current
+    val (tiltX, tiltY) = rememberTilt()
     val t = rememberInfiniteTransition(label = "hero")
     val blink by t.animateFloat(1f, 0.15f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
     val wind by t.animateFloat(0f, 1f, infiniteRepeatable(tween(if (attached != null) 900 else 5200, easing = LinearEasing)), label = "wind")
     val white = Color.White
+    val phase = if (reduce) 0f else wind
     Column(
         modifier.fillMaxWidth()
             .graphicsLayer {
@@ -179,14 +183,19 @@ private fun ConnectHero(app: AppState, scroll: ScrollState, modifier: Modifier) 
                 alpha = (1f - y / 900f).coerceIn(0f, 1f)
                 val s = 1f - (y / 6000f).coerceIn(0f, 0.06f)
                 scaleX = s; scaleY = s
+                // Gyroscope parallax: the card leans up to 4° with the phone, like a print in the hand.
+                rotationX = tiltX; rotationY = tiltY
+                cameraDistance = 14f * density
             }
-            .card(RoundedCornerShape(28.dp), 18.dp)
+            // Layered shadow: a wide soft one far below, a tighter one close under the card.
+            .shadow(28.dp, RoundedCornerShape(28.dp), clip = false, ambientColor = Mono.c.shadow, spotColor = Mono.c.shadow)
+            .card(RoundedCornerShape(28.dp), 8.dp)
             .background(Mono.c.hero),
     ) {
-        Sprockets(wind)
+        Sprockets(phase)
         Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(7.dp).graphicsLayer { alpha = if (denied) 0.4f else blink }.background(white, CircleShape))
+                Box(Modifier.size(7.dp).graphicsLayer { alpha = if (denied) 0.4f else if (reduce) 1f else blink }.background(white, CircleShape))
                 Spacer(Modifier.width(8.dp))
                 Crossfade(
                     when {
@@ -223,7 +232,7 @@ private fun ConnectHero(app: AppState, scroll: ScrollState, modifier: Modifier) 
             }
             HeroButton("No camera? Open the demo roll", Ph.forward) { app.openDemo() }
         }
-        Sprockets(wind)
+        Sprockets(phase)
     }
 }
 
@@ -263,6 +272,7 @@ private fun PhotoWalkCard(app: AppState, modifier: Modifier) {
         if (r[Manifest.permission.ACCESS_FINE_LOCATION] == true) rec.startWalk() else app.toast = "Allow location to log a walk."
     }
     val w = rec.current
+    val view = androidx.compose.ui.platform.LocalView.current
     val corner by animateDpAsState(if (rec.isRecording) 18.dp else 30.dp, Mono.press(), label = "morph")
     val pulse by rememberInfiniteTransition(label = "rec").animateFloat(1f, 1.18f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "pulse")
     Row(
@@ -293,6 +303,7 @@ private fun PhotoWalkCard(app: AppState, modifier: Modifier) {
         Spacer(Modifier.width(16.dp))
         Box(
             Modifier.size(60.dp).tilePress(0.9f) {
+                Haptics.confirm(view)
                 when {
                     rec.isRecording -> rec.stopWalk()
                     rec.hasPermission -> rec.startWalk()

@@ -219,7 +219,7 @@ fun Modifier.card(shape: Shape = RoundedCornerShape(Mono.cardRadius), elevation:
 
 /** Spring "press" feedback: a slight sink, no ripple, no colour. */
 @Composable
-fun Modifier.tilePress(scaleTo: Float = 0.965f, enabled: Boolean = true, onClick: () -> Unit): Modifier {
+fun Modifier.tilePress(scaleTo: Float = 0.96f, enabled: Boolean = true, onClick: () -> Unit): Modifier {
     val src = remember { MutableInteractionSource() }
     val p by src.collectIsPressedAsState()
     val s by animateFloatAsState(if (p) scaleTo else 1f, Mono.press(), label = "press")
@@ -354,10 +354,11 @@ fun OutlineChip(text: String, filled: Boolean = false, onClick: () -> Unit) {
 /** On/off chip for option toggles; fills with ink when on. */
 @Composable
 fun ChipToggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    val view = androidx.compose.ui.platform.LocalView.current
     val bg by animateColorAsState(if (on) Mono.c.ink else Mono.c.raised, Mono.settle(), label = "chip")
     val fg by animateColorAsState(if (on) Mono.c.bg else Mono.c.dim, Mono.settle(), label = "chipText")
     Box(
-        Modifier.heightIn(min = 36.dp).tilePress(0.94f) { onChange(!on) }.background(bg, CircleShape).padding(horizontal = 14.dp),
+        Modifier.heightIn(min = 36.dp).tilePress(0.94f) { Haptics.tick(view); onChange(!on) }.background(bg, CircleShape).padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) { Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = fg, maxLines = 1) }
 }
@@ -369,6 +370,7 @@ fun ChipToggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
 @Composable
 fun <T> TabStrip(items: List<T>, selection: T, label: (T) -> String, count: ((T) -> Int?)? = null, onSelect: (T) -> Unit) {
     val density = LocalDensity.current
+    val view = androidx.compose.ui.platform.LocalView.current
     val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
     val idx = items.indexOf(selection).coerceAtLeast(0)
     val target = bounds[idx]
@@ -391,7 +393,7 @@ fun <T> TabStrip(items: List<T>, selection: T, label: (T) -> String, count: ((T)
                             val x0 = c.parentLayoutCoordinates?.localPositionOf(c, Offset.Zero)?.x ?: 0f
                             bounds[i] = x0 to c.size.width.toFloat()
                         }
-                        .clip(CircleShape).clickable { onSelect(item) }.padding(horizontal = 14.dp),
+                        .clip(CircleShape).clickable { if (!on) Haptics.tick(view); onSelect(item) }.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(label(item), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = fg)

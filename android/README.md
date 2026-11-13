@@ -123,7 +123,7 @@ Demo Roll có một nhóm ảnh (Nostalgic Neg.) dùng DRP Fixed/Strong để xe
 
 ## Font, icon, chuyển động (cả Android và iOS)
 
-- **Font:** Nunito (Regular, Medium, SemiBold, Bold, ExtraBold) cho mọi chữ, trên giao diện lẫn ảnh render ra (khung, recap, thẻ recipe). Số liệu dùng chữ số đều cột (`tnum` / `monospacedDigit`) thay cho font monospace. Nunito dùng giấy phép SIL OFL 1.1: trước khi phát hành cần thêm `OFL.txt` vào màn giấy phép.
+- **Font:** Nunito (Regular, Medium, SemiBold, Bold, ExtraBold) cho mọi chữ, trên giao diện lẫn ảnh render ra (khung, recap, thẻ recipe). Số liệu dùng chữ số đều cột (`tnum` / `monospacedDigit`) thay cho font monospace. Giấy phép đã đóng gói: `android/licenses/Nunito-OFL.txt` (SIL OFL 1.1) và `Phosphor-MIT.txt`, kèm bản sao trong `app/src/main/assets/licenses/`.
 - **Icon:** Phosphor Icons (giấy phép MIT). Android dùng vector drawable `ph_*`; iOS dùng imageset SVG dạng template `ph-*` trong Asset Catalog. Icon app (launcher) chưa đổi.
 - **Chuyển động:**
   - Mở ảnh từ lưới: ảnh phóng to thành màn chi tiết (shared element trên Android, `navigationTransition(.zoom)` trên iOS 18).
@@ -132,4 +132,5 @@ Demo Roll có một nhóm ảnh (Nostalgic Neg.) dùng DRP Fixed/Strong để xe
   - Các khối xuất hiện lần lượt; ô ảnh bật vào; số liệu lăn khi đổi.
   - Nút Photo Walk biến hình giữa tròn và vuông; lỗ phim trên thẻ hero chạy liên tục; thẻ hero có parallax khi cuộn.
   - Paywall trượt lên theo spring.
+  - Android: thẻ hero nghiêng tối đa 4° theo cảm biến trọng lực, đổ hai lớp bóng; rung phản hồi khi đổi bộ lọc, chọn ảnh, bắt đầu và xong import, bắt đầu và dừng Photo Walk. Khi bật "Xoá hiệu ứng" (animator scale = 0), các vòng lặp, độ nghiêng và hiệu ứng xuất hiện lần lượt đều tắt. Phần này chưa thử trên máy thật vì điện thoại đang khoá màn hình.
   - Đã kiểm tra bằng video quay màn hình trên Galaxy A56 và trên Simulator iOS 27.

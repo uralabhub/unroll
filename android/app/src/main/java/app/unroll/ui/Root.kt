@@ -79,7 +79,10 @@ fun Root(app: AppState) {
         screen = top, sessionId = session?.id,
     )
     val saveable = rememberSaveableStateHolder()
+    val context = LocalContext.current
+    val reduce = remember { systemReducesMotion(context) }
 
+    CompositionLocalProvider(LocalReduceMotion provides reduce) {
     Box(Modifier.fillMaxSize().background(Mono.c.bg)) {
         SharedTransitionLayout {
             AnimatedContent(
@@ -135,6 +138,7 @@ fun Root(app: AppState) {
         if (!app.showPaywall) Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 92.dp)) { ImportHUD(app) }
         Box(Modifier.align(Alignment.TopCenter).statusBarsPadding()) { Toast(app) }
     }
+    }
 }
 
 /** Import progress card above the action bar; "N saved" for a few seconds when a run ends. */
@@ -144,8 +148,10 @@ private fun ImportHUD(app: AppState) {
     val context = LocalContext.current
     var showDone by remember { mutableStateOf(false) }
     val running = imp.isRunning
+    val view = androidx.compose.ui.platform.LocalView.current
     LaunchedEffect(running) {
-        if (!running && imp.lastFinishedRun != null) { showDone = true; delay(5000); showDone = false }
+        if (running) Haptics.press(view)
+        if (!running && imp.lastFinishedRun != null) { Haptics.confirm(view); showDone = true; delay(5000); showDone = false }
     }
     val progress by animateFloatAsState(imp.progress.toFloat().coerceIn(0f, 1f), Mono.settle(), label = "hud")
     AnimatedVisibility(
