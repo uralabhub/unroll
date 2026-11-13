@@ -1,0 +1,169 @@
+import SwiftUI
+import CoreLocation
+import MapKit
+
+/// Builds the "Photo Walk Recap" story card from a set of shots.
+struct RecapBuilderView: View {
+    @Environment(AppState.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    let shots: [Shot]
+
+    @State private var chosen: [String] = []
+    @State private var title = ""
+    @State private var rendered: UIImage?
+    @State private var busy = false
+    @State private var shareItem: ShareImage?
+
+    private var pool: [Shot] { shots.filter { !$0.isVideo } }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let rendered {
+                        Image(uiImage: rendered).resizable().scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .frame(maxHeight: 460)
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        RoundedRectangle(cornerRadius: 16).fill(Theme.card).frame(height: 300)
+                            .overlay { if busy { ProgressView() } else { Text("Pick up to 6 photos").foregroundStyle(.secondary) } }
+                    }
+                    TextField("Title", text: $title)
+                        .font(.title3.weight(.semibold))
+                        .padding(12)
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
+                        .onSubmit { Task { await render() } }
+                    Text("Photos (\(chosen.count)/6)").font(.headline)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 4), spacing: 4) {
+                        ForEach(pool) { s in
+                            Color(white: 0.12).aspectRatio(1, contentMode: .fit)
+                                .overlay { if let t = s.thumbnail { Image(uiImage: t).resizable().scaledToFill() } }
+                                .clipped()
+                                .overlay(alignment: .topTrailing) {
+                                    if let i = chosen.firstIndex(of: s.id) {
+                                        Text("\(i + 1)").font(.caption.bold()).foregroundStyle(.black)
+                                            .frame(width: 22, height: 22).background(Theme.accent, in: Circle()).padding(4)
+                                    }
+                                }
+                                .onTapGesture { toggle(s) }
+                                .task { await Previews.thumbnail(s) }
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .navigationTitle("Recap card")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                ToolbarItemGroup(placement: .confirmationAction) {
+                    Button { if let r = rendered { shareItem = ShareImage(image: r) } } label: { Image(systemName: "square.and.arrow.up") }
+                        .disabled(rendered == nil)
+                    Button("Save") { Task { await save() } }.bold().disabled(rendered == nil)
+                }
+            }
+            .sheet(item: $shareItem) { ActivityView(items: [$0.image]) }
+        }
+        .task {
+            chosen = Array(pool.sorted { $0.rating > $1.rating }.prefix(6).map(\.id))
+            title = defaultTitle()
+            await render()
+        }
+    }
+
+    private func toggle(_ s: Shot) {
+        if let i = chosen.firstIndex(of: s.id) { chosen.remove(at: i) } else if chosen.count < 6 { chosen.append(s.id) }
+        Haptics.tap()
+        Task { await render() }
+    }
+
+    private func defaultTitle() -> String {
+        let d = pool.map(\.captureDate).min() ?? Date()
+        return d.formatted(.dateTime.weekday(.wide)) + " walk"
+    }
+
+    private func render() async {
+        busy = true
+        defer { busy = false }
+        let picks = chosen.compactMap { id in pool.first { $0.id == id } }
+        var images: [UIImage] = []
+        for s in picks {
+            if let img = await Previews.large(s, session: app.session) { images.append(img) }
+        }
+        let dates = pool.map { app.correctedDate(for: $0) }
+        let walk = app.location.walk(covering: dates)
+        let route = walk?.points.map(\.coordinate) ?? []
+        let map = await RecapRenderer.mapSnapshot(route: route, size: CGSize(width: 936, height: 330))
+        var subtitle = (dates.min() ?? Date()).formatted(date: .long, time: .omitted)
+        if let first = route.first,
+           let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: first.latitude, longitude: first.longitude)).first {
+            var parts: [String] = []
+            for p in [pm.subLocality, pm.locality, pm.administrativeArea].compactMap({ $0 }) where !parts.contains(p) && parts.count < 2 {
+                parts.append(p)
+            }
+            if !parts.isEmpty { subtitle = parts.joined(separator: ", ") + " · " + subtitle }
+        }
+        let looks = Array(Set(pool.compactMap { $0.meta?.recipe?.filmSimulation ?? $0.meta?.look })).sorted()
+        let cams = Array(Set(pool.compactMap { $0.meta?.cameraName })).sorted()
+        let input = RecapInput(
+            title: title.isEmpty ? defaultTitle() : title,
+            subtitle: subtitle,
+            photos: images,
+            shotCount: pool.count,
+            keeperCount: pool.filter(\.isKeeper).count,
+            distanceKm: walk.map { $0.distanceMeters / 1000 },
+            duration: walk?.duration,
+            cameras: cams,
+            looks: looks,
+            route: route,
+            watermark: !app.pro.isPro
+        )
+        rendered = await Task.detached(priority: .userInitiated) { RecapRenderer.render(input, map: map) }.value
+    }
+
+    private func save() async {
+        guard let r = rendered, let data = r.jpegData(compressionQuality: 0.93), await PhotoLibrary.authorize() else { return }
+        try? await PhotoLibrary.save(image: data, location: nil)
+        app.toast = "Recap saved to Photos"
+        Haptics.success()
+        dismiss()
+    }
+}
+
+/// List of recorded photo walks.
+struct WalksView: View {
+    @Environment(AppState.self) private var app
+
+    var body: some View {
+        List {
+            if app.location.walks.isEmpty {
+                ContentUnavailableView("No walks yet", systemImage: "figure.walk",
+                                       description: Text("Start a photo walk before you head out. Imports are geotagged from it automatically."))
+            }
+            ForEach(app.location.walks.reversed(), id: \.id) { (w: PhotoWalk) in
+                VStack(alignment: .leading, spacing: 8) {
+                    if w.points.count > 1 {
+                        Map(interactionModes: []) {
+                            MapPolyline(coordinates: w.points.map(\.coordinate)).stroke(Theme.accent, lineWidth: 4)
+                        }
+                        .frame(height: 140)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .allowsHitTesting(false)
+                    }
+                    HStack {
+                        Text(w.start.formatted(date: .abbreviated, time: .shortened)).font(.headline)
+                        if w.isDemo { Text("DEMO").font(.caption2.bold()).foregroundStyle(Theme.accent) }
+                        Spacer()
+                        Text(w.end == nil ? "Recording" : String(format: "%.2f km", w.distanceMeters / 1000))
+                            .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Text("\(Duration.seconds(w.duration).formatted(.time(pattern: .hourMinute))) · \(w.points.count) GPS fixes")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .swipeActions { Button("Delete", role: .destructive) { app.location.delete(w) } }
+            }
+        }
+        .navigationTitle("Walks")
+    }
+}
