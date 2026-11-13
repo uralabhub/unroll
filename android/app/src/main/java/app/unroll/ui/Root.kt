@@ -64,10 +64,11 @@ fun Root(app: AppState) {
             Screen.Walks -> WalksScreen(app)
             null -> Unit
         }
+        // The paywall covers the HUD; the toast stays on top of everything.
+        if (!app.showPaywall) Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 78.dp)) { ImportHUD(app) }
         AnimatedVisibility(app.showPaywall, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
             PaywallSheet(app) { app.showPaywall = false }
         }
-        Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 78.dp)) { ImportHUD(app) }
         Box(Modifier.align(Alignment.TopCenter).statusBarsPadding()) { Toast(app) }
     }
 }

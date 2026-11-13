@@ -32,6 +32,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.font.Font
+import app.unroll.R
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -98,6 +101,13 @@ object Mono {
     val gutter = 20.dp
     val radius = 10.dp
     val mono = FontFamily.Monospace
+    /** Brand type: Montserrat for everything that isn't data. */
+    val sans = FontFamily(
+        Font(R.font.montserrat_regular, FontWeight.Normal),
+        Font(R.font.montserrat_medium, FontWeight.Medium),
+        Font(R.font.montserrat_semibold, FontWeight.SemiBold),
+        Font(R.font.montserrat_bold, FontWeight.Bold),
+    )
 
     /** Small uppercase monospaced label used for section headers and data captions. */
     fun caps(size: TextUnit = 11.sp) = TextStyle(fontFamily = mono, fontWeight = FontWeight.Medium, fontSize = size, letterSpacing = 1.2.sp)
@@ -123,8 +133,19 @@ fun UnrollTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -
         surfaceContainer = p.raised, surfaceContainerHigh = p.raised, surfaceContainerLow = p.bg,
         surfaceContainerHighest = p.raised, surfaceContainerLowest = p.bg, error = p.ink, onError = p.bg,
     )
+    val base = Typography()
+    val type = Typography(
+        displayLarge = base.displayLarge.copy(fontFamily = Mono.sans), displayMedium = base.displayMedium.copy(fontFamily = Mono.sans),
+        displaySmall = base.displaySmall.copy(fontFamily = Mono.sans), headlineLarge = base.headlineLarge.copy(fontFamily = Mono.sans),
+        headlineMedium = base.headlineMedium.copy(fontFamily = Mono.sans), headlineSmall = base.headlineSmall.copy(fontFamily = Mono.sans),
+        titleLarge = base.titleLarge.copy(fontFamily = Mono.sans), titleMedium = base.titleMedium.copy(fontFamily = Mono.sans),
+        titleSmall = base.titleSmall.copy(fontFamily = Mono.sans), bodyLarge = base.bodyLarge.copy(fontFamily = Mono.sans),
+        bodyMedium = base.bodyMedium.copy(fontFamily = Mono.sans), bodySmall = base.bodySmall.copy(fontFamily = Mono.sans),
+        labelLarge = base.labelLarge.copy(fontFamily = Mono.sans), labelMedium = base.labelMedium.copy(fontFamily = Mono.sans),
+        labelSmall = base.labelSmall.copy(fontFamily = Mono.sans),
+    )
     CompositionLocalProvider(LocalMono provides p) {
-        MaterialTheme(colorScheme = scheme, content = content)
+        MaterialTheme(colorScheme = scheme, typography = type, content = content)
     }
 }
 

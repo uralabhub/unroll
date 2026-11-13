@@ -86,8 +86,9 @@ fun HomeScreen(app: AppState) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(Mono.c.bg).verticalScroll(rememberScrollState())
-            .statusBarsPadding().padding(horizontal = 16.dp).padding(bottom = 120.dp),
+        // Status-bar inset outside the scroll, so content never slides under the clock.
+        Modifier.fillMaxSize().background(Mono.c.bg).statusBarsPadding().verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp).padding(bottom = 120.dp),
     ) {
         Row(Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp, bottom = 20.dp), verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
@@ -104,8 +105,8 @@ fun HomeScreen(app: AppState) {
 
         BlockTitle("Or import from")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(GlyphKind.CARD, "SD card", "Card reader or folder", modifier = Modifier.weight(1f)) { pickFolder.launch(null) }
-            Tile(GlyphKind.WIFI, "Ricoh GR", "Over the camera’s Wi-Fi", tag = "Beta", modifier = Modifier.weight(1f)) { app.connectRicoh() }
+            Tile(GlyphKind.CARD, "SD card", "Reader or folder", modifier = Modifier.weight(1f)) { pickFolder.launch(null) }
+            Tile(GlyphKind.WIFI, "Ricoh GR", "Camera Wi-Fi", tag = "Beta", modifier = Modifier.weight(1f)) { app.connectRicoh() }
         }
 
         BlockTitle("Photo walk")
@@ -114,14 +115,14 @@ fun HomeScreen(app: AppState) {
         BlockTitle("Tools")
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Tile(GlyphKind.RECIPES, "Recipes", "Saved from your shots", count = app.recipes.items.size, modifier = Modifier.weight(1f)) { app.push(Screen.Recipes) }
-                Tile(GlyphKind.CLOCK, "Clock sync", "Fix camera time drift", count = app.settings.clockOffsets.size, modifier = Modifier.weight(1f)) { app.push(Screen.ClockSync) }
+                Tile(GlyphKind.RECIPES, "Recipes", "From your shots", count = app.recipes.items.size, modifier = Modifier.weight(1f)) { app.push(Screen.Recipes) }
+                Tile(GlyphKind.CLOCK, "Clock sync", "Fix time drift", count = app.settings.clockOffsets.size, modifier = Modifier.weight(1f)) { app.push(Screen.ClockSync) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Tile(GlyphKind.FRAME, "Frame", "EXIF border, any photo", modifier = Modifier.weight(1f)) {
+                Tile(GlyphKind.FRAME, "Frame", "EXIF border", modifier = Modifier.weight(1f)) {
                     pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }
-                Tile(GlyphKind.MAP, "Walks", "Routes and recap cards", count = app.walks.walks.size, modifier = Modifier.weight(1f)) { app.push(Screen.Walks) }
+                Tile(GlyphKind.MAP, "Walks", "Routes, recaps", count = app.walks.walks.size, modifier = Modifier.weight(1f)) { app.push(Screen.Walks) }
             }
         }
 
@@ -176,7 +177,7 @@ private fun ConnectHero(app: AppState) {
             )
             Text(
                 "FUJIFILM  SONY  CANON  NIKON  LEICA  RICOH  OM  LUMIX", Modifier.padding(top = 18.dp),
-                style = Mono.caps(9.sp).copy(letterSpacing = 1.sp), color = white.copy(alpha = 0.35f), maxLines = 1,
+                style = Mono.caps(9.sp).copy(letterSpacing = 0.6.sp, lineHeight = 15.sp), color = white.copy(alpha = 0.35f),
             )
             usb.lastError?.let { Text(it, Modifier.padding(top = 14.dp), fontSize = 13.sp, color = white.copy(alpha = 0.7f)) }
             Spacer(Modifier.height(22.dp))

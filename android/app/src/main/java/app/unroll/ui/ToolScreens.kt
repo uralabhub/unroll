@@ -168,7 +168,7 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
                 CapsLabel("Title")
                 BasicTextField(
                     title, { title = it }, singleLine = true,
-                    textStyle = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.ink),
+                    textStyle = TextStyle(fontFamily = Mono.sans, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.ink),
                     cursorBrush = SolidColor(Mono.c.ink), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 )
                 Hairline()
@@ -243,7 +243,7 @@ fun RecipeDetailScreen(app: AppState, id: String) {
                 CapsLabel("Name")
                 Box {
                     if (name.isEmpty()) Text(item.recipe.filmSimulation, fontSize = 17.sp, color = Mono.c.faint, modifier = Modifier.padding(vertical = 8.dp))
-                    BasicTextField(name, { name = it }, singleLine = true, textStyle = TextStyle(fontSize = 17.sp, color = Mono.c.ink),
+                    BasicTextField(name, { name = it }, singleLine = true, textStyle = TextStyle(fontFamily = Mono.sans, fontSize = 17.sp, color = Mono.c.ink),
                         cursorBrush = SolidColor(Mono.c.ink), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
                 }
                 Hairline()

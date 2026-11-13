@@ -92,6 +92,35 @@ Demo Roll có một nhóm ảnh (Nostalgic Neg.) dùng DRP Fixed/Strong để xe
 - API Wi-Fi Ricoh GR (beta, do cộng đồng giải mã). Request được gắn vào mạng Wi-Fi để Android không đẩy sang 4G.
 - Những điểm chưa kiểm chứng ở bản iOS (hãng nào ghi sao vào 0x4746/XMP, ARW mới có header "SONY DSC" hay không…) vẫn còn nguyên.
 
-### Emulator
+### Đã chạy trên thiết bị (13/11/2026)
 
-Xem kết quả chạy Demo Roll trong báo cáo của commit cuối cùng trên nhánh. Máy Mac lúc kiểm tra bị quá tải nặng (load average host trên 100, do nhiều session khác cùng build và chạy emulator), nên emulator phản hồi rất chậm và System UI nhiều lần báo "isn't responding". Đó là lỗi của máy ảo, không phải của Unroll. Những gì đã kiểm tra được được ghi ở cuối file này.
+**Điện thoại thật: Samsung Galaxy A56 (SM-A566B), Android 17, chế độ tối.** Cài qua `adb install`, thao tác bằng `adb shell input`. Không có máy ảnh cắm vào, nên dùng Demo Roll.
+
+| Màn hình / luồng | Kết quả |
+|---|---|
+| Home | Đúng giao diện đơn sắc và font Montserrat; nội dung không còn chạy dưới thanh trạng thái |
+| Demo Roll → Library | 42 ảnh, 16 pick, 12 có sao, 6 khoá 🔒, cặp J+R được ghép; mở xong khoảng 2 giây; bộ lọc và menu lưới hoạt động |
+| Shot detail | EXIF, ★, recipe mở rộng 10 dòng, dòng "Location from your walk" |
+| Frame Studio | Gallery, Caption Bar, tỉ lệ 9:16, chip Place (Geocoder trả về "Thành phố Hồ Chí Minh"); Save ghi vào `Pictures/Unroll` |
+| Recap card | 6 ảnh, lộ trình đơn sắc, số liệu (16 ảnh / 4,0 km / 6h19), chip film sim, địa danh |
+| Import + quota + paywall | "Import picks 16": 10 ảnh vào `DCIM/Unroll` trong 0,7 s, cả 10 có vị trí; 6 ảnh còn lại bật paywall; ledger giữ ✓, lần sau nút còn "Import picks 6" |
+| Paywall | Lifetime $29.99 / Yearly $14.99 kèm 7 ngày dùng thử (giá dự phòng, vì sản phẩm chưa có trên Play Console); không bấm mua |
+| Recipe Book | 6 recipe gom từ lần import; "Nostalgic Neg. · DRP Strong"; trong chi tiết, dòng D-Range Priority thay cho DR/Highlight/Shadow |
+| Clock Sync | Mã QR và đồng hồ đổi mỗi giây; màn hình giữ sáng |
+| Settings | Các toggle, bộ chọn "When a camera connects" và "Save to" |
+| Walks | Lộ trình demo 3,97 km, 380 điểm GPS |
+
+**Lỗi tìm được trên máy thật và đã sửa:**
+- Caption Bar ở tỉ lệ cao (9:16) đặt chữ giữa cả vùng trắng, xa khỏi ảnh (bản iOS cũng dùng công thức này). Đã chuyển chữ về dải 9u ngay dưới ảnh.
+- Thẻ tiến độ import đè lên paywall. Đã cho paywall nằm trên.
+- Nội dung Home cuộn lên nằm dưới thanh trạng thái. Đã chuyển inset ra ngoài vùng cuộn.
+- Chú thích trong các ô và dòng tên hãng bị cụt vì Montserrat rộng hơn. Đã rút gọn chữ và cho dòng tên hãng xuống hàng.
+- Panel thông tin ảnh đè lên thanh điều hướng khi cuộn. Đã sửa padding.
+
+**Emulator (API 35, AVD chạy `-read-only` ở cổng 5590):** Home, Demo Roll, chi tiết + recipe và import một JPEG đều chạy. File kéo về từ MediaStore khác file gốc đúng 4 byte trong APP1 (độ dài APP1 và con trỏ IFD0); mọi byte sau APP1 giống hệt; GPS đúng vị trí trong walk demo. Máy Mac lúc đó quá tải (load trên 100), nên System UI của emulator treo nhiều lần. Đó là lỗi của máy ảo, không phải của app.
+
+**Chưa chạy trên thiết bị:** Share sheet (chỉ mở được, không gửi), "Copy as text", Photo Walk thật (bấm ghi GPS), chọn SD card qua SAF, Ricoh Wi-Fi, mua hàng. Mọi thứ cần máy ảnh thật được liệt kê ở mục bên trên.
+
+## Font
+
+Montserrat (Regular / Medium / SemiBold / Bold) nằm trong `app/src/main/res/font/`, dùng cho chữ của giao diện và cho ảnh render ra (khung, recap, thẻ recipe). Số liệu EXIF vẫn dùng monospace. Montserrat dùng giấy phép SIL Open Font License 1.1: trước khi phát hành cần thêm file `OFL.txt` vào màn hình giấy phép của app.

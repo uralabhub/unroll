@@ -9,6 +9,9 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import androidx.core.content.res.ResourcesCompat
+import app.unroll.R
+import app.unroll.UnrollApplication
 import app.unroll.core.FilmRecipe
 import app.unroll.core.FrameGeometry
 import app.unroll.core.FrameOptions
@@ -23,8 +26,21 @@ import kotlin.math.ceil
 enum class Align { LEFT, CENTER, RIGHT }
 
 object Text {
-    private fun face(weight: Int, mono: Boolean) =
-        Typeface.create(if (mono) Typeface.MONOSPACE else Typeface.DEFAULT, weight, false)
+    /** Montserrat (bundled) for words, monospace for data — same as the UI. */
+    private val montserrat: Typeface by lazy {
+        runCatching { ResourcesCompat.getFont(UnrollApplication.context, R.font.montserrat_regular) }.getOrNull() ?: Typeface.DEFAULT
+    }
+    private val cache = HashMap<Pair<Int, Boolean>, Typeface>()
+
+    private fun face(weight: Int, mono: Boolean): Typeface = synchronized(cache) {
+        cache.getOrPut(weight to mono) {
+            if (mono) Typeface.create(Typeface.MONOSPACE, weight, false)
+            else {
+                val res = when { weight >= 700 -> R.font.montserrat_bold; weight >= 600 -> R.font.montserrat_semibold; weight >= 500 -> R.font.montserrat_medium; else -> R.font.montserrat_regular }
+                runCatching { ResourcesCompat.getFont(UnrollApplication.context, res) }.getOrNull() ?: Typeface.create(montserrat, weight, false)
+            }
+        }
+    }
 
     /** Draws single-line text vertically centred on [y]. */
     fun draw(c: Canvas, s: String, x: Float, y: Float, size: Float, weight: Int, color: Int, align: Align, tracking: Float = 0f, mono: Boolean = false) {
@@ -85,7 +101,8 @@ object FrameRenderer {
                 Text.draw(c, line3, cx, center + 5.0f * u, 1.55f * u, REG, sub, Align.CENTER)
             }
             FrameStyle.CAPTION -> {
-                val y = belowTop + belowH / 2
+                // Centre of the 9u caption band right under the photo (not of all the space a tall ratio adds).
+                val y = belowTop + minOf(belowH / 2, 4.5f * u)
                 Text.draw(c, camera, photo.left + 3 * u, y - 1.3f * u, 2.2f * u, BOLD, ink, Align.LEFT)
                 Text.draw(c, listOfNotNull(lens, place).joinToString(" · "), photo.left + 3 * u, y + 1.7f * u, 1.4f * u, REG, sub, Align.LEFT)
                 Text.draw(c, exposure, photo.right - 3 * u, y - 1.3f * u, 1.9f * u, SEMI, ink, Align.RIGHT)
