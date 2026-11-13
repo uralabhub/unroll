@@ -142,8 +142,8 @@ private fun ShotInfoPanel(app: AppState, shot: Shot, loadingFrame: Boolean, onFr
     var showRecipe by remember { mutableStateOf(false) }
     var showExif by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.92f)).heightIn(max = 560.dp)
-            .verticalScroll(rememberScrollState()).navigationBarsPadding(),
+        Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.92f)).navigationBarsPadding()
+            .heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
     ) {
         Hairline()
         Column(Modifier.padding(horizontal = Mono.gutter).padding(top = 16.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {

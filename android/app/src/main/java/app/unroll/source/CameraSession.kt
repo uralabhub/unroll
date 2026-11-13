@@ -133,7 +133,10 @@ class CameraSession(
         pending.addFirst(shot)
     }
 
-    suspend fun loadMeta(shot: Shot) {
+    /** Reads and parses the header once. Always runs on the main thread (it updates UI state). */
+    suspend fun loadMeta(shot: Shot) = withContext(Dispatchers.Main.immediate) { loadMetaOnMain(shot) }
+
+    private suspend fun loadMetaOnMain(shot: Shot) {
         if (shot.meta != null) return
         lock.withLock { if (!inFlight.add(shot.id)) return }
         try {
