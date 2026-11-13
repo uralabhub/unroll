@@ -25,7 +25,7 @@ Xếp theo mức độ người dùng phàn nàn (nguồn: review App Store, DPR
 | 9 | Mất công thức màu (film recipe) | **Giải mã Fujifilm recipe** đầy đủ: film sim, grain, CCE/CCB, WB và shift, DR, H/S, color, NR, clarity, mono WC/MG. Cũng đọc Nikon Picture Control và Sony Creative Style. Có **Recipe Book** tự gom công thức qua mỗi lần import và chia sẻ dạng thẻ. |
 | 10 | Import trùng lặp | **Import Ledger** nhớ những ảnh đã import, nên nút "Import new" không bao giờ tạo bản trùng. |
 | 11 | Phải nhảy qua 2–3 app (lấy ảnh → app khung EXIF → app recipe) | **Frame Studio** (6 kiểu khung, 4 tỉ lệ, xuất full-res) và **Recap card** 9:16 có bản đồ lộ trình, nằm ngay trong luồng import. |
-| 12 | Vẫn chụp tiếp khi đang cắm cáp | **Import trực tiếp:** ảnh mới chụp lúc đang cắm cáp tự vào Photos (khi bật auto-import). |
+| 12 | Vẫn chụp tiếp khi đang cắm cáp | **Import trực tiếp:** khi bật auto-import, cắm vào là ảnh có sẵn trên thẻ tự vào Photos, ảnh chụp thêm lúc đang cắm cũng vậy. Chuyển app hoặc khoá máy thì import tạm dừng rồi tự chạy tiếp. |
 
 ## 2. Đối thủ và khoảng trống thị trường
 
@@ -70,8 +70,8 @@ Mỗi bài đăng của người dùng là một quảng cáo miễn phí cho ap
 ## 5. Đã kiểm chứng và chưa kiểm chứng
 
 **Đã chạy thật:**
-- 25/25 unit test pass: parser Fuji JPEG + recipe, RAF, TIFF-RAW, XMP rating, header bị cắt cụt, ghép RAW + phát hiện ảnh khoá trên thẻ, renderer khung, QR clock-sync.
-- **Đối chiếu spec (11/2026):** code đọc file và kết nối được so với bảng tag ExifTool (FujiFilm, Sony, Nikon, Olympus, PanasonicRaw, EXIF), lclevy/canon_cr3, header ImageCaptureCore trong iOS SDK và mã nguồn cộng đồng của API Ricoh GR III. 15 test trong `SpecConformanceTests` dựng file đúng theo các layout đó (CR2, RW2, ORF, CR3, HEIF, Nikon Picture Control v3, Sony không header, Fuji WC/MG/grain/WB). Đây là file tự dựng theo spec, chưa phải file thật từ máy.
+- 26/26 unit test pass: parser Fuji JPEG + recipe, RAF, TIFF-RAW, XMP rating, header bị cắt cụt, ghép RAW + phát hiện ảnh khoá trên thẻ, renderer khung, QR clock-sync.
+- **Đối chiếu spec (11/2026):** code đọc file và kết nối được so với bảng tag ExifTool (FujiFilm, Sony, Nikon, Olympus, PanasonicRaw, EXIF), lclevy/canon_cr3, header ImageCaptureCore trong iOS SDK và mã nguồn cộng đồng của API Ricoh GR III. 16 test trong `SpecConformanceTests` dựng file đúng theo các layout đó (CR2, RW2, ORF, CR3, HEIF, Nikon Picture Control v3, Sony không header, Fuji WC/MG/grain/WB/D-Range Priority). Đây là file tự dựng theo spec, chưa phải file thật từ máy.
 - Trên Simulator, end-to-end với Demo Roll: grid, bộ lọc, chi tiết + recipe, Frame Studio, import vào Photos (cả ảnh khoá), paywall theo quota, recap card có bản đồ.
 
 **Cần thử trên iPhone thật + máy ảnh thật** (Simulator không có USB):
@@ -79,7 +79,9 @@ Mỗi bài đăng của người dùng là một quảng cáo miễn phí cho ap
 - Việc iOS có nhận đầu đọc thẻ SD là "camera device" hay không. Nếu không, dùng nút "SD Card" (Files) — đường này đã chạy.
 - `ICCameraItem.isLocked`: Apple ghi là *thẻ nhớ bị khoá*, không phải cờ Protect của từng file. App bỏ qua khi mọi file đều báo khoá; còn khoá từng file qua USB có được báo hay không thì phải thử máy thật.
 - Hãng nào ghi sao vào EXIF 0x4746 hay XMP (Canon, Nikon, OM, Panasonic, Pentax không có tag sao trong MakerNote), và ARW đời mới có header "SONY DSC" hay không.
-- Fuji D-Range Priority (0x1443–0x1445) chưa được đọc.
+- Fuji D-Range Priority (0x1443–0x1445) đã đọc theo bảng ExifTool, nhưng giá trị khi *tắt* DRP không được ghi trong tài liệu: app coi mọi giá trị ngoài bảng là tắt. Cần một file thật có DRP bật/tắt để chắc chắn.
+- Cắm USB khi bật auto-import: app import luôn ảnh có sẵn trên thẻ ngay khi máy ảnh báo danh mục đầy đủ (`deviceDidBecomeReady`), cộng với ảnh chụp mới lúc đang cắm.
+- App xuống nền giữa lúc import: app xin thêm thời gian chạy nền của iOS và giữ màn hình sáng trong lúc import. Nếu iOS vẫn dừng app, ảnh đang chép được đưa lại vào hàng đợi (không báo lỗi) và tiếp tục khi mở lại app. Việc PTP có bị ngắt khi app xuống nền hay không thì phải thử máy thật.
 - API Wi-Fi của Ricoh GR (do cộng đồng giải mã, chưa thử trên GR IV).
 - StoreKit: chạy từ Xcode (scheme đã gắn `Unroll.storekit`) để test mua hàng.
 
@@ -89,4 +91,4 @@ Mỗi bài đăng của người dùng là một quảng cáo miễn phí cho ap
 2. **TestFlight 200 người:** đăng r/fujifilm, r/ricohGR, r/SonyAlpha, Threads, TikTok.
 3. **Wi-Fi PTP/IP** cho Sony và Canon (cổng 15740, đọc ngược `GetObjectHandles` + `GetPartialObject`), kết nối Wi-Fi bằng QR + `NEHotspotConfiguration`.
 4. **Gửi recipe ngược vào máy Fuji** qua USB (giống Fuji X Weekly v1.15).
-5. **Android** (Kotlin, `MtpDevice`): dùng lại cùng thuật toán parser.
+5. **Android** (Kotlin, `MtpDevice`): đang làm trong thư mục `android/`, dùng lại cùng thuật toán parser.

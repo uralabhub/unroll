@@ -53,6 +53,7 @@ final class CameraSession: Identifiable {
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var pending: [Shot] = []
     @ObservationIgnored private var inFlight = Set<String>()
+    @ObservationIgnored private var waiters: [String: [CheckedContinuation<Void, Never>]] = [:]
     @ObservationIgnored private var readFailures: [String: Int] = [:]
     @ObservationIgnored private let metaCache: MetaCache
     @ObservationIgnored private let ledger: ImportLedger
@@ -149,9 +150,19 @@ final class CameraSession: Identifiable {
         pending.insert(shot, at: 0)
     }
 
+    /// Reads the shot's header. If the background scan is already reading it, waits for that read
+    /// instead of returning early — callers (auto-import of ★/🔒) rely on `meta` being set afterwards.
     func loadMeta(_ shot: Shot) async {
-        guard shot.meta == nil, inFlight.insert(shot.id).inserted else { return }
-        defer { inFlight.remove(shot.id) }
+        guard shot.meta == nil else { return }
+        if inFlight.contains(shot.id) {
+            await withCheckedContinuation { c in waiters[shot.id, default: []].append(c) }
+            return
+        }
+        inFlight.insert(shot.id)
+        defer {
+            inFlight.remove(shot.id)
+            for c in waiters.removeValue(forKey: shot.id) ?? [] { c.resume() }
+        }
         // RAW twin carries the same EXIF; the JPEG header is cheaper to parse.
         guard let data = try? await shot.primary.read(offset: 0, length: HeaderParser.headerLength) else {
             readFailures[shot.id, default: 0] += 1

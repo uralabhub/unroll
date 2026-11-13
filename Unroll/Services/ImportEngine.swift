@@ -78,6 +78,9 @@ final class ImportEngine {
     var lastFinishedRun: (count: Int, seconds: Double, geotagged: Int)?
 
     @ObservationIgnored private var worker: Task<Void, Never>?
+    @ObservationIgnored private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    /// iOS took our background time away mid-run. The queue is kept and resumes on return.
+    private(set) var isPaused = false
     @ObservationIgnored unowned let app: AppState
 
     init(app: AppState) { self.app = app }
@@ -124,36 +127,82 @@ final class ImportEngine {
         for s in queue { s.importState = .none }
         totalInRun -= queue.count
         queue.removeAll()
+        isPaused = false
+    }
+
+    /// Called when the app comes back to the foreground.
+    func resumeIfPaused() {
+        guard isPaused else { return }
+        isPaused = false
+        startIfNeeded()
+    }
+
+    /// Asks iOS for extra time so a run keeps going when the user switches apps or locks the phone.
+    /// When that time runs out the run pauses cleanly (current shot goes back to the queue).
+    private func beginBackgroundTime() {
+        guard backgroundTask == .invalid else { return }
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Unroll import") { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.isPaused = true
+                self.endBackgroundTime()
+            }
+        }
+    }
+
+    private func endBackgroundTime() {
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
     }
 
     private func startIfNeeded() {
-        guard worker == nil else { return }
+        guard worker == nil, !isPaused else { return }
+        beginBackgroundTime()
+        // Keep the screen awake during a run: auto-lock is the usual way an import gets cut off.
+        UIApplication.shared.isIdleTimerDisabled = true
         worker = Task { [weak self] in
             guard let self else { return }
             guard await PhotoLibrary.authorize() else {
                 self.lastError = "Allow Photos access in Settings to import."
                 self.cancelAll()
-                self.worker = nil
+                self.finishWorker()
                 return
             }
-            while !self.queue.isEmpty {
+            while !self.queue.isEmpty && !self.isPaused {
                 let shot = self.queue.removeFirst()
                 self.current = shot
-                await self.importOne(shot)
-                self.completedInRun += 1
+                if await self.importOne(shot) {
+                    self.completedInRun += 1
+                } else {
+                    // Interrupted by backgrounding: retry this shot first when we're back.
+                    shot.importState = .queued
+                    self.queue.insert(shot, at: 0)
+                }
             }
             self.current = nil
+            if self.isPaused {
+                self.finishWorker()
+                return
+            }
             if let s = self.runStarted {
                 self.lastFinishedRun = (self.completedInRun, Date().timeIntervalSince(s), self.geotaggedInRun)
             }
-            self.worker = nil
+            self.finishWorker()
             if self.app.settings.autoEject, let session = self.app.session, session.kind == .usb {
                 self.app.usb.eject(session)
             }
         }
     }
 
-    private func importOne(_ shot: Shot) async {
+    private func finishWorker() {
+        worker = nil
+        UIApplication.shared.isIdleTimerDisabled = false
+        endBackgroundTime()
+    }
+
+    /// Returns false when the shot should be retried (the app lost its background time mid-transfer).
+    private func importOne(_ shot: Shot) async -> Bool {
         shot.importState = .importing(0)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("import-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -206,9 +255,16 @@ final class ImportEngine {
             if let r = meta.recipe { app.recipes.record(r, camera: meta.cameraName, date: date) }
             shot.wasImported = true
             shot.importState = .done
+            return true
         } catch {
+            // A camera transfer that dies because iOS suspended us isn't the file's fault.
+            if isPaused || UIApplication.shared.applicationState == .background {
+                isPaused = true
+                return false
+            }
             shot.importState = .failed(error.localizedDescription)
             lastError = "\(shot.primary.name): \(error.localizedDescription)"
+            return true
         }
     }
 }

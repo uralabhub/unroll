@@ -97,6 +97,7 @@ struct FilmRecipe: Codable, Hashable {
     var wbShiftRed: Int?
     var wbShiftBlue: Int?
     var dynamicRange: String?         // DR100 / DR200 / DR400 / DR-Auto
+    var dRangePriority: String?       // Auto / Weak / Strong — when on, it replaces DR, Highlight, Shadow
     var highlight: Double?
     var shadow: Double?
     var color: String?
@@ -126,9 +127,14 @@ struct FilmRecipe: Codable, Hashable {
         if let v = colorChrome { r.append(("Color Chrome Effect", v)) }
         if let v = colorChromeBlue { r.append(("Color Chrome FX Blue", v)) }
         if let v = wbText { r.append(("White Balance", v)) }
-        if let v = dynamicRange { r.append(("Dynamic Range", v)) }
-        if let v = highlight { r.append(("Highlight", FilmRecipe.signed(v))) }
-        if let v = shadow { r.append(("Shadow", FilmRecipe.signed(v))) }
+        if let v = dRangePriority {
+            // The camera locks DR and tone curve while D-Range Priority is on, so recipes list it instead.
+            r.append(("D-Range Priority", v))
+        } else {
+            if let v = dynamicRange { r.append(("Dynamic Range", v)) }
+            if let v = highlight { r.append(("Highlight", FilmRecipe.signed(v))) }
+            if let v = shadow { r.append(("Shadow", FilmRecipe.signed(v))) }
+        }
         if let v = color, !isMonochrome { r.append(("Color", v)) }
         if isMonochrome, let wc = monoWarmCool { r.append(("Monochromatic Color", "WC \(FilmRecipe.signed(wc)) MG \(FilmRecipe.signed(monoMagentaGreen ?? 0))")) }
         if let v = sharpness { r.append(("Sharpness", v)) }
@@ -143,6 +149,7 @@ struct FilmRecipe: Codable, Hashable {
     /// One-line summary for badges: "Classic Chrome · DR200 · H-1 S+1".
     var shortLine: String {
         var parts = [filmSimulation]
+        if let p = dRangePriority { parts.append("DRP \(p)"); return parts.joined(separator: " · ") }
         if let dr = dynamicRange { parts.append(dr) }
         var tone = ""
         if let h = highlight { tone += "H\(FilmRecipe.signed(h))" }

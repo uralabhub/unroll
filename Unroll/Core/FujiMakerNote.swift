@@ -24,6 +24,9 @@ enum FujiMakerNote {
         static let dynamicRangeSetting: UInt16 = 0x1402
         static let developmentDR: UInt16 = 0x1403
         static let rating: UInt16 = 0x1431
+        static let dRangePriority: UInt16 = 0x1443       // 0 = Auto, 1 = Fixed
+        static let dRangePriorityAuto: UInt16 = 0x1444   // 1 = Weak, 2 = Strong, 3 = Plus
+        static let dRangePriorityFixed: UInt16 = 0x1445  // 1 = Weak, 2 = Strong
     }
 
     static let filmModes: [Int: String] = [
@@ -75,6 +78,17 @@ enum FujiMakerNote {
         case 16: return ("Weak", "Small")
         case 48: return ("Strong", "Small")
         default: return effect(v).map { ($0, nil) }
+        }
+    }
+
+    /// Recipes are shared the way the menu reads: AUTO / STRONG / WEAK. In Auto the camera also
+    /// records the level it picked (0x1444), but the recipe setting is still "Auto".
+    static func dRangePriority(mode: Int?, auto: Int?, fixed: Int?) -> String? {
+        switch mode {
+        case 0: return [1, 2, 3].contains(auto ?? 0) ? "Auto" : nil
+        case 1:
+            switch fixed { case 1: return "Weak"; case 2: return "Strong"; default: return nil }
+        default: return nil
         }
     }
 
@@ -133,6 +147,12 @@ enum FujiMakerNote {
         } else if let dr = t.int(e[tag: Tag.developmentDR]), dr >= 100 {
             r.dynamicRange = "DR\(dr)"
         }
+
+        // D-Range Priority (ExifTool 0x1443–0x1445). Only reported when the matching sub-tag holds a
+        // documented level; anything else (absent, 0) is treated as off rather than guessed.
+        r.dRangePriority = dRangePriority(mode: t.int(e[tag: Tag.dRangePriority]),
+                                          auto: t.int(e[tag: Tag.dRangePriorityAuto]),
+                                          fixed: t.int(e[tag: Tag.dRangePriorityFixed]))
 
         // Tones: stored as -16 × value, half steps allowed (-8 = +0.5).
         if let h = t.int(e[tag: Tag.highlightTone]).map({ Int32(truncatingIfNeeded: $0) }) { r.highlight = -Double(h) / 16 }

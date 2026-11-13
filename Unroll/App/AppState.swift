@@ -25,6 +25,11 @@ final class AppState {
             CameraSession(kind: .usb, name: name, metaCache: self.metaCache, ledger: self.ledger)
         }
         usb.onSession = { [unowned self] session, _ in self.activate(session) }
+        // Plugging in with auto-import on imports what's already on the card, like opening a card folder.
+        usb.onCatalogReady = { [unowned self] session in
+            guard self.session === session else { return }
+            self.autoImport(session.shots, live: false)
+        }
         usb.start()
     }
 
@@ -32,7 +37,10 @@ final class AppState {
 
     private func activate(_ s: CameraSession) {
         session?.close()
-        s.onNewShots = { [weak self] new in self?.autoImport(new, live: true) }
+        s.onNewShots = { [weak self, weak s] new in
+            guard let self, self.session === s else { return }
+            self.autoImport(new, live: true)
+        }
         let previousClose = s.onClose
         s.onClose = { [weak self, weak s] in
             previousClose?()
@@ -94,11 +102,14 @@ final class AppState {
     func autoImport(_ shots: [Shot], live: Bool) {
         guard settings.autoImport != .off else { return }
         if !pro.isPro && settings.autoImport == .keepers { return }   // Pro feature
+        let source = session
         Task {
             var picked: [Shot] = []
             for s in shots where !s.wasImported && !s.isVideo {
                 if settings.autoImport == .keepers {
-                    if s.meta == nil { await session?.loadMeta(s) }
+                    // Locked shots are keepers without a header read; stars need the header.
+                    if !s.isLocked, s.meta == nil { await source?.loadMeta(s) }
+                    guard source === session else { return }   // unplugged / switched meanwhile
                     if s.isKeeper { picked.append(s) }
                 } else {
                     picked.append(s)

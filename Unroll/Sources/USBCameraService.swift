@@ -19,6 +19,8 @@ final class USBCameraService: NSObject {
     /// Called when a camera session opens; AppState turns it into the active session.
     @ObservationIgnored var onSession: ((CameraSession, ICCameraDevice) -> Void)?
     @ObservationIgnored var makeSession: ((String) -> CameraSession)?
+    /// Called once the camera has reported its full catalog — the moment to auto-import what's on the card.
+    @ObservationIgnored var onCatalogReady: ((CameraSession) -> Void)?
 
     @ObservationIgnored private let browser = ICDeviceBrowser()
     @ObservationIgnored private var sessions: [ObjectIdentifier: CameraSession] = [:]
@@ -187,8 +189,10 @@ extension USBCameraService: ICCameraDeviceDelegate {
     nonisolated func deviceDidBecomeReady(withCompleteContentCatalog device: ICCameraDevice) {
         Task { @MainActor in
             guard let s = self.sessions[ObjectIdentifier(device)] else { return }
+            let firstTime = s.status != .ready
             s.status = .ready            // before rebuild: the header scan starts only when ready
             self.rebuild(device)
+            if firstTime { self.onCatalogReady?(s) }
         }
     }
 

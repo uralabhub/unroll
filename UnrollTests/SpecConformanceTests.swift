@@ -54,6 +54,20 @@ final class SpecConformanceTests: XCTestCase {
         XCTAssertNil(fujiRecipe([.short(0x1003, 0x000)]), "no FilmMode tag → no recipe, not Provia")
     }
 
+    func testFujiDRangePriority() throws {
+        // ExifTool 0x1443 (0 Auto / 1 Fixed), 0x1444 (1 Weak / 2 Strong / 3 Plus), 0x1445 (1 Weak / 2 Strong).
+        let base: [E] = [.short(0x1401, 0x600), .short(0x1402, 1), .short(0x1403, 200), .short(0x1041, 16)]
+        let fixed = try XCTUnwrap(fujiRecipe(base + [.short(0x1443, 1), .short(0x1445, 2)]))
+        XCTAssertEqual(fixed.dRangePriority, "Strong")
+        XCTAssertFalse(fixed.rows.contains { $0.0 == "Dynamic Range" || $0.0 == "Highlight" }, "DRP replaces DR and tones")
+        XCTAssertEqual(fujiRecipe(base + [.short(0x1443, 1), .short(0x1445, 1)])?.dRangePriority, "Weak")
+        XCTAssertEqual(fujiRecipe(base + [.short(0x1443, 0), .short(0x1444, 3)])?.dRangePriority, "Auto")
+        let off = try XCTUnwrap(fujiRecipe(base + [.short(0x1443, 0), .short(0x1444, 0)]))
+        XCTAssertNil(off.dRangePriority, "undocumented level → off, not guessed")
+        XCTAssertEqual(off.dynamicRange, "DR200")
+        XCTAssertNil(fujiRecipe(base)?.dRangePriority)
+    }
+
     func testFujiHeaderOnOtherMakeIsIgnored() {
         // ExifTool: the "FUJIFILM" maker note header is also used by some Leica/Minolta/Sharp models.
         XCTAssertNil(fujiRecipe(make: "LEICA", [.short(0x1401, 0x600)]))

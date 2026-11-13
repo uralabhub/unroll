@@ -157,7 +157,7 @@ struct ClockSyncView: View {
         .background(Mono.bg)
         .navigationTitle("Clock sync")
         .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = app.importer.isRunning }
     }
 
     private func step(_ n: Int, _ text: String) -> some View {
@@ -368,8 +368,10 @@ struct ImportHUD: View {
             HStack(spacing: 12) {
                 if imp.isRunning {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)").font(.subheadline.weight(.semibold))
-                        Text(imp.throughputMBps.map { String(format: "%.0f MB/s", $0) } ?? (imp.current?.primary.name ?? ""))
+                        Text(imp.isPaused ? "Paused · \(imp.completedInRun) of \(imp.totalInRun)"
+                                          : "Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)")
+                            .font(.subheadline.weight(.semibold))
+                        Text(imp.isPaused ? "Resumes when Unroll is open" : imp.throughputMBps.map { String(format: "%.0f MB/s", $0) } ?? (imp.current?.primary.name ?? ""))
                             .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                     }
                     Spacer()
