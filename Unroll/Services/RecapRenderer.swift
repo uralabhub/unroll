@@ -110,7 +110,7 @@ enum RecapRenderer {
             // Looks chips
             var x = side
             for look in r.looks.prefix(4) {
-                let font = UIFont.systemFont(ofSize: 26, weight: .medium)
+                let font = Montserrat.uiFont(26, .medium)
                 let w = (look as NSString).size(withAttributes: [.font: font]).width + 40
                 if x + w > S.width - side { break }
                 let chip = CGRect(x: x, y: y, width: w, height: 52)

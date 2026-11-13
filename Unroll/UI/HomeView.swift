@@ -22,10 +22,10 @@ struct HomeView: View {
                 blockTitle("Or import from")
                 LazyVGrid(columns: pair, spacing: 10) {
                     Button { pickingFolder = true } label: {
-                        Tile(symbol: "sdcard", title: "SD card", caption: "Card reader or Files")
+                        Tile(symbol: "sdcard", title: "SD card", caption: "Reader or Files")
                     }
                     Button { Task { await app.connectRicoh() } } label: {
-                        Tile(symbol: "wifi", title: "Ricoh GR", caption: "Over the camera’s Wi-Fi", tag: "Beta")
+                        Tile(symbol: "wifi", title: "Ricoh GR", caption: "Camera Wi-Fi", tag: "Beta")
                     }
                 }
 
@@ -35,18 +35,18 @@ struct HomeView: View {
                 blockTitle("Tools")
                 LazyVGrid(columns: pair, spacing: 10) {
                     NavigationLink { RecipesView() } label: {
-                        Tile(symbol: "camera.filters", title: "Recipes", caption: "Saved from your shots",
+                        Tile(symbol: "camera.filters", title: "Recipes", caption: "From your shots",
                              count: app.recipes.items.count)
                     }
                     NavigationLink { ClockSyncView() } label: {
-                        Tile(symbol: "clock", title: "Clock sync", caption: "Fix camera time drift",
+                        Tile(symbol: "clock", title: "Clock sync", caption: "Fix time drift",
                              count: app.settings.clockOffsets.count)
                     }
                     PhotosPicker(selection: $framePick, matching: .images, preferredItemEncoding: .current) {
-                        Tile(symbol: "photo.artframe", title: "Frame", caption: "EXIF border, any photo")
+                        Tile(symbol: "photo.artframe", title: "Frame", caption: "EXIF border")
                     }
                     NavigationLink { WalksView() } label: {
-                        Tile(symbol: "map", title: "Walks", caption: "Routes and recap cards",
+                        Tile(symbol: "map", title: "Walks", caption: "Routes, recaps",
                              count: app.location.walks.count)
                     }
                 }
@@ -92,7 +92,7 @@ struct HomeView: View {
                     .font(Mono.caps(11)).tracking(1.2)
                     .foregroundStyle(Mono.dim)
                 Text("Unroll")
-                    .font(.system(size: 40, weight: .bold))
+                    .font(.sans(size: 40, weight: .bold))
                     .tracking(-1.2)
             }
             Spacer()
@@ -164,9 +164,9 @@ struct Tile: View {
                 }
             }
             Spacer(minLength: 18)
-            Text(title).font(.body.weight(.semibold))
+            Text(title).font(.sans(.body, .semibold))
             if let caption {
-                Text(caption).font(.footnote).foregroundStyle(Mono.dim).lineLimit(1)
+                Text(caption).font(.sans(.footnote)).foregroundStyle(Mono.dim).lineLimit(1)
                     .padding(.top, 1)
             }
         }
@@ -202,14 +202,14 @@ struct ConnectHero: View {
                 }
 
                 Text("Plug in\nyour camera.")
-                    .font(.system(size: 36, weight: .semibold))
+                    .font(.sans(size: 36, weight: .semibold))
                     .tracking(-1)
                     .lineSpacing(-2)
                     .foregroundStyle(.white)
                     .padding(.top, 22)
 
                 Text("Newest shots load first. RAW, star ratings and locked frames come across as they are.")
-                    .font(.subheadline)
+                    .font(.sans(.subheadline))
                     .foregroundStyle(.white.opacity(0.55))
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
@@ -270,7 +270,7 @@ private struct Sprockets: View {
 private struct HeroButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold))
+            .font(.sans(.subheadline, .semibold))
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity, minHeight: 48)
             .background(.white.opacity(configuration.isPressed ? 0.8 : 1),
@@ -306,7 +306,7 @@ struct PhotoWalkCard: View {
                             .font(Mono.data(.caption)).foregroundStyle(Mono.dim)
                     } else {
                         Text("Log your route while you shoot. Imports get locations on their own.")
-                            .font(.footnote).foregroundStyle(Mono.dim)
+                            .font(.sans(.footnote)).foregroundStyle(Mono.dim)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -353,12 +353,12 @@ struct QuotaCard: View {
                 }
                 HStack {
                     Text("Unlimited imports, auto-import picks, every frame, no watermark.")
-                        .font(.footnote).foregroundStyle(Mono.dim)
+                        .font(.sans(.footnote)).foregroundStyle(Mono.dim)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 12)
                     Text("Get Pro")
-                        .font(.footnote.weight(.semibold))
+                        .font(.sans(.footnote, .semibold))
                         .foregroundStyle(Mono.bg)
                         .padding(.horizontal, 14).frame(height: 32)
                         .background(Mono.ink, in: Capsule())

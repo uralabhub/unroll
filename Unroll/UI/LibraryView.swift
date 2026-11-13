@@ -123,7 +123,7 @@ struct LibraryView: View {
             ForEach(days, id: \.0) { day, shots in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(dayTitle(day)).font(.headline)
+                        Text(dayTitle(day)).font(.sans(.headline, .semibold))
                         Text("\(shots.count)").font(Mono.data(.footnote)).foregroundStyle(Mono.dim)
                         Spacer()
                         if selecting {
@@ -132,7 +132,7 @@ struct LibraryView: View {
                                 if allIn { shots.forEach { selection.remove($0.id) } } else { shots.forEach { selection.insert($0.id) } }
                                 Haptics.tap()
                             }
-                            .font(.footnote.weight(.medium))
+                            .font(.sans(.footnote, .medium))
                             .foregroundStyle(Mono.ink)
                         }
                     }
@@ -214,7 +214,7 @@ struct LibraryView: View {
                 if selecting {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(selected.isEmpty ? "Tap to select" : "\(selected.count) selected").font(.subheadline.weight(.medium))
+                            Text(selected.isEmpty ? "Tap to select" : "\(selected.count) selected").font(.sans(.subheadline, .medium))
                             if !selected.isEmpty {
                                 Text(ByteCountFormatter.string(fromByteCount: selected.reduce(0) { $0 + $1.totalBytes }, countStyle: .file))
                                     .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)

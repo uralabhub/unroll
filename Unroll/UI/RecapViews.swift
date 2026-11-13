@@ -31,7 +31,7 @@ struct RecapBuilderView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         CapsLabel("Title")
                         TextField("Title", text: $title)
-                            .font(.title3.weight(.semibold))
+                            .font(.sans(.title3, .semibold))
                             .padding(.vertical, 8)
                             .overlay(alignment: .bottom) { Hairline() }
                             .onSubmit { Task { await render() } }
@@ -164,7 +164,7 @@ struct WalksView: View {
                         .allowsHitTesting(false)
                     }
                     HStack {
-                        Text(w.start.formatted(date: .abbreviated, time: .shortened)).font(.body.weight(.medium))
+                        Text(w.start.formatted(date: .abbreviated, time: .shortened)).font(.sans(.body, .medium))
                         if w.isDemo { CapsLabel("Demo") }
                         Spacer()
                         Text(w.end == nil ? "Recording" : String(format: "%.2f km", w.distanceMeters / 1000))

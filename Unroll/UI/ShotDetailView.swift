@@ -95,8 +95,8 @@ struct ShotInfoPanel: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(m?.cameraName ?? "Unknown camera").font(.headline)
-                    if let lens = m?.lens { Text(lens).font(.footnote).foregroundStyle(Mono.dim) }
+                    Text(m?.cameraName ?? "Unknown camera").font(.sans(.headline, .semibold))
+                    if let lens = m?.lens { Text(lens).font(.sans(.footnote)).foregroundStyle(Mono.dim) }
                 }
                 Spacer()
                 HStack(spacing: 8) {
@@ -190,7 +190,7 @@ struct RecipeSummary: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         CapsLabel("Recipe")
-                        Text(recipe.filmSimulation).font(.subheadline.weight(.semibold))
+                        Text(recipe.filmSimulation).font(.sans(.subheadline, .semibold))
                     }
                     Spacer()
                     Text(expanded ? "Hide" : "\(recipe.rows.count - 1) settings")

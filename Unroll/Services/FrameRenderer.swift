@@ -157,7 +157,7 @@ enum FrameRenderer {
     /// Draws single-line text vertically centred on `p.y`.
     static func draw(_ s: String, at p: CGPoint, size: CGFloat, weight: UIFont.Weight, color: UIColor, align: Align, kern: CGFloat = 0) {
         guard !s.isEmpty else { return }
-        let font = UIFont.systemFont(ofSize: size, weight: weight)
+        let font = Montserrat.uiFont(size, weight)
         let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .kern: kern]
         let str = NSAttributedString(string: s, attributes: attrs)
         let sz = str.size()

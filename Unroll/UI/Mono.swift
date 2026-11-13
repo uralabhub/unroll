@@ -25,6 +25,50 @@ enum Mono {
     }
 }
 
+/// Montserrat (bundled, UIAppFonts) for words; data stays monospaced. Sizes follow the iOS text
+/// styles and scale with Dynamic Type.
+enum Montserrat {
+    static func name(_ w: Font.Weight) -> String {
+        if w == .bold || w == .heavy || w == .black { return "Montserrat-Bold" }
+        if w == .semibold { return "Montserrat-SemiBold" }
+        if w == .medium { return "Montserrat-Medium" }
+        return "Montserrat-Regular"
+    }
+    static func name(_ w: UIFont.Weight) -> String {
+        if w >= .bold { return "Montserrat-Bold" }
+        if w >= .semibold { return "Montserrat-SemiBold" }
+        if w >= .medium { return "Montserrat-Medium" }
+        return "Montserrat-Regular"
+    }
+    static func size(_ s: Font.TextStyle) -> CGFloat {
+        switch s {
+        case .largeTitle: return 34
+        case .title: return 28
+        case .title2: return 22
+        case .title3: return 20
+        case .headline, .body: return 17
+        case .callout: return 16
+        case .subheadline: return 15
+        case .footnote: return 13
+        case .caption: return 12
+        case .caption2: return 11
+        @unknown default: return 17
+        }
+    }
+    static func uiFont(_ size: CGFloat, _ w: UIFont.Weight) -> UIFont {
+        UIFont(name: name(w), size: size) ?? .systemFont(ofSize: size, weight: w)
+    }
+}
+
+extension Font {
+    static func sans(_ style: Font.TextStyle, _ weight: Font.Weight = .regular) -> Font {
+        .custom(Montserrat.name(weight), size: Montserrat.size(style), relativeTo: style)
+    }
+    static func sans(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom(Montserrat.name(weight), fixedSize: size)
+    }
+}
+
 /// Kept so older call sites compile; everything resolves to the mono palette.
 enum Theme {
     static let accent = Mono.ink
@@ -101,9 +145,9 @@ struct MonoRow<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.body).foregroundStyle(Mono.ink)
+                Text(title).font(.sans(.body)).foregroundStyle(Mono.ink)
                 if let detail {
-                    Text(detail).font(.footnote).foregroundStyle(Mono.dim).lineLimit(2)
+                    Text(detail).font(.sans(.footnote)).foregroundStyle(Mono.dim).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -111,7 +155,7 @@ struct MonoRow<Trailing: View>: View {
             if let value { Text(value).font(Mono.data(.subheadline)).foregroundStyle(Mono.dim) }
             trailing
             if chevron {
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Mono.faint)
+                Image(systemName: "chevron.right").font(.sans(.footnote, .semibold)).foregroundStyle(Mono.faint)
             }
         }
         .padding(.horizontal, Mono.gutter)
@@ -148,7 +192,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.semibold))
+            .font(.sans(.body, .semibold))
             .frame(maxWidth: .infinity, minHeight: 50)
             .foregroundStyle(enabled ? Mono.bg : Mono.ink.opacity(0.45))
             .background(Mono.ink.opacity(enabled ? (configuration.isPressed ? 0.75 : 1) : 0.1),
@@ -161,7 +205,7 @@ struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.medium))
+            .font(.sans(.body, .medium))
             .frame(maxWidth: .infinity, minHeight: 50)
             .foregroundStyle(Mono.ink.opacity(enabled ? 1 : 0.3))
             .background(Mono.ink.opacity(configuration.isPressed ? 0.08 : 0),
@@ -176,7 +220,7 @@ struct OutlineChipStyle: ButtonStyle {
     var filled = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.footnote.weight(.semibold))
+            .font(.sans(.footnote, .semibold))
             .padding(.horizontal, 14).frame(minHeight: 32)
             .foregroundStyle(filled ? Mono.bg : Mono.ink)
             .background(filled ? Mono.ink : Color.clear, in: Capsule())
@@ -214,7 +258,7 @@ struct TabStrip<T: Hashable>: View {
                 } label: {
                     VStack(spacing: 7) {
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Text(label(item)).font(.subheadline.weight(on ? .semibold : .regular))
+                            Text(label(item)).font(.sans(.subheadline, on ? .semibold : .regular))
                             if let n = count?(item) {
                                 Text("\(n)").font(Mono.data(.caption2))
                             }
@@ -236,7 +280,7 @@ struct ChipToggle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button { configuration.isOn.toggle(); Haptics.tap() } label: {
             configuration.label
-                .font(.footnote.weight(.medium))
+                .font(.sans(.footnote, .medium))
                 .lineLimit(1)
                 .padding(.horizontal, 12).frame(minHeight: 32)
                 .foregroundStyle(configuration.isOn ? Mono.bg : Mono.dim)
@@ -268,8 +312,8 @@ struct QuietMessage: View {
     var message: String? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.headline)
-            if let message { Text(message).font(.subheadline).foregroundStyle(Mono.dim) }
+            Text(title).font(.sans(.headline, .semibold))
+            if let message { Text(message).font(.sans(.subheadline)).foregroundStyle(Mono.dim) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Mono.gutter)

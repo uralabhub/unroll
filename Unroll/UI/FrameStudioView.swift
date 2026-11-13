@@ -80,7 +80,7 @@ struct FrameStudioView: View {
                     } label: {
                         VStack(spacing: 7) {
                             HStack(spacing: 4) {
-                                Text(s.label).font(.subheadline.weight(on ? .semibold : .regular))
+                                Text(s.label).font(.sans(.subheadline, on ? .semibold : .regular))
                                 if locked { Image(systemName: "lock.fill").font(.system(size: 9)) }
                             }
                             .foregroundStyle(on ? Mono.ink : Mono.dim)
