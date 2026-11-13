@@ -53,6 +53,7 @@ final class CameraSession: Identifiable {
     @ObservationIgnored private var scanTask: Task<Void, Never>?
     @ObservationIgnored private var pending: [Shot] = []
     @ObservationIgnored private var inFlight = Set<String>()
+    @ObservationIgnored private var readFailures: [String: Int] = [:]
     @ObservationIgnored private let metaCache: MetaCache
     @ObservationIgnored private let ledger: ImportLedger
 
@@ -112,6 +113,9 @@ final class CameraSession: Identifiable {
 
     private func restartScan() {
         scanTask?.cancel()
+        // ImageCaptureCore: a camera is "ready to receive requests" only after
+        // deviceDidBecomeReady(withCompleteContentCatalog:). Reading earlier fails silently.
+        if kind == .usb && status != .ready { pending = []; return }
         pending = shots.filter { $0.meta == nil && !$0.isVideo }
         let workers = readConcurrency
         scanTask = Task { [weak self] in
@@ -150,13 +154,24 @@ final class CameraSession: Identifiable {
         defer { inFlight.remove(shot.id) }
         // RAW twin carries the same EXIF; the JPEG header is cheaper to parse.
         guard let data = try? await shot.primary.read(offset: 0, length: HeaderParser.headerLength) else {
-            shot.meta = ShotMeta()      // don't retry forever on a broken file
-            scanned += 1
+            readFailures[shot.id, default: 0] += 1
+            // One retry on the next scan pass; after that, don't hammer a broken file.
+            if readFailures[shot.id, default: 0] >= 2 {
+                shot.meta = ShotMeta()
+                scanned += 1
+            }
             return
         }
-        let info = await Task.detached(priority: .utility) { HeaderParser.parse(data) }.value
+        var info = await Task.detached(priority: .utility) { HeaderParser.parse(data) }.value
+        // RAW+HEIF: if the HEIF's EXIF didn't fit in the header, the RAW twin carries the same EXIF.
+        // Its preview range points into the RAW file, so it's not used for the HEIF primary.
+        if info.format == .heif, info.meta.dateTimeOriginal == nil, let raw = shot.raw,
+           let rd = try? await raw.read(offset: 0, length: HeaderParser.headerLength) {
+            let rawInfo = await Task.detached(priority: .utility) { HeaderParser.parse(rd) }.value
+            info.meta = rawInfo.meta
+        }
         shot.meta = info.meta
-        shot.preview = info.preview
+        shot.preview = info.format == .heif ? nil : info.preview
         scanned += 1
         metaCache[shot.id] = MetaCache.Entry(meta: info.meta, preview: info.preview)
     }

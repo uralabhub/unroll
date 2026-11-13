@@ -37,6 +37,10 @@ enum FolderSource {
             groups[key, default: []].append(item)
         }
 
+        // A write-protected card or read-only mount makes *every* file read-only. That's not the
+        // camera's per-file Protect, so don't count it.
+        let all = groups.values.flatMap { $0 }
+        let cardLocked = all.count > 1 && all.allSatisfy(\.locked)
         return groups.values.compactMap { items -> Shot? in
             let developed = items.first { $0.format == .jpeg || $0.format == .heif || $0.format == .video }
             let raw = items.first { $0.format.isRAW }
@@ -45,13 +49,14 @@ enum FolderSource {
             let twin = (developed != nil ? raw : nil).map {
                 ShotFile(name: $0.url.lastPathComponent, size: $0.size, location: .file($0.url))
             }
-            return Shot(primary: primary, raw: twin, fileDate: main.date, isLocked: items.contains { $0.locked })
+            return Shot(primary: primary, raw: twin, fileDate: main.date, isLocked: !cardLocked && items.contains { $0.locked })
         }
     }
 }
 
-/// Ricoh GR II / III / IIIx Wi-Fi (reverse-engineered HTTP API, no auth, camera at 192.168.0.1).
-/// Join the camera's Wi-Fi first. Marked beta: untested on GR IV.
+/// Ricoh GR III / IIIx Wi-Fi (reverse-engineered HTTP API, no auth, camera at 192.168.0.1).
+/// Join the camera's Wi-Fi first. Marked beta. The GR II uses a different API (/_gr/objs) and
+/// is not supported; GR IV is untested.
 enum RicohGRSource {
     static let base = URL(string: "http://192.168.0.1/v1/")!
 
@@ -65,11 +70,15 @@ enum RicohGRSource {
     static func connect() async throws -> (model: String, shots: [Shot]) {
         let (pd, _) = try await CameraHTTP.session.data(from: base.appendingPathComponent("props"))
         let model = (try? JSONDecoder().decode(Props.self, from: pd))?.model ?? "Ricoh GR"
-        let (ld, _) = try await CameraHTTP.session.data(from: base.appendingPathComponent("photos"))
+        let (ld, lr) = try await CameraHTTP.session.data(from: base.appendingPathComponent("photos"))
+        let code = (lr as? HTTPURLResponse)?.statusCode ?? 0
+        guard code == 200 else { throw ShotIOError.http(code) }
         let listing = try JSONDecoder().decode(Listing.self, from: ld)
+        if let e = listing.errCode, e != 200, listing.dirs.isEmpty { throw ShotIOError.http(e) }
 
-        // The list carries no dates or sizes; folder + file numbering is chronological, so we
-        // synthesise an ordering date from position (real capture time arrives with the header).
+        // The list carries no dates or sizes. Folder + file numbers are chronological and don't
+        // change when other photos are deleted, so they give a stable ordering date (and so a
+        // stable shot ID for the import ledger). Real capture time arrives with the header.
         var shots: [Shot] = []
         var index = 0
         let names = listing.dirs.flatMap { d in d.files.map { (d.name, $0) } }
@@ -79,14 +88,23 @@ enum RicohGRSource {
             index += 1
             func file(_ g: (String, String)) -> ShotFile {
                 let url = base.appendingPathComponent("photos").appendingPathComponent(g.0).appendingPathComponent(g.1)
-                return ShotFile(name: g.1, size: 1 << 36, location: .http(url))
+                return ShotFile(name: g.1, size: ShotFile.unknownSize, location: .http(url))
             }
             let dev = group.first { !ShotFormat.from(filename: $0.1).isRAW }
             let raw = group.first { ShotFormat.from(filename: $0.1).isRAW }
             guard let main = dev ?? raw else { continue }
             shots.append(Shot(primary: file(main), raw: dev != nil ? raw.map(file) : nil,
-                              fileDate: Date(timeIntervalSince1970: TimeInterval(index)), isLocked: false))
+                              fileDate: Date(timeIntervalSince1970: TimeInterval(orderKey(dir: main.0, file: main.1) ?? index)),
+                              isLocked: false))
         }
         return (model, shots)
+    }
+
+    /// "100RICOH" + "R0001234.DNG" → 1_000_001_234. Nil when the names aren't DCF-style.
+    static func orderKey(dir: String, file: String) -> Int? {
+        let d = Int(dir.prefix { $0.isNumber })
+        let digits = (file as NSString).deletingPathExtension.reversed().prefix { $0.isNumber }
+        guard let d, !digits.isEmpty, let n = Int(String(digits.reversed())) else { return nil }
+        return d * 10_000_000 + n
     }
 }

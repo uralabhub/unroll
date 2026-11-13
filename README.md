@@ -70,14 +70,16 @@ Mỗi bài đăng của người dùng là một quảng cáo miễn phí cho ap
 ## 5. Đã kiểm chứng và chưa kiểm chứng
 
 **Đã chạy thật:**
-- 10/10 unit test pass: parser Fuji JPEG + recipe, RAF, TIFF-RAW, XMP rating, header bị cắt cụt, ghép RAW + phát hiện ảnh khoá trên thẻ, renderer khung, QR clock-sync.
+- 25/25 unit test pass: parser Fuji JPEG + recipe, RAF, TIFF-RAW, XMP rating, header bị cắt cụt, ghép RAW + phát hiện ảnh khoá trên thẻ, renderer khung, QR clock-sync.
+- **Đối chiếu spec (11/2026):** code đọc file và kết nối được so với bảng tag ExifTool (FujiFilm, Sony, Nikon, Olympus, PanasonicRaw, EXIF), lclevy/canon_cr3, header ImageCaptureCore trong iOS SDK và mã nguồn cộng đồng của API Ricoh GR III. 15 test trong `SpecConformanceTests` dựng file đúng theo các layout đó (CR2, RW2, ORF, CR3, HEIF, Nikon Picture Control v3, Sony không header, Fuji WC/MG/grain/WB). Đây là file tự dựng theo spec, chưa phải file thật từ máy.
 - Trên Simulator, end-to-end với Demo Roll: grid, bộ lọc, chi tiết + recipe, Frame Studio, import vào Photos (cả ảnh khoá), paywall theo quota, recap card có bản đồ.
 
 **Cần thử trên iPhone thật + máy ảnh thật** (Simulator không có USB):
 - Kết nối USB-C qua ImageCaptureCore. iOS 18–26 có báo cáo `requestContentsAuthorization` trả trạng thái sai; code đã có đường dự phòng.
 - Việc iOS có nhận đầu đọc thẻ SD là "camera device" hay không. Nếu không, dùng nút "SD Card" (Files) — đường này đã chạy.
-- `ICCameraItem.isLocked` có đúng là cờ Protect của từng file hay không.
-- Vị trí PRVW trong CR3, và tag sao của Sony.
+- `ICCameraItem.isLocked`: Apple ghi là *thẻ nhớ bị khoá*, không phải cờ Protect của từng file. App bỏ qua khi mọi file đều báo khoá; còn khoá từng file qua USB có được báo hay không thì phải thử máy thật.
+- Hãng nào ghi sao vào EXIF 0x4746 hay XMP (Canon, Nikon, OM, Panasonic, Pentax không có tag sao trong MakerNote), và ARW đời mới có header "SONY DSC" hay không.
+- Fuji D-Range Priority (0x1443–0x1445) chưa được đọc.
 - API Wi-Fi của Ricoh GR (do cộng đồng giải mã, chưa thử trên GR IV).
 - StoreKit: chạy từ Xcode (scheme đã gắn `Unroll.storekit`) để test mua hàng.
 

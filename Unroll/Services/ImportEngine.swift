@@ -170,7 +170,10 @@ final class ImportEngine {
                     Task { @MainActor in shot?.importState = .importing(0.5 + f * 0.5) }
                 }
             }
-            bytesInRun += shot.primary.size + (rawURL != nil ? (shot.raw?.size ?? 0) : 0)
+            // Count what actually arrived (listing sizes can be unknown, e.g. Ricoh Wi-Fi).
+            for u in [mainURL, rawURL].compactMap({ $0 }) {
+                bytesInRun += Int64((try? u.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            }
 
             if shot.meta == nil, let d = try? Data(contentsOf: mainURL, options: .mappedIfSafe) {
                 let info = HeaderParser.parse(d.prefix(HeaderParser.headerLength))

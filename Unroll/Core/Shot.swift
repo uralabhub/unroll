@@ -12,7 +12,11 @@ final class ShotFile {
     }
 
     let name: String
+    /// Byte size. `ShotFile.unknownSize` when the source doesn't say (Ricoh listing) — still a
+    /// safe upper bound for reads, but excluded from totals.
     let size: Int64
+    static let unknownSize: Int64 = 1 << 36
+    var knownSize: Int64 { size == ShotFile.unknownSize ? 0 : size }
     let format: ShotFormat
     let location: Location
 
@@ -36,7 +40,8 @@ enum ImportState: Equatable {
 final class Shot: Identifiable, Hashable {
     let id: String
     let primary: ShotFile
-    let raw: ShotFile?
+    /// Set later when the RAW half of a pair shows up in a separate camera event.
+    var raw: ShotFile?
     /// File date from the card — available instantly, used for newest-first ordering.
     let fileDate: Date
     var isLocked: Bool
@@ -65,7 +70,7 @@ final class Shot: Identifiable, Hashable {
     var isRated: Bool { rating > 0 }
     var isKeeper: Bool { isRated || isLocked }
     var captureDate: Date { meta?.captureDate() ?? fileDate }
-    var totalBytes: Int64 { primary.size + (raw?.size ?? 0) }
+    var totalBytes: Int64 { primary.knownSize + (raw?.knownSize ?? 0) }
     var isRAWOnly: Bool { primary.format.isRAW }
     var isVideo: Bool { primary.format == .video }
 

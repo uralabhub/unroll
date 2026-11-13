@@ -27,7 +27,7 @@ enum FujiMakerNote {
     }
 
     static let filmModes: [Int: String] = [
-        0x000: "Provia", 0x100: "Studio Portrait", 0x110: "Studio Portrait Ex",
+        0x000: "Provia", 0x100: "Studio Portrait", 0x110: "Studio Portrait Enhanced Saturation",
         0x120: "Astia", 0x130: "Studio Portrait Sharp", 0x200: "Velvia", 0x300: "Studio Portrait Ex",
         0x400: "Velvia", 0x500: "Pro Neg. Std", 0x501: "Pro Neg. Hi", 0x600: "Classic Chrome",
         0x700: "Eterna", 0x800: "Classic Negative", 0x900: "Eterna Bleach Bypass",
@@ -68,6 +68,16 @@ enum FujiMakerNote {
         switch v { case 0: return "Off"; case 32: return "Weak"; case 64: return "Strong"; default: return nil }
     }
 
+    /// GrainEffectRoughness (0x1047). Some bodies (e.g. X-HF1) fold the size into this tag:
+    /// ExifTool lists 16 = Weak/Small and 48 = Strong/Small.
+    static func grainRoughness(_ v: Int?) -> (rough: String, impliedSize: String?)? {
+        switch v {
+        case 16: return ("Weak", "Small")
+        case 48: return ("Strong", "Small")
+        default: return effect(v).map { ($0, nil) }
+        }
+    }
+
     /// Returns the recipe (nil if the note carries no film-simulation info) and the in-camera rating.
     static func parse(_ v: ByteView, at start: Int) -> (FilmRecipe?, Int?) {
         guard v.matches(start, "FUJIFILM"), let ifd = v.u32(start + 8, little: true) else { return (nil, nil) }
@@ -81,22 +91,22 @@ enum FujiMakerNote {
         let sim: String
         if let s = saturation, let mono = monoModes[s] {
             sim = mono
-        } else if let fm = t.int(e[tag: Tag.filmMode]), let name = filmModes[fm] {
-            sim = name
-        } else if e[tag: Tag.filmMode] == nil && saturation == nil {
-            return (nil, rating)
+        } else if let fm = t.int(e[tag: Tag.filmMode]) {
+            // Values newer than the table (future firmware) are shown as-is, never guessed.
+            sim = filmModes[fm] ?? "Film sim 0x\(String(fm, radix: 16, uppercase: true))"
         } else {
-            sim = "Provia"
+            // No FilmMode tag (e.g. the original X100, per ExifTool): we can't tell the simulation.
+            return (nil, rating)
         }
 
         var r = FilmRecipe(filmSimulation: sim)
 
         // Grain: roughness + size (size tag only exists on newer bodies).
-        if let rough = effect(t.int(e[tag: Tag.grainRoughness])) {
+        if let (rough, implied) = grainRoughness(t.int(e[tag: Tag.grainRoughness])) {
             if rough == "Off" {
                 r.grainEffect = "Off"
             } else {
-                let size: String? = { switch t.int(e[tag: Tag.grainSize]) { case 16: return "Small"; case 32: return "Large"; default: return nil } }()
+                let size: String? = { switch t.int(e[tag: Tag.grainSize]) { case 16: return "Small"; case 32: return "Large"; default: return implied } }()
                 r.grainEffect = [rough, size].compactMap { $0 }.joined(separator: ", ")
             }
         }
@@ -110,9 +120,11 @@ enum FujiMakerNote {
         if let ft = e[tag: Tag.wbFineTune], ft.count >= 2,
            let red = t.int(ft, index: 0).map({ Int32(truncatingIfNeeded: $0) }),
            let blue = t.int(ft, index: 1).map({ Int32(truncatingIfNeeded: $0) }) {
-            // Stored in 1/20 steps of the in-camera ±9 scale.
-            r.wbShiftRed = Int(red) / 20
-            r.wbShiftBlue = Int(blue) / 20
+            // Newer bodies store 20 × the in-camera ±9 step (ExifTool 0x100A). Like Exiv2, only
+            // scale when both values are whole multiples of 20; otherwise keep the raw numbers.
+            let scaled = red % 20 == 0 && blue % 20 == 0
+            r.wbShiftRed = scaled ? Int(red) / 20 : Int(red)
+            r.wbShiftBlue = scaled ? Int(blue) / 20 : Int(blue)
         }
 
         let drSetting = t.int(e[tag: Tag.dynamicRangeSetting])
@@ -131,8 +143,9 @@ enum FujiMakerNote {
         if let n = t.int(e[tag: Tag.noiseReduction]) { r.noiseReduction = nrLevels[n] }
         if let c = t.int(e[tag: Tag.clarity]).map({ Int32(truncatingIfNeeded: $0) }) { r.clarity = Int(c) / 1000 }
         if r.isMonochrome {
-            r.monoWarmCool = t.int(e[tag: Tag.bwWarmCool])
-            r.monoMagentaGreen = t.int(e[tag: Tag.bwMagentaGreen])
+            // Both are signed bytes (ExifTool int8s, Exiv2 casts to int8_t): -2 is stored as 0xFE.
+            r.monoWarmCool = t.int(e[tag: Tag.bwWarmCool]).map { Int(Int8(truncatingIfNeeded: $0)) }
+            r.monoMagentaGreen = t.int(e[tag: Tag.bwMagentaGreen]).map { Int(Int8(truncatingIfNeeded: $0)) }
         }
         return (r, rating)
     }

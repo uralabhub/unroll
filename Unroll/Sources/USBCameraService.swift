@@ -4,10 +4,11 @@ import ImageCaptureCore
 /// Watches for cameras / card readers plugged into the USB-C port (PTP via ImageCaptureCore).
 ///
 /// Speed tricks vs. the stock Photos import:
-///  • We refuse ImageCaptureCore's automatic per-item thumbnail + metadata fetches
-///    (`shouldGetThumbnailOfItem` → false). On a 4,000-shot card those are what make Photos crawl.
-///  • Items stream into the UI while the catalog is still being built, newest first.
-///  • Headers are read with `requestReadData(atOffset:length:)` — 128 KB, not 60 MB.
+///  • On iOS 13+ ImageCaptureCore fetches no thumbnails/metadata unless asked, so we only ask for
+///    what is on screen.
+///  • Items stream into the UI while the catalog is still being built, newest first; headers are
+///    read once the camera reports a complete catalog (that's when it accepts requests).
+///  • Headers are read with `requestReadData(atOffset:length:)` — 192 KB, not 60 MB.
 @MainActor
 @Observable
 final class USBCameraService: NSObject {
@@ -69,7 +70,8 @@ final class USBCameraService: NSObject {
 
     fileprivate func rebuild(_ device: ICCameraDevice) {
         guard let session = sessions[ObjectIdentifier(device)] else { return }
-        session.setShots(shots(from: device.mediaFiles ?? []))
+        let all = device.mediaFiles ?? []
+        session.setShots(shots(from: all, catalog: all))
         if device.contentCatalogPercentCompleted < 100 {
             session.status = .cataloging(Int(device.contentCatalogPercentCompleted))
         }
@@ -87,19 +89,40 @@ final class USBCameraService: NSObject {
         }
     }
 
-    func shots(from items: [ICCameraItem]) -> [Shot] {
+    /// Folder + file stem: how cameras name the halves of a RAW+JPEG pair (DSCF1234.JPG / .RAF).
+    static func stem(_ f: ICCameraFile) -> String? {
+        guard let name = f.name else { return nil }
+        return "\(f.parentFolder?.name ?? "")/\((name as NSString).deletingPathExtension)".lowercased()
+    }
+
+    /// `items` are the files to turn into shots; `catalog` is everything on the camera, used to pair
+    /// RAW+JPEG even when the halves arrive in different `didAdd` batches.
+    func shots(from items: [ICCameraItem], catalog: [ICCameraItem]) -> [Shot] {
         let files = items.compactMap { $0 as? ICCameraFile }
+        let all = catalog.compactMap { $0 as? ICCameraFile }
+        // Per Apple, `isLocked` means the *storage card* is locked. If every file says locked it is
+        // the card switch, not per-file Protect — don't turn the whole card into keepers.
+        let cardLocked = all.count > 1 && all.allSatisfy(\.isLocked)
         // RAW halves of RAW+JPEG pairs are attached to their JPEG, not listed twice.
-        let pairedRAW = Set(files.compactMap { $0.pairedRawImage.map(ObjectIdentifier.init) })
+        var developedStems = Set<String>()
+        var rawByStem: [String: ICCameraFile] = [:]
+        for f in all {
+            guard let s = Self.stem(f), let n = f.name else { continue }
+            if ShotFormat.from(filename: n).isRAW { rawByStem[s] = f } else { developedStems.insert(s) }
+        }
+        let pairedRAW = Set(all.compactMap { $0.pairedRawImage.map(ObjectIdentifier.init) })
         return files.compactMap { f in
-            if pairedRAW.contains(ObjectIdentifier(f)) { return nil }
             guard let name = f.name else { return nil }
+            let stem = Self.stem(f)
+            if ShotFormat.from(filename: name).isRAW,
+               pairedRAW.contains(ObjectIdentifier(f)) || stem.map(developedStems.contains) == true { return nil }
             let primary = ShotFile(name: name, size: Int64(f.fileSize), location: .usb(f))
-            let raw = f.pairedRawImage.flatMap { r in
+            let rawFile = ShotFormat.from(filename: name).isRAW ? nil : (f.pairedRawImage ?? stem.flatMap { rawByStem[$0] })
+            let raw = rawFile.flatMap { r in
                 r.name.map { ShotFile(name: $0, size: Int64(r.fileSize), location: .usb(r)) }
             }
             let date = f.exifCreationDate ?? f.creationDate ?? f.fileCreationDate ?? .distantPast
-            return Shot(primary: primary, raw: raw, fileDate: date, isLocked: f.isLocked)
+            return Shot(primary: primary, raw: raw, fileDate: date, isLocked: f.isLocked && !cardLocked)
         }
     }
 }
@@ -164,8 +187,8 @@ extension USBCameraService: ICCameraDeviceDelegate {
     nonisolated func deviceDidBecomeReady(withCompleteContentCatalog device: ICCameraDevice) {
         Task { @MainActor in
             guard let s = self.sessions[ObjectIdentifier(device)] else { return }
+            s.status = .ready            // before rebuild: the header scan starts only when ready
             self.rebuild(device)
-            s.status = .ready
         }
     }
 
@@ -173,7 +196,18 @@ extension USBCameraService: ICCameraDeviceDelegate {
         Task { @MainActor in
             guard let s = self.sessions[ObjectIdentifier(camera)] else { return }
             if s.status == .ready {
-                s.add(self.shots(from: items))     // shot while plugged in → live import
+                // Shot while plugged in → live import. A RAW arriving after its JPEG joins that shot.
+                let all = camera.mediaFiles ?? []
+                for f in items.compactMap({ $0 as? ICCameraFile }) {
+                    guard let n = f.name, ShotFormat.from(filename: n).isRAW, let stem = Self.stem(f) else { continue }
+                    if let twin = s.shots.first(where: { shot in
+                        guard shot.raw == nil, case .usb(let p) = shot.primary.location else { return false }
+                        return Self.stem(p) == stem
+                    }) {
+                        twin.raw = ShotFile(name: n, size: Int64(f.fileSize), location: .usb(f))
+                    }
+                }
+                s.add(self.shots(from: items, catalog: all))
             } else {
                 self.scheduleRebuild(camera)
             }
@@ -191,10 +225,11 @@ extension USBCameraService: ICCameraDeviceDelegate {
         }
     }
 
-    // We fetch what we need, when we need it. Letting ImageCaptureCore pre-fetch every
-    // thumbnail and metadata dictionary is the #1 reason big cards feel frozen.
-    nonisolated func cameraDevice(_ cameraDevice: ICCameraDevice, shouldGetThumbnailOf item: ICCameraItem) -> Bool { false }
-    nonisolated func cameraDevice(_ cameraDevice: ICCameraDevice, shouldGetMetadataOf item: ICCameraItem) -> Bool { false }
+    // ICCameraDevice.h: these are asked "when the camera device is about to execute queued
+    // requests" — i.e. our own requestThumbnailData calls. Answering false would abort them.
+    // Nothing is fetched automatically on iOS 13+, so allowing them costs nothing.
+    nonisolated func cameraDevice(_ cameraDevice: ICCameraDevice, shouldGetThumbnailOf item: ICCameraItem) -> Bool { true }
+    nonisolated func cameraDevice(_ cameraDevice: ICCameraDevice, shouldGetMetadataOf item: ICCameraItem) -> Bool { true }
 
     nonisolated func cameraDevice(_ camera: ICCameraDevice, didReceiveThumbnail thumbnail: CGImage?, for item: ICCameraItem, error: Error?) {}
     nonisolated func cameraDevice(_ camera: ICCameraDevice, didReceiveMetadata metadata: [AnyHashable: Any]?, for item: ICCameraItem, error: Error?) {}
