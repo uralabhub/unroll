@@ -121,6 +121,15 @@ Demo Roll có một nhóm ảnh (Nostalgic Neg.) dùng DRP Fixed/Strong để xe
 
 **Chưa chạy trên thiết bị:** Share sheet (chỉ mở được, không gửi), "Copy as text", Photo Walk thật (bấm ghi GPS), chọn SD card qua SAF, Ricoh Wi-Fi, mua hàng. Mọi thứ cần máy ảnh thật được liệt kê ở mục bên trên.
 
-## Font
+## Font, icon, chuyển động (cả Android và iOS)
 
-Montserrat (Regular / Medium / SemiBold / Bold) nằm trong `app/src/main/res/font/`, dùng cho chữ của giao diện và cho ảnh render ra (khung, recap, thẻ recipe). Số liệu EXIF vẫn dùng monospace. Montserrat dùng giấy phép SIL Open Font License 1.1: trước khi phát hành cần thêm file `OFL.txt` vào màn hình giấy phép của app.
+- **Font:** Nunito (Regular, Medium, SemiBold, Bold, ExtraBold) cho mọi chữ, trên giao diện lẫn ảnh render ra (khung, recap, thẻ recipe). Số liệu dùng chữ số đều cột (`tnum` / `monospacedDigit`) thay cho font monospace. Nunito dùng giấy phép SIL OFL 1.1: trước khi phát hành cần thêm `OFL.txt` vào màn giấy phép.
+- **Icon:** Phosphor Icons (giấy phép MIT). Android dùng vector drawable `ph_*`; iOS dùng imageset SVG dạng template `ph-*` trong Asset Catalog. Icon app (launcher) chưa đổi.
+- **Chuyển động:**
+  - Mở ảnh từ lưới: ảnh phóng to thành màn chi tiết (shared element trên Android, `navigationTransition(.zoom)` trên iOS 18).
+  - Chuyển màn và mọi thao tác chạm dùng spring.
+  - Bộ lọc có viên nền trượt.
+  - Các khối xuất hiện lần lượt; ô ảnh bật vào; số liệu lăn khi đổi.
+  - Nút Photo Walk biến hình giữa tròn và vuông; lỗ phim trên thẻ hero chạy liên tục; thẻ hero có parallax khi cuộn.
+  - Paywall trượt lên theo spring.
+  - Đã kiểm tra bằng video quay màn hình trên Galaxy A56 và trên Simulator iOS 27.

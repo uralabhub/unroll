@@ -15,12 +15,21 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 18)
+                    .riseIn(0)
 
                 ConnectHero()
+                    .riseIn(1)
+                    // Parallax: the hero settles back and fades as the page scrolls over it.
+                    .scrollTransition(.interactive, axis: .vertical) { content, phase in
+                        content
+                            .scaleEffect(phase.value < 0 ? 1 + phase.value * 0.06 : 1)
+                            .opacity(phase.value < 0 ? 1 + phase.value * 0.6 : 1)
+                            .offset(y: phase.value < 0 ? -phase.value * 40 : 0)
+                    }
 
                 blockTitle("Or import from")
-                LazyVGrid(columns: pair, spacing: 10) {
+                LazyVGrid(columns: pair, spacing: 12) {
                     Button { pickingFolder = true } label: {
                         Tile(symbol: "sdcard", title: "SD card", caption: "Reader or Files")
                     }
@@ -29,11 +38,13 @@ struct HomeView: View {
                     }
                 }
 
+                .riseIn(3)
+
                 blockTitle("Photo walk")
-                PhotoWalkCard()
+                PhotoWalkCard().riseIn(5)
 
                 blockTitle("Tools")
-                LazyVGrid(columns: pair, spacing: 10) {
+                LazyVGrid(columns: pair, spacing: 12) {
                     NavigationLink { RecipesView() } label: {
                         Tile(symbol: "camera.filters", title: "Recipes", caption: "From your shots",
                              count: app.recipes.items.count)
@@ -50,9 +61,10 @@ struct HomeView: View {
                              count: app.location.walks.count)
                     }
                 }
+                .riseIn(7)
 
                 if !app.pro.isPro {
-                    QuotaCard().padding(.top, 28)
+                    QuotaCard().padding(.top, 28).riseIn(8)
                 }
 
                 Text("No account · No cloud · Originals untouched".uppercased())
@@ -61,7 +73,7 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 32)
             }
-            .buttonStyle(TileButtonStyle())
+            .buttonStyle(PressStyle())
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
         }
@@ -92,15 +104,15 @@ struct HomeView: View {
                     .font(Mono.caps(11)).tracking(1.2)
                     .foregroundStyle(Mono.dim)
                 Text("Unroll")
-                    .font(.sans(size: 40, weight: .bold))
-                    .tracking(-1.2)
+                    .font(.sans(size: 40, weight: .heavy))
+                    .tracking(-1)
             }
             Spacer()
             Button { showSettings = true } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 17, weight: .medium))
-                    .frame(width: 40, height: 40)
-                    .background(Mono.tile, in: Circle())
+                Ph("gearshape", size: 21)
+                    .frame(width: 44, height: 44)
+                    .background(Mono.surface, in: Circle())
+                    .shadow(color: Mono.shadow, radius: 8, y: 3)
             }
             .buttonStyle(TileButtonStyle())
             .accessibilityLabel("Settings")
@@ -112,9 +124,9 @@ struct HomeView: View {
 
     private func blockTitle(_ text: String) -> some View {
         CapsLabel(text)
-            .padding(.horizontal, 4)
-            .padding(.top, 28)
-            .padding(.bottom, 10)
+            .padding(.horizontal, 6)
+            .padding(.top, 30)
+            .padding(.bottom, 12)
     }
 }
 
@@ -149,31 +161,29 @@ struct Tile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
-                Image(systemName: symbol)
-                    .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 20, weight: .regular))
-                    .frame(height: 24, alignment: .leading)
+                Ph(symbol, size: 26)
                 Spacer()
                 if let tag {
                     Text(tag.uppercased())
                         .font(Mono.caps(9)).tracking(1)
-                        .padding(.horizontal, 6).padding(.vertical, 3)
-                        .overlay(Capsule().strokeBorder(Mono.ink.opacity(0.3), lineWidth: 1))
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Mono.raised, in: Capsule())
                 } else if count > 0 {
-                    Text("\(count)").font(Mono.data(.footnote, weight: .medium)).foregroundStyle(Mono.dim)
+                    Text("\(count)").font(Mono.data(.subheadline, weight: .bold)).foregroundStyle(Mono.dim)
+                        .contentTransition(.numericText(value: Double(count)))
                 }
             }
-            Spacer(minLength: 18)
-            Text(title).font(.sans(.body, .semibold))
+            Spacer(minLength: 20)
+            Text(title).font(.sans(.headline, .heavy))
             if let caption {
                 Text(caption).font(.sans(.footnote)).foregroundStyle(Mono.dim).lineLimit(1)
                     .padding(.top, 1)
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
-        .background(Mono.tile, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 124, alignment: .topLeading)
+        .card()
+        .contentShape(RoundedRectangle(cornerRadius: Mono.cardRadius, style: .continuous))
     }
 }
 
@@ -187,7 +197,7 @@ struct ConnectHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Sprockets()
+            Sprockets(fast: app.usb.authorization == .authorized && app.session != nil)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Circle()
@@ -201,10 +211,12 @@ struct ConnectHero: View {
                     Text("USB-C").font(Mono.caps(10)).tracking(1.2).foregroundStyle(.white.opacity(0.4))
                 }
 
-                Text("Plug in\nyour camera.")
-                    .font(.sans(size: 36, weight: .semibold))
+                VStack(alignment: .leading, spacing: -12) {
+                    Text("Plug in")
+                    Text("your camera.")
+                }
+                    .font(.sans(size: 38, weight: .heavy))
                     .tracking(-1)
-                    .lineSpacing(-2)
                     .foregroundStyle(.white)
                     .padding(.top, 22)
 
@@ -230,7 +242,7 @@ struct ConnectHero: View {
                             HStack {
                                 Text("No camera? Open the demo roll")
                                 Spacer()
-                                Image(systemName: "arrow.right")
+                                Ph("arrow.right", size: 17)
                             }
                             .padding(.horizontal, 16)
                         }
@@ -241,9 +253,10 @@ struct ConnectHero: View {
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 18)
-            Sprockets()
+            Sprockets(fast: app.usb.authorization == .authorized && app.session != nil)
         }
-        .background(Color(white: scheme == .dark ? 0.13 : 0.07), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Mono.hero, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: Mono.shadow.opacity(2), radius: 22, y: 10)
         .environment(\.colorScheme, .dark)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { blink = true }
@@ -252,29 +265,36 @@ struct ConnectHero: View {
 }
 
 /// Row of film perforations along the hero's edge.
+/// The perforations advance slowly, like film being wound on (faster when a camera is found).
 private struct Sprockets: View {
+    var fast = false
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<16, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(.white.opacity(0.13))
-                    .frame(width: 10, height: 6)
-                    .frame(maxWidth: .infinity)
+        TimelineView(.animation) { ctx in
+            Canvas { g, size in
+                let pitch = size.width / 15
+                let period = fast ? 0.9 : 5.2
+                let phase = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period) / period
+                var x = -phase * pitch + (pitch - 10) / 2
+                while x < size.width {
+                    g.fill(Path(roundedRect: CGRect(x: x, y: (size.height - 6) / 2, width: 10, height: 6), cornerRadius: 1.5),
+                           with: .color(.white.opacity(0.14)))
+                    x += pitch
+                }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .frame(height: 26)
     }
 }
 
 private struct HeroButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.sans(.subheadline, .semibold))
+            .font(.sans(.subheadline, .heavy))
             .foregroundStyle(.black)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(.white.opacity(configuration.isPressed ? 0.8 : 1),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(Mono.press, value: configuration.isPressed)
     }
 }
 
@@ -297,7 +317,7 @@ struct PhotoWalkCard: View {
                             .foregroundStyle(rec.isRecording ? Mono.ink : Mono.dim)
                     }
                     Text(Duration.seconds(w?.duration ?? 0).formatted(.time(pattern: .hourMinuteSecond(padHourToLength: 2))))
-                        .font(.system(size: 30, weight: .regular, design: .monospaced))
+                        .font(.sans(size: 32, weight: .heavy))
                         .monospacedDigit()
                         .foregroundStyle(w == nil ? Mono.faint : Mono.ink)
                         .contentTransition(.numericText())
@@ -315,17 +335,19 @@ struct PhotoWalkCard: View {
                     rec.isRecording ? rec.stopWalk() : rec.startWalk()
                     Haptics.tap()
                 } label: {
-                    Image(systemName: rec.isRecording ? "stop.fill" : "play.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                    Ph(rec.isRecording ? "stop.fill" : "play.fill", size: 22)
                         .foregroundStyle(Mono.bg)
-                        .frame(width: 56, height: 56)
-                        .background(Mono.ink, in: Circle())
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 60, height: 60)
+                        // Morphs between start (circle) and stop (rounded square).
+                        .background(Mono.ink, in: RoundedRectangle(cornerRadius: rec.isRecording ? 18 : 30, style: .continuous))
+                        .animation(Mono.press, value: rec.isRecording)
                 }
                 .buttonStyle(TileButtonStyle())
                 .accessibilityLabel(rec.isRecording ? "Stop walk" : "Start walk")
             }
-            .padding(16)
-            .background(Mono.tile, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(18)
+            .card()
         }
     }
 }
@@ -342,13 +364,17 @@ struct QuotaCard: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("FREE TODAY").font(Mono.caps(10)).tracking(1.2).foregroundStyle(Mono.dim)
                     Spacer()
-                    Text("\(left) of \(total) left").font(Mono.data(.caption, weight: .medium))
+                    Text("\(left)").font(Mono.data(.subheadline, weight: .heavy))
+                        .contentTransition(.numericText(value: Double(left)))
+                    Text("of \(total) left").font(Mono.data(.subheadline, weight: .bold)).foregroundStyle(Mono.dim)
                 }
                 HStack(spacing: 4) {
                     ForEach(0..<total, id: \.self) { i in
-                        Capsule()
-                            .fill(i < left ? Mono.ink : Mono.ink.opacity(0.12))
-                            .frame(height: 4)
+                        Capsule().fill(Mono.raised).frame(height: 6)
+                            .overlay(alignment: .leading) {
+                                Capsule().fill(Mono.ink).frame(height: 6).scaleEffect(x: i < left ? 1 : 0, anchor: .leading)
+                                    .animation(Mono.settle.delay(Double(i) * 0.04), value: left)
+                            }
                     }
                 }
                 HStack {
@@ -358,14 +384,15 @@ struct QuotaCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 12)
                     Text("Get Pro")
-                        .font(.sans(.footnote, .semibold))
+                        .font(.sans(.footnote, .heavy))
                         .foregroundStyle(Mono.bg)
                         .padding(.horizontal, 14).frame(height: 32)
                         .background(Mono.ink, in: Capsule())
                 }
             }
             .padding(16)
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Mono.line, lineWidth: 1))
+            .padding(2)
+            .card()
             .contentShape(Rectangle())
         }
     }

@@ -68,7 +68,7 @@ struct RecapBuilderView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
                 ToolbarItemGroup(placement: .confirmationAction) {
-                    Button { if let r = rendered { shareItem = ShareImage(image: r) } } label: { Image(systemName: "square.and.arrow.up") }
+                    Button { if let r = rendered { shareItem = ShareImage(image: r) } } label: { Ph("square.and.arrow.up", size: 21) }
                         .disabled(rendered == nil)
                     Button("Save") { Task { await save() } }.bold().disabled(rendered == nil)
                 }

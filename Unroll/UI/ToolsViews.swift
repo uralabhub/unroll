@@ -143,7 +143,7 @@ struct ClockSyncView: View {
                                 Text(model)
                                 Spacer()
                                 Text(ClockSyncView.describe(off)).font(Mono.data(.subheadline)).foregroundStyle(Mono.dim)
-                                Button { app.settings.clockOffsets[model] = nil } label: { Image(systemName: "xmark") }
+                                Button { app.settings.clockOffsets[model] = nil } label: { Ph("xmark", size: 15) }
                                     .buttonStyle(.plain).foregroundStyle(Mono.dim).padding(.leading, 8)
                                     .accessibilityLabel("Remove correction")
                             }
@@ -337,9 +337,12 @@ struct PaywallView: View {
         let on = plan == p
         return Button { plan = p; Haptics.tap() } label: {
             HStack(spacing: 14) {
-                Image(systemName: on ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 20, weight: .light))
-                    .foregroundStyle(on ? Mono.ink : Mono.faint)
+                ZStack {
+                    Circle().strokeBorder(on ? Mono.ink : Mono.faint, lineWidth: 2)
+                    Circle().fill(Mono.ink).padding(5).scaleEffect(on ? 1 : 0.01)
+                }
+                .frame(width: 22, height: 22)
+                .animation(Mono.press, value: on)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.sans(.body, .semibold))
                     Text(note).font(.sans(.footnote)).foregroundStyle(Mono.dim)

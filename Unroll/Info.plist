@@ -15,10 +15,11 @@
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Montserrat-Regular.ttf</string>
-		<string>Montserrat-Medium.ttf</string>
-		<string>Montserrat-SemiBold.ttf</string>
-		<string>Montserrat-Bold.ttf</string>
+		<string>Nunito-Regular.ttf</string>
+		<string>Nunito-Medium.ttf</string>
+		<string>Nunito-SemiBold.ttf</string>
+		<string>Nunito-Bold.ttf</string>
+		<string>Nunito-ExtraBold.ttf</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>

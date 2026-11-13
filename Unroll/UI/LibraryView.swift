@@ -38,6 +38,7 @@ struct LibraryView: View {
     @State private var detail: ShotRoute?
     @State private var recapShots: RecapRoute?
     @State private var columns = 3
+    @Namespace private var zoom
 
     private var visible: [Shot] {
         session.shots.filter { s in
@@ -80,6 +81,7 @@ struct LibraryView: View {
         .safeAreaInset(edge: .bottom) { actionBar }
         .navigationDestination(item: $detail) { r in
             ShotPagerView(shots: r.shots, startID: r.startID, session: session)
+                .zoomTransition(sourceID: r.startID, in: zoom)
         }
         .sheet(item: $recapShots) { r in RecapBuilderView(shots: r.shots) }
     }
@@ -96,8 +98,9 @@ struct LibraryView: View {
                     CapsLabel("At least")
                     HStack(spacing: 6) {
                         ForEach(1...5, id: \.self) { n in
-                            Image(systemName: n <= minStars ? "star.fill" : "star")
-                                .font(.system(size: 15))
+                            Ph(n <= minStars ? "star.fill" : "star", size: 17)
+                                .scaleEffect(n <= minStars ? 1 : 0.85)
+                                .animation(Mono.press, value: minStars)
                                 .foregroundStyle(n <= minStars ? Mono.ink : Mono.faint)
                                 .frame(width: 28, height: 28)
                                 .contentShape(Rectangle())
@@ -117,14 +120,16 @@ struct LibraryView: View {
     }
 
     private var grid: some View {
-        let cols = Array(repeating: GridItem(.flexible(), spacing: 1), count: columns)
+        let gap: CGFloat = columns >= 5 ? 3 : 5
+        let cols = Array(repeating: GridItem(.flexible(), spacing: gap), count: columns)
         return LazyVStack(alignment: .leading, spacing: 22, pinnedViews: []) {
             Color.clear.frame(height: 0)
             ForEach(days, id: \.0) { day, shots in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(dayTitle(day)).font(.sans(.headline, .semibold))
-                        Text("\(shots.count)").font(Mono.data(.footnote)).foregroundStyle(Mono.dim)
+                        Text(dayTitle(day)).font(.sans(.title3, .heavy))
+                        Text("\(shots.count)").font(Mono.data(.subheadline, weight: .bold)).foregroundStyle(Mono.dim)
+                            .contentTransition(.numericText(value: Double(shots.count)))
                         Spacer()
                         if selecting {
                             let allIn = shots.allSatisfy { selection.contains($0.id) }
@@ -136,18 +141,22 @@ struct LibraryView: View {
                             .foregroundStyle(Mono.ink)
                         }
                     }
-                    .padding(.horizontal, Mono.gutter)
-                    LazyVGrid(columns: cols, spacing: 1) {
-                        ForEach(shots) { shot in
-                            ShotCell(shot: shot, selecting: selecting, selected: selection.contains(shot.id))
+                    .padding(.horizontal, 6)
+                    LazyVGrid(columns: cols, spacing: gap) {
+                        ForEach(Array(shots.enumerated()), id: \.element.id) { i, shot in
+                            ShotCell(shot: shot, selecting: selecting, selected: selection.contains(shot.id), index: i, corner: columns >= 5 ? 6 : 12)
+                                .zoomSource(id: shot.id, in: zoom)
                                 .onTapGesture { tap(shot) }
                                 .onLongPressGesture { startSelecting(with: shot) }
                                 .onAppear { session.prioritize(shot) }
                         }
                     }
                 }
+                .padding(.horizontal, 12)
             }
         }
+        .animation(Mono.press, value: filter)
+        .animation(Mono.press, value: columns)
     }
 
     private var loadingState: some View {
@@ -178,23 +187,23 @@ struct LibraryView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            Button { app.disconnect() } label: { Image(systemName: "chevron.left") }
+            Button { app.disconnect() } label: { Ph("chevron.left", size: 20) }
                 .accessibilityLabel("Disconnect")
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button(selecting ? "Done" : "Select") {
-                withAnimation(.snappy) { selecting.toggle(); if !selecting { selection.removeAll() } }
+                withAnimation(Mono.press) { selecting.toggle(); if !selecting { selection.removeAll() } }
             }
             Menu {
                 Picker("Grid", selection: $columns) {
-                    Label("Large", systemImage: "square.grid.2x2").tag(2)
-                    Label("Medium", systemImage: "square.grid.3x3").tag(3)
-                    Label("Small", systemImage: "square.grid.4x3.fill").tag(5)
+                    Label("Large", image: "ph-squares-four").tag(2)
+                    Label("Medium", image: "ph-grid-four").tag(3)
+                    Label("Small", image: "ph-grid-nine").tag(5)
                 }
-                Button { recapShots = RecapRoute(shots: recapCandidates) } label: { Label("Make a recap card", systemImage: "rectangle.portrait") }
+                Button { recapShots = RecapRoute(shots: recapCandidates) } label: { Label("Make a recap card", image: "ph-images") }
                 Divider()
-                Button(role: .destructive) { app.disconnect() } label: { Label("Disconnect", systemImage: "eject") }
-            } label: { Image(systemName: "ellipsis") }
+                Button(role: .destructive) { app.disconnect() } label: { Label("Disconnect", image: "ph-plug") }
+            } label: { Ph("ellipsis", size: 22) }
         }
     }
 
@@ -209,17 +218,19 @@ struct LibraryView: View {
     private var actionBar: some View {
         let selected = session.shots.filter { selection.contains($0.id) }
         VStack(spacing: 0) {
-            Hairline()
             Group {
                 if selecting {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(selected.isEmpty ? "Tap to select" : "\(selected.count) selected").font(.sans(.subheadline, .medium))
+                            Text(selected.isEmpty ? "Tap to select" : "\(selected.count) selected").font(.sans(.subheadline, .heavy))
+                                .contentTransition(.numericText(value: Double(selected.count)))
+                                .animation(Mono.press, value: selected.count)
                             if !selected.isEmpty {
                                 Text(ByteCountFormatter.string(fromByteCount: selected.reduce(0) { $0 + $1.totalBytes }, countStyle: .file))
                                     .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                             }
                         }
+                        .padding(.leading, 8)
                         Spacer()
                         Button { recapShots = RecapRoute(shots: selected) } label: { Text("Recap") }
                             .buttonStyle(SecondaryButtonStyle()).frame(width: 92)
@@ -244,11 +255,15 @@ struct LibraryView: View {
                     }
                 }
             }
-            .padding(.horizontal, Mono.gutter)
-            .padding(.top, 12)
+            .padding(8)
+            .card(radius: 22, shadow: 16)
+            .padding(.horizontal, 12)
             .padding(.bottom, 6)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .id(selecting)
         }
-        .background(Mono.bg)
+        .animation(Mono.press, value: selecting)
+        .animation(Mono.press, value: app.importer.isRunning)
     }
 
     // MARK: Actions
@@ -296,25 +311,35 @@ struct SessionHeader: View {
                 stat("\(session.shots.filter(\.wasImported).count)", "imported")
                 stat(session.kind.label, "source")
             }
-            .padding(.horizontal, Mono.gutter)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
             if let progress {
                 GeometryReader { g in
-                    Rectangle().fill(Mono.ink).frame(width: g.size.width * progress)
+                    Capsule().fill(Mono.raised)
+                        .overlay(alignment: .leading) { Capsule().fill(Mono.ink).frame(width: g.size.width * progress) }
                 }
-                .frame(height: 1.5)
-                .animation(.linear(duration: 0.2), value: progress)
+                .frame(height: 4)
+                .padding(.horizontal, 18)
+                .animation(Mono.settle, value: progress)
+                .transition(.opacity)
             }
             if let line = statusLine {
                 Text(line).font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
-                    .padding(.horizontal, Mono.gutter).padding(.bottom, 10).padding(.top, progress == nil ? 0 : 8)
+                    .padding(.horizontal, 18).padding(.bottom, 14).padding(.top, progress == nil ? 0 : 8)
             }
         }
+        .card(radius: 22, shadow: 10)
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+        .animation(Mono.settle, value: progress == nil)
     }
 
     private func stat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(Mono.data(.title3, weight: .medium)).lineLimit(1).minimumScaleFactor(0.7)
+            Text(value).font(Mono.data(.title2, weight: .heavy)).lineLimit(1).minimumScaleFactor(0.7)
+                .contentTransition(.numericText())
+                .animation(Mono.press, value: value)
             Text(label.uppercased()).font(Mono.caps(10)).tracking(1).foregroundStyle(Mono.dim)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -344,6 +369,9 @@ struct ShotCell: View {
     let shot: Shot
     let selecting: Bool
     let selected: Bool
+    var index: Int = 0
+    var corner: CGFloat = 12
+    @State private var shown = false
 
     var body: some View {
         Mono.raised
@@ -352,67 +380,75 @@ struct ShotCell: View {
                 if let t = shot.thumbnail {
                     Image(uiImage: t).resizable().scaledToFill().transition(.opacity)
                 } else if shot.isVideo {
-                    Image(systemName: "video").foregroundStyle(Mono.dim)
+                    Ph("video", size: 24).foregroundStyle(Mono.dim)
                 }
             }
-            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
             .overlay(alignment: .topLeading) {
                 if shot.isKeeper {
                     HStack(spacing: 3) {
                         if shot.rating > 0 {
-                            Image(systemName: "star.fill")
+                            Ph("star.fill", size: 10)
                             Text("\(shot.rating)")
                         }
-                        if shot.isLocked { Image(systemName: "lock.fill") }
+                        if shot.isLocked { Ph("lock.fill", size: 10) }
                     }
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4).padding(.vertical, 3)
-                    .background(.black.opacity(0.7))
+                    .pill()
                 }
             }
             .overlay(alignment: .bottomLeading) {
                 if shot.raw != nil || shot.primary.format.isRAW || shot.isVideo {
-                    Text(shot.isVideo ? "VID" : (shot.raw != nil ? "J+R" : "RAW"))
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4).padding(.vertical, 3)
-                        .background(.black.opacity(0.7))
+                    Text(shot.isVideo ? "VID" : (shot.raw != nil ? "J+R" : "RAW")).pill()
                 }
             }
-            .overlay(alignment: .bottomTrailing) { stateBadge }
-            .overlay {
+            .overlay(alignment: .bottomTrailing) { stateBadge.transition(.scale(scale: 0.6).combined(with: .opacity)) }
+            // Selection: the photo sinks on a spring and a check pops in.
+            .scaleEffect(selecting ? (selected ? 0.88 : 0.95) : 1)
+            .overlay(alignment: .topTrailing) {
                 if selecting {
-                    ZStack(alignment: .topTrailing) {
-                        if selected { Rectangle().strokeBorder(Mono.ink, lineWidth: 3) }
-                        Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 20))
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(selected ? Mono.bg : .white, selected ? Mono.ink : .white)
-                            .shadow(color: .black.opacity(0.3), radius: 1)
-                            .padding(6)
+                    ZStack {
+                        Circle().fill(selected ? Mono.ink : .black.opacity(0.25))
+                        Circle().strokeBorder(selected ? Mono.bg : .white, lineWidth: 1.5)
+                        if selected { Ph("checkmark", size: 11).foregroundStyle(Mono.bg).transition(.scale(scale: 0.3)) }
                     }
+                    .frame(width: 22, height: 22)
+                    .padding(8)
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
+            .animation(Mono.press, value: selecting)
+            .animation(Mono.press, value: selected)
+            .animation(Mono.press, value: shot.wasImported)
             .contentShape(Rectangle())
+            // Pop in the first time a cell appears, staggered a little by position.
+            .opacity(shown ? 1 : 0)
+            .scaleEffect(shown ? 1 : 0.92)
+            .onAppear {
+                guard !shown else { return }
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.72).delay(Double(index % 12) * 0.022)) { shown = true }
+            }
             .task(id: shot.id) { await Previews.thumbnail(shot) }
-            .animation(.easeOut(duration: 0.2), value: shot.thumbnail != nil)
+            .animation(.easeOut(duration: 0.25), value: shot.thumbnail != nil)
     }
 
     @ViewBuilder private var stateBadge: some View {
         switch shot.importState {
-        case .queued: badge(Image(systemName: "clock"))
-        case .importing(let p): badge(Text("\(Int(p * 100))%"))
-        case .failed: badge(Image(systemName: "exclamationmark"))
+        case .queued: Ph("queued", size: 10).pill()
+        case .importing(let p): Text("\(Int(p * 100))%").contentTransition(.numericText()).pill()
+        case .failed: Ph("exclamationmark", size: 10).pill()
         case .done, .none:
-            if shot.wasImported { badge(Image(systemName: "checkmark")) }
+            if shot.wasImported { Ph("checkmark", size: 10).pill() }
         }
     }
+}
 
-    private func badge(_ v: some View) -> some View {
-        v.font(.system(size: 9, weight: .bold, design: .monospaced))
-        .foregroundStyle(.white)
-        .padding(.horizontal, 4).padding(.vertical, 3)
-        .background(.black.opacity(0.7))
+private extension View {
+    /// Small frosted pill over a photo.
+    func pill() -> some View {
+        self.font(.sans(size: 10, weight: .heavy)).monospacedDigit()
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .padding(5)
     }
 }
