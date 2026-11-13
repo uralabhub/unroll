@@ -30,7 +30,7 @@ struct ShotPagerView: View {
         .scrollIndicators(.hidden)
         .background(Color.black)
         .onAppear { currentID = startID }
-        .onTapGesture { withAnimation(Mono.press) { showInfo.toggle() } }
+        .onTapGesture { withAnimation(.snappy) { showInfo.toggle() } }
         .safeAreaInset(edge: .bottom) {
             if showInfo, let s = current {
                 ShotInfoPanel(shot: s, framing: { await openFrame(s) }, loadingFrame: loadingFrame)
@@ -95,20 +95,20 @@ struct ShotInfoPanel: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(m?.cameraName ?? "Unknown camera").font(.sans(.title3, .heavy))
-                    if let lens = m?.lens { Text(lens).font(.sans(.footnote)).foregroundStyle(Mono.dim) }
+                    Text(m?.cameraName ?? "Unknown camera").font(.headline)
+                    if let lens = m?.lens { Text(lens).font(.footnote).foregroundStyle(Mono.dim) }
                 }
                 Spacer()
                 HStack(spacing: 8) {
                     if shot.rating > 0 { StarRow(rating: shot.rating) }
-                    if shot.isLocked { Ph("lock.fill", size: 13) }
+                    if shot.isLocked { Image(systemName: "lock.fill").font(.system(size: 11)) }
                 }
             }
 
             if let m, !m.exposureLine.isEmpty {
                 HStack(spacing: 0) {
                     ForEach([m.focalText, m.apertureText, m.shutterText, m.isoText, m.biasText].compactMap { $0 }, id: \.self) {
-                        Text($0).font(Mono.data(.subheadline, weight: .heavy))
+                        Text($0).font(Mono.data(.subheadline, weight: .medium))
                             .lineLimit(1).minimumScaleFactor(0.8)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -150,12 +150,10 @@ struct ShotInfoPanel: View {
             }
         }
         .padding(.horizontal, Mono.gutter)
-        .padding(.top, 18)
-        .padding(.bottom, 16)
-        .card(radius: 26, shadow: 0)
-        .padding(.horizontal, 8)
-        .padding(.bottom, 4)
-        .animation(Mono.settle, value: showRecipe)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
+        .background(Color.black.opacity(0.92).ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) { Hairline() }
     }
 
     private var importLabel: String {
@@ -187,17 +185,17 @@ struct RecipeSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(Mono.settle) { expanded.toggle() }
+                withAnimation(.snappy(duration: 0.25)) { expanded.toggle() }
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         CapsLabel("Recipe")
-                        Text(recipe.filmSimulation).font(.sans(.headline, .heavy))
+                        Text(recipe.filmSimulation).font(.subheadline.weight(.semibold))
                     }
                     Spacer()
                     Text(expanded ? "Hide" : "\(recipe.rows.count - 1) settings")
                         .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
-                    Ph("chevron.down", size: 12)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
                         .rotationEffect(.degrees(expanded ? 180 : 0)).foregroundStyle(Mono.dim)
                 }
                 .contentShape(Rectangle())
@@ -208,7 +206,7 @@ struct RecipeSummary: View {
                     ForEach(recipe.rows.dropFirst(), id: \.0) { k, v in DataRow(key: k, value: v) }
                 }
                 .padding(.top, 6)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.opacity)
             }
         }
     }

@@ -4,18 +4,9 @@ import SwiftUI
 struct UnrollApp: App {
     @State private var app = AppState()
 
-    init() {
-        // Navigation and toolbar titles in Nunito too (SwiftUI's .font doesn't reach them).
-        let nav = UINavigationBar.appearance()
-        nav.titleTextAttributes = [.font: Montserrat.uiFont(17, .heavy)]
-        nav.largeTitleTextAttributes = [.font: Montserrat.uiFont(34, .heavy)]
-        UIBarButtonItem.appearance().setTitleTextAttributes([.font: Montserrat.uiFont(17, .bold)], for: .normal)
-    }
-
     var body: some Scene {
         WindowGroup {
             RootView()
-                .font(.sans(.body))
                 .environment(app)
                 .tint(Mono.ink)
         }

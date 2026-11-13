@@ -17,7 +17,7 @@ struct RecipesView: View {
                 NavigationLink { RecipeDetailView(item: item) } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text(item.title).font(.sans(.body, .medium))
+                            Text(item.title).font(.body.weight(.medium))
                             Spacer()
                             Text(item.count == 1 ? "1 shot" : "\(item.count) shots").font(Mono.data(.caption)).foregroundStyle(Mono.dim)
                         }
@@ -101,7 +101,7 @@ struct ClockSyncView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 Text("Camera clocks drift and ignore time zones, which puts photos in the wrong place on the map. Fix it once per camera.")
-                    .font(.sans(.subheadline)).foregroundStyle(Mono.dim)
+                    .font(.subheadline).foregroundStyle(Mono.dim)
                     .padding(.horizontal, Mono.gutter)
 
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -131,8 +131,8 @@ struct ClockSyncView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(app.session == nil || reading)
-                    if app.session == nil { Text("Connect a camera first.").font(.sans(.footnote)).foregroundStyle(Mono.dim) }
-                    if let result { Text(result).font(.sans(.subheadline, .medium)) }
+                    if app.session == nil { Text("Connect a camera first.").font(.footnote).foregroundStyle(Mono.dim) }
+                    if let result { Text(result).font(.subheadline.weight(.medium)) }
                 }
                 .padding(.horizontal, Mono.gutter)
 
@@ -143,7 +143,7 @@ struct ClockSyncView: View {
                                 Text(model)
                                 Spacer()
                                 Text(ClockSyncView.describe(off)).font(Mono.data(.subheadline)).foregroundStyle(Mono.dim)
-                                Button { app.settings.clockOffsets[model] = nil } label: { Ph("xmark", size: 15) }
+                                Button { app.settings.clockOffsets[model] = nil } label: { Image(systemName: "xmark") }
                                     .buttonStyle(.plain).foregroundStyle(Mono.dim).padding(.leading, 8)
                                     .accessibilityLabel("Remove correction")
                             }
@@ -163,7 +163,7 @@ struct ClockSyncView: View {
     private func step(_ n: Int, _ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
             Text(String(format: "%02d", n)).font(Mono.data(.footnote, weight: .medium)).foregroundStyle(Mono.dim)
-            Text(text).font(.sans(.subheadline)).fixedSize(horizontal: false, vertical: true)
+            Text(text).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Mono.gutter).padding(.vertical, 12)
@@ -278,7 +278,7 @@ struct PaywallView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         CapsLabel("Unroll Pro")
                         Text("Camera to posted, without the busywork.")
-                            .font(.sans(size: 30, weight: .semibold)).tracking(-0.4)
+                            .font(.system(size: 30, weight: .semibold)).tracking(-0.4)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.horizontal, Mono.gutter)
@@ -286,8 +286,8 @@ struct PaywallView: View {
                     MonoSection {
                         ForEach(perks, id: \.0) { title, sub in
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(title).font(.sans(.body, .medium))
-                                Text(sub).font(.sans(.footnote)).foregroundStyle(Mono.dim)
+                                Text(title).font(.body.weight(.medium))
+                                Text(sub).font(.footnote).foregroundStyle(Mono.dim)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, Mono.gutter).padding(.vertical, 12)
@@ -318,9 +318,9 @@ struct PaywallView: View {
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(app.pro.purchasing)
 
-                        if let m = app.pro.message { Text(m).font(.sans(.footnote)).foregroundStyle(Mono.dim) }
+                        if let m = app.pro.message { Text(m).font(.footnote).foregroundStyle(Mono.dim) }
                         Button("Restore purchases") { Task { await app.pro.restore() } }
-                            .font(.sans(.footnote)).foregroundStyle(Mono.dim)
+                            .font(.footnote).foregroundStyle(Mono.dim)
                     }
                     .padding(.horizontal, Mono.gutter)
                     .padding(.top, 12)
@@ -337,15 +337,12 @@ struct PaywallView: View {
         let on = plan == p
         return Button { plan = p; Haptics.tap() } label: {
             HStack(spacing: 14) {
-                ZStack {
-                    Circle().strokeBorder(on ? Mono.ink : Mono.faint, lineWidth: 2)
-                    Circle().fill(Mono.ink).padding(5).scaleEffect(on ? 1 : 0.01)
-                }
-                .frame(width: 22, height: 22)
-                .animation(Mono.press, value: on)
+                Image(systemName: on ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 20, weight: .light))
+                    .foregroundStyle(on ? Mono.ink : Mono.faint)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.sans(.body, .semibold))
-                    Text(note).font(.sans(.footnote)).foregroundStyle(Mono.dim)
+                    Text(title).font(.body.weight(.semibold))
+                    Text(note).font(.footnote).foregroundStyle(Mono.dim)
                 }
                 Spacer()
                 Text(price).font(Mono.data(.subheadline, weight: .medium))
@@ -371,7 +368,7 @@ struct ImportHUD: View {
             HStack(spacing: 12) {
                 if imp.isRunning {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)").font(.sans(.subheadline, .semibold))
+                        Text("Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)").font(.subheadline.weight(.semibold))
                         Text(imp.throughputMBps.map { String(format: "%.0f MB/s", $0) } ?? (imp.current?.primary.name ?? ""))
                             .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                     }
@@ -380,7 +377,7 @@ struct ImportHUD: View {
                         .buttonStyle(OutlineChipStyle())
                 } else if showDone, let run = imp.lastFinishedRun {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(run.count) saved to Photos").font(.sans(.subheadline, .semibold))
+                        Text("\(run.count) saved to Photos").font(.subheadline.weight(.semibold))
                         Text("\(String(format: "%.1f", run.seconds)) s" + (run.geotagged > 0 ? "  ·  \(run.geotagged) with location" : "  ·  originals untouched"))
                             .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
                     }
@@ -426,7 +423,7 @@ struct ToastView: View {
         Group {
             if let t = app.toast ?? app.importer.lastError {
                 Text(t)
-                    .font(.sans(.subheadline, .medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(Mono.bg)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(Mono.ink, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))

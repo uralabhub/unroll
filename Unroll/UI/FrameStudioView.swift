@@ -42,7 +42,7 @@ struct FrameStudioView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
                 ToolbarItemGroup(placement: .confirmationAction) {
-                    Button { Task { await share() } } label: { Ph("square.and.arrow.up", size: 21) }
+                    Button { Task { await share() } } label: { Image(systemName: "square.and.arrow.up") }
                         .accessibilityLabel("Share")
                     Button { Task { await save() } } label: {
                         if saving { ProgressView() } else { Text("Save").bold() }
@@ -80,8 +80,8 @@ struct FrameStudioView: View {
                     } label: {
                         VStack(spacing: 7) {
                             HStack(spacing: 4) {
-                                Text(s.label).font(.sans(.subheadline, on ? .semibold : .regular))
-                                if locked { Ph("lock.fill", size: 10) }
+                                Text(s.label).font(.subheadline.weight(on ? .semibold : .regular))
+                                if locked { Image(systemName: "lock.fill").font(.system(size: 9)) }
                             }
                             .foregroundStyle(on ? Mono.ink : Mono.dim)
                             Rectangle().fill(on ? Mono.ink : .clear).frame(height: 1.5)

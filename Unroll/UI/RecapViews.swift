@@ -31,7 +31,7 @@ struct RecapBuilderView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         CapsLabel("Title")
                         TextField("Title", text: $title)
-                            .font(.sans(.title3, .semibold))
+                            .font(.title3.weight(.semibold))
                             .padding(.vertical, 8)
                             .overlay(alignment: .bottom) { Hairline() }
                             .onSubmit { Task { await render() } }
@@ -68,7 +68,7 @@ struct RecapBuilderView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
                 ToolbarItemGroup(placement: .confirmationAction) {
-                    Button { if let r = rendered { shareItem = ShareImage(image: r) } } label: { Ph("square.and.arrow.up", size: 21) }
+                    Button { if let r = rendered { shareItem = ShareImage(image: r) } } label: { Image(systemName: "square.and.arrow.up") }
                         .disabled(rendered == nil)
                     Button("Save") { Task { await save() } }.bold().disabled(rendered == nil)
                 }
@@ -164,7 +164,7 @@ struct WalksView: View {
                         .allowsHitTesting(false)
                     }
                     HStack {
-                        Text(w.start.formatted(date: .abbreviated, time: .shortened)).font(.sans(.body, .medium))
+                        Text(w.start.formatted(date: .abbreviated, time: .shortened)).font(.body.weight(.medium))
                         if w.isDemo { CapsLabel("Demo") }
                         Spacer()
                         Text(w.end == nil ? "Recording" : String(format: "%.2f km", w.distanceMeters / 1000))
