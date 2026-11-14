@@ -17,6 +17,7 @@ final class AppState {
 
     var session: CameraSession?
     var showPaywall = false
+    var photosDenied = false
     var toast: String?
     @ObservationIgnored private var securityScoped: URL?
 
@@ -120,12 +121,19 @@ final class AppState {
     }
 
     func importShots(_ shots: [Shot]) {
-        let refused = importer.enqueue(shots)
-        if refused > 0 {
-            toast = "Free plan: \(Quota.freePerDay) imports a day. \(refused) waiting for Pro."
-            showPaywall = true
-        }
         Haptics.tap()
+        Task {
+            // Ask for Photos first, so the system prompt never lands on top of the paywall.
+            guard await PhotoLibrary.authorize() else {
+                photosDenied = true
+                return
+            }
+            let refused = importer.enqueue(shots)
+            if refused > 0 {
+                toast = "Free plan: \(Quota.freePerDay) imports a day. \(refused) waiting for Pro."
+                showPaywall = true
+            }
+        }
     }
 
     /// Capture time with the per-camera clock correction applied.

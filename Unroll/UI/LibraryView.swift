@@ -389,7 +389,7 @@ struct ShotCell: View {
                         }
                         if shot.isLocked { Icon("lock-simple-fill", size: 9) }
                     }
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .font(Mono.sans(size: 10, weight: .heavy).monospacedDigit())
                     .foregroundStyle(.white)
                     .padding(.horizontal, 4).padding(.vertical, 3)
                     .background(.black.opacity(0.7))
@@ -398,7 +398,7 @@ struct ShotCell: View {
             .overlay(alignment: .bottomLeading) {
                 if shot.raw != nil || shot.primary.format.isRAW || shot.isVideo {
                     Text(shot.isVideo ? "VID" : (shot.raw != nil ? "J+R" : "RAW"))
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(Mono.sans(size: 10, weight: .heavy).monospacedDigit())
                         .foregroundStyle(.white)
                         .padding(.horizontal, 4).padding(.vertical, 3)
                         .background(.black.opacity(0.7))
@@ -440,7 +440,7 @@ struct ShotCell: View {
     }
 
     private func badge(_ v: some View) -> some View {
-        v.font(.system(size: 9, weight: .bold, design: .monospaced))
+        v.font(Mono.sans(size: 10, weight: .heavy).monospacedDigit())
         .foregroundStyle(.white)
         .padding(.horizontal, 4).padding(.vertical, 3)
         .background(.black.opacity(0.7))

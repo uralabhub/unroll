@@ -356,7 +356,7 @@ struct PhotoWalkCard: View {
                             .foregroundStyle(rec.isRecording ? Mono.ink : Mono.dim)
                     }
                     Text(Duration.seconds(w?.duration ?? 0).formatted(.time(pattern: .hourMinuteSecond(padHourToLength: 2))))
-                        .font(.system(size: 30, weight: .regular, design: .monospaced))
+                        .font(Mono.sans(size: 32, weight: .bold).monospacedDigit())
                         .monospacedDigit()
                         .foregroundStyle(w == nil ? Mono.faint : Mono.ink)
                         .contentTransition(.numericText())

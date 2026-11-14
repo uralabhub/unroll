@@ -39,6 +39,18 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Unroll.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Unroll"
         BUNDLE_LOADER: "$(TEST_HOST)"
+  UnrollUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UnrollUITests
+    dependencies:
+      - target: Unroll
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Unroll
+        PRODUCT_BUNDLE_IDENTIFIER: com.uranashel.unroll.uitests
 
 schemes:
   Unroll:
@@ -52,3 +64,11 @@ schemes:
     test:
       config: Debug
       targets: [UnrollTests]
+  UnrollUI:
+    build:
+      targets:
+        Unroll: all
+        UnrollUITests: [test]
+    test:
+      config: Debug
+      targets: [UnrollUITests]

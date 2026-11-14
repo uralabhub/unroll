@@ -112,7 +112,7 @@ struct ClockSyncView: View {
                                 .padding(14).background(.white)
                         }
                         Text(ctx.date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits)))
-                            .font(.system(size: 40, weight: .medium, design: .monospaced))
+                            .font(Mono.sans(size: 40, weight: .semibold).monospacedDigit())
                     }
                     .frame(maxWidth: .infinity)
                 }

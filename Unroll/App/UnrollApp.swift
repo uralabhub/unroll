@@ -50,5 +50,13 @@ struct RootView: View {
         .overlay(alignment: .bottom) { ImportHUD().padding(.bottom, 8) }
         .overlay(alignment: .top) { ToastView() }
         .sheet(isPresented: $app.showPaywall) { PaywallView() }
+        .alert("Photos access is off", isPresented: $app.photosDenied) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text("Unroll saves your shots to Photos. Allow access in Settings, then import again.")
+        }
     }
 }

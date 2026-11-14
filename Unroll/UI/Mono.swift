@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Unroll's visual language: black, white and greys only. Type and hairlines do the work —
 /// no gradients, glows, tinted icon bubbles or decorative colour. Data (EXIF, counts, times)
-/// is set in monospaced digits, like a camera's top-plate display.
+/// uses tabular digits so values line up and don't jitter as they change.
 enum Mono {
     static let bg = Color(uiColor: .systemBackground)
     static let raised = Color(uiColor: .secondarySystemBackground)
@@ -70,10 +70,11 @@ enum Mono {
         return UIFont(name: fontName(w), size: size) ?? .systemFont(ofSize: size, weight: weight)
     }
 
-    /// Small uppercase monospaced label used for section headers and data captions.
-    static func caps(_ size: CGFloat = 11) -> Font { .system(size: size, weight: .medium, design: .monospaced) }
-    static func data(_ style: Font.TextStyle = .body, weight: Font.Weight = .regular) -> Font {
-        .system(style, design: .monospaced).weight(weight)
+    /// Small uppercase label for section headers and data captions (Nunito ExtraBold, tracked).
+    static func caps(_ size: CGFloat = 11) -> Font { .custom(fontName(.heavy), fixedSize: size) }
+    /// EXIF values, counts and times: Nunito with tabular digits so numbers don't jitter.
+    static func data(_ style: Font.TextStyle = .body, weight: Font.Weight = .semibold) -> Font {
+        sans(style, weight: weight).monospacedDigit()
     }
 }
 
