@@ -47,7 +47,7 @@ class ProStore(context: Context) {
         get() = _debug.value
         set(v) { _debug.value = v; prefs.edit().putBoolean("debugPro", v).apply() }
 
-    val isPro: Boolean get() = debugUnlock || purchased.isNotEmpty()
+    val isPro: Boolean get() = (app.unroll.BuildConfig.DEBUG && debugUnlock) || purchased.isNotEmpty()
 
     private val client: BillingClient = BillingClient.newBuilder(context)
         .setListener { result, purchases -> onPurchases(result, purchases) }

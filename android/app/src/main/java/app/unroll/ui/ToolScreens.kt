@@ -1,5 +1,7 @@
 package app.unroll.ui
 
+import app.unroll.Legal
+import app.unroll.BuildConfig
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -395,7 +397,12 @@ fun SettingsScreen(app: AppState) {
                 }
                 add { MonoRow("Restore purchases", onClick = { app.pro.restore() }) }
             })
-            MonoSection("Developer", rows = listOf(
+            val uri = androidx.compose.ui.platform.LocalUriHandler.current
+            MonoSection(rows = listOf(
+                { MonoRow("Privacy policy", onClick = { uri.openUri(Legal.PRIVACY) }) },
+                { MonoRow("Support", onClick = { uri.openUri(Legal.SUPPORT) }) },
+            ))
+            if (BuildConfig.DEBUG) MonoSection("Developer", rows = listOf(
                 { ToggleRow("Unlock Pro (testing)", app.pro.debugUnlock) { app.pro.debugUnlock = it } },
                 { MonoRow("Forget import history", chevron = false, onClick = { app.ledger.reset(); app.toast = "Import history cleared" }) },
             ))
@@ -486,7 +493,13 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
                     else pro.buy(activity, product)
                 }
                 pro.message?.let { Text(it, fontSize = 13.sp, color = Mono.c.dim) }
-                Text("Restore purchases", Modifier.clickable { pro.restore() }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
+                if (!lifetime) Text("7 days free, then a yearly charge. Renews automatically until you cancel in Google Play › Subscriptions.",
+                    fontSize = 11.sp, color = Mono.c.dim, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                val uri = androidx.compose.ui.platform.LocalUriHandler.current
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("Restore", Modifier.clickable { pro.restore() }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
+                    Text("Privacy", Modifier.clickable { uri.openUri(Legal.PRIVACY) }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
+                }
             }
         }
     }

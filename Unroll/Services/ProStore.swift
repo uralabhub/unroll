@@ -28,7 +28,12 @@ final class ProStore {
         Task { await load() }
     }
 
-    var isPro: Bool { debugUnlock || !purchased.isEmpty }
+    var isPro: Bool {
+        #if DEBUG
+        if debugUnlock { return true }
+        #endif
+        return !purchased.isEmpty
+    }
     var yearly: Product? { products.first { $0.id == ProStore.yearlyID } }
     var lifetime: Product? { products.first { $0.id == ProStore.lifetimeID } }
 

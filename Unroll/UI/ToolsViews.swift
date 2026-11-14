@@ -238,9 +238,17 @@ struct SettingsView: View {
                 Button("Restore purchases") { Task { await app.pro.restore() } }
             }
 
+            #if DEBUG
             Section("Developer") {
                 Toggle("Unlock Pro (testing)", isOn: $pro.debugUnlock)
                 Button("Forget import history", role: .destructive) { app.ledger.reset() }
+            }
+            #endif
+
+            Section {
+                Link("Privacy policy", destination: Legal.privacy)
+                Link("Terms of use", destination: Legal.terms)
+                Link("Support", destination: Legal.support)
             }
 
             Section {
@@ -319,8 +327,17 @@ struct PaywallView: View {
                         .disabled(app.pro.purchasing)
 
                         if let m = app.pro.message { Text(m).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
-                        Button("Restore purchases") { Task { await app.pro.restore() } }
-                            .font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
+                        if plan != .lifetime {
+                            Text("7 days free, then \(app.pro.yearly?.displayPrice ?? "$14.99") a year. Renews automatically until you cancel in Settings › Apple ID › Subscriptions, at least 24 hours before the period ends.")
+                                .font(Mono.sans(.caption2)).foregroundStyle(Mono.dim)
+                                .multilineTextAlignment(.center)
+                        }
+                        HStack(spacing: 16) {
+                            Button("Restore") { Task { await app.pro.restore() } }
+                            Link("Terms", destination: Legal.terms)
+                            Link("Privacy", destination: Legal.privacy)
+                        }
+                        .font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
                     }
                     .padding(.horizontal, Mono.gutter)
                     .padding(.top, 12)

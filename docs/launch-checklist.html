@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unroll Launch Checklist</title>
+<style>
+:root{--bg:#f4f4f4;--card:#fff;--ink:#111;--dim:#666;--line:#e3e3e3;--ok:#1a7f37;--warn:#b54708;--todo:#111}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--card:#141414;--ink:#eee;--dim:#999;--line:#2a2a2a;--ok:#4ac26b;--warn:#f0a35e;--todo:#eee}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,system-ui,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:30px;margin:0 0 4px}
+.sub{color:var(--dim);margin:0 0 28px}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:36px 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 18px;margin-bottom:12px}
+.row{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row input{margin-top:4px;width:18px;height:18px;flex:none;accent-color:var(--ink)}
+.row b{display:block}
+.row span{color:var(--dim);font-size:14px}
+code{font:13px ui-monospace,Menlo,monospace;background:var(--line);padding:1px 5px;border-radius:5px;word-break:break-all}
+.tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;padding:2px 8px;border-radius:99px;border:1px solid currentColor;margin-left:6px;vertical-align:2px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{text-align:left;padding:9px 6px;border-top:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:600;border-top:0}
+.progress{font-size:14px;color:var(--dim);position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:1}
+</style>
+</head>
+<body>
+<main>
+<h1>Unroll: checklist lên store</h1>
+<p class="sub">iOS (App Store) + Android (Google Play). Version 1.0.0 (build 1). Tick dần, trạng thái tick được lưu trên trình duyệt này.</p>
+<div class="progress" id="progress"></div>
+
+<h2>1 · Tình trạng app</h2>
+<div class="card"><table>
+<tr><th>Hạng mục</th><th>iOS</th><th>Android</th></tr>
+<tr><td>Demo roll, grid, lọc ★/🔒, chi tiết + recipe, Frame</td><td class="ok">Chạy trên iPhone 15 thật</td><td class="ok">Chạy trên Galaxy A56 thật</td></tr>
+<tr><td>Import vào Photos/Gallery</td><td class="ok">Đã lưu thật (10 ảnh demo)</td><td class="ok">Đã chạy trên máy thật</td></tr>
+<tr><td>Paywall, quota 10 ảnh/ngày</td><td class="ok">Chạy</td><td class="ok">Chạy</td></tr>
+<tr><td>Bản release (không còn nút "Unlock Pro (testing)")</td><td class="ok">Build Release OK</td><td class="ok">Release + R8 chạy trên A56</td></tr>
+<tr><td>Privacy manifest, link Terms/Privacy, ghi chú tự gia hạn</td><td class="ok">Có</td><td class="ok">Link trong Settings (cần URL sống)</td></tr>
+<tr><td><b>Cắm máy ảnh thật qua USB-C</b></td><td class="warn">CHƯA THỬ</td><td class="warn">CHƯA THỬ</td></tr>
+<tr><td>Ricoh GR qua Wi-Fi</td><td class="warn">Chưa thử (beta)</td><td class="warn">Chưa thử (beta)</td></tr>
+<tr><td>Mua thật qua StoreKit / Play Billing</td><td class="warn">Cần tạo sản phẩm trước</td><td class="warn">Cần tạo sản phẩm trước</td></tr>
+</table></div>
+
+<h2>2 · Việc bắt buộc trước khi submit (chung)</h2>
+<div class="card">
+<label class="row"><input type="checkbox"><div><b>Test với ít nhất 1 máy ảnh thật</b><span>Fuji / Sony / Canon qua cáp USB-C dữ liệu, trên cả iPhone và Android. Đây là tính năng chính, chưa ai thử.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Đăng trang Privacy + Support</b><span>File có sẵn: <code>docs/privacy.html</code>, <code>docs/support.html</code>. App đang trỏ tới <code>https://tannguyenwatt.github.io/unroll/privacy.html</code> và <code>…/support.html</code>. Tạo repo GitHub <code>unroll</code>, push, bật Pages từ thư mục <code>docs/</code>. Nếu dùng domain khác, báo mình đổi trong <code>Unroll/App/Legal.swift</code> + Android.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Email hỗ trợ</b><span>Trang privacy/support đang dùng uranashel44@gmail.com. Đổi nếu muốn email khác.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Quyết định giá</b><span>Đang code: Yearly $14.99 (thử 7 ngày), Lifetime $29.99. Free: 10 ảnh/ngày.</span></div></label>
+</div>
+
+<h2>3 · App Store (iOS)</h2>
+<div class="card">
+<label class="row"><input type="checkbox"><div><b>Apple Developer Program trả phí ($99/năm)</b><span>Kiểm tra team <code>L539P826HH</code> (Nguyen Ngoc Tan) đã là tài khoản trả phí chưa. Team cá nhân miễn phí không upload được.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Đăng ký Bundle ID</b><span><code>com.uranashel.unroll</code> trong Certificates, Identifiers &amp; Profiles. Bật In-App Purchase.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Tạo app trong App Store Connect</b><span>Tên: Unroll (nếu bị trùng: "Unroll – Camera Import"). Ngôn ngữ chính English. SKU tùy ý, ví dụ <code>unroll-ios</code>.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Paid Apps Agreement + thuế + ngân hàng</b><span>Business → Agreements. Chưa ký thì sản phẩm in-app không hiện, paywall sẽ báo lỗi và Apple từ chối.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Tạo 2 sản phẩm in-app (ID phải khớp y hệt)</b><span>Auto-renewable subscription <code>com.uranashel.unroll.pro.yearly</code> ($14.99/năm, introductory offer free 7 ngày) trong 1 subscription group "Unroll Pro". Non-consumable <code>com.uranashel.unroll.pro.lifetime</code> ($29.99). Mỗi cái cần tên hiển thị, mô tả, 1 ảnh review (chụp paywall).</span></div></label>
+<label class="row"><input type="checkbox"><div><b>App icon 1024×1024</b><span>Đã có trong <code>Unroll/Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png</code>. Muốn icon khác thì gửi mình file.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Screenshots</b><span>Bắt buộc 6.9" (1320×2868 hoặc 1290×2796), 3–10 ảnh. iPad 13" (2064×2752) vì app đang bật iPad. Gợi ý thứ tự: Home "Plug in your camera" · Grid lọc ★/🔒 · Recipe Fuji · Frame Studio · Recap card · Photo Walk. Mình chụp được từ Simulator nếu bạn muốn.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Nội dung trang store</b><span>Subtitle (≤30 ký tự), Description, Keywords (≤100 ký tự), Promotional text, Support URL, Privacy Policy URL, Category: Photo &amp; Video, Copyright. Mình viết được bản nháp.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>App Privacy</b><span>Chọn "Data Not Collected" (app không gửi dữ liệu nào ra ngoài). Khớp với <code>PrivacyInfo.xcprivacy</code>.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Age rating</b><span>Trả lời bảng câu hỏi: tất cả "None" → 4+.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Ghi chú cho reviewer</b><span>"No camera needed: tap 'No camera? Open the demo roll' on Home to try every feature. USB-C import requires a camera in PTP/MTP mode." Không cần tài khoản demo.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Upload build</b><span>Xcode → Product → Archive (scheme Unroll, Any iOS Device) → Distribute App → App Store Connect. Hoặc nhờ mình chạy lệnh archive + upload khi tài khoản sẵn sàng.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>TestFlight</b><span>Cài bản TestFlight, thử mua bằng Sandbox account, thử cắm máy ảnh.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>iPad hay không?</b><span>App đang hỗ trợ cả iPad → phải có screenshot iPad và Apple sẽ test trên iPad. Muốn chỉ iPhone thì báo mình tắt.</span></div></label>
+</div>
+
+<h2>4 · Google Play (Android)</h2>
+<div class="card">
+<label class="row"><input type="checkbox"><div><b>Tài khoản Google Play Console ($25 một lần)</b><span>Tài khoản cá nhân mới phải chạy closed test với ≥12 người trong 14 ngày trước khi được lên production.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Tạo keystore ký bản release (bạn giữ, không đưa ai)</b><span>Chạy trong thư mục <code>android/</code>:<br><code>keytool -genkeypair -v -keystore unroll-release.jks -alias unroll -keyalg RSA -keysize 4096 -validity 10000</code><br>Rồi tạo <code>android/keystore.properties</code>:<br><code>storeFile=unroll-release.jks · storePassword=… · keyAlias=unroll · keyPassword=…</code> (mỗi dòng một key). Hai file này đã được git bỏ qua. Mất keystore = không update app được nữa → backup cẩn thận.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Build AAB</b><span><code>cd android &amp;&amp; ./gradlew :app:bundleRelease</code> → <code>app/build/outputs/bundle/release/app-release.aab</code>. Bật Play App Signing khi upload.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Tạo 2 sản phẩm trong Monetize</b><span>Subscription <code>com.uranashel.unroll.pro.yearly</code> (base plan năm, $14.99, offer free trial 7 ngày). In-app product <code>com.uranashel.unroll.pro.lifetime</code> ($29.99). Cần Payments profile (merchant) trước.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Store listing</b><span>App name (≤30), Short description (≤80), Full description (≤4000), Icon 512×512 PNG, Feature graphic 1024×500, Phone screenshots 2–8 ảnh (1080×1920 trở lên, 9:16). Mình chụp được từ A56.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>App content</b><span>Privacy policy URL · Data safety: "No data collected/shared" · Ads: không · Content rating (IARC): Everyone · Target audience: 18+ hoặc 13+ (đừng chọn trẻ em) · Permissions: app dùng Location (foreground khi Photo Walk) – điền khai báo nếu Play hỏi.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Foreground service</b><span>Import chạy dạng foreground service (dataSync). Play sẽ hỏi khai báo + video ngắn cảnh import đang chạy. Mình quay được từ A56.</span></div></label>
+<label class="row"><input type="checkbox"><div><b>Closed testing → Production</b><span>Thêm tester, thử mua bằng license tester, thử cắm máy ảnh.</span></div></label>
+</div>
+
+<h2>5 · Mình (Claude) làm tiếp được khi bạn gửi</h2>
+<div class="card">
+<div class="row"><div><b>Mô tả store + keywords</b><span>Viết sẵn bản EN (và VI nếu muốn) cho cả 2 store.</span></div></div>
+<div class="row"><div><b>Screenshots + feature graphic</b><span>Chụp đúng kích thước từ Simulator / A56, có thể thêm dòng chữ ngắn phía trên.</span></div></div>
+<div class="row"><div><b>Archive + upload iOS, build AAB</b><span>Khi tài khoản dev và keystore sẵn sàng.</span></div></div>
+<div class="row"><div><b>Đổi URL privacy/support, tắt iPad, đổi giá/ID</b><span>Chỉ cần báo giá trị mới.</span></div></div>
+</div>
+
+<h2>Cần bạn gửi lại cho mình</h2>
+<div class="card">
+<div class="row"><div><b>1.</b><span>URL privacy/support cuối cùng (hoặc OK để mình dùng GitHub Pages như trên).</span></div></div>
+<div class="row"><div><b>2.</b><span>Giữ iPad hay chỉ iPhone.</span></div></div>
+<div class="row"><div><b>3.</b><span>Icon mới (nếu không dùng icon hiện tại).</span></div></div>
+<div class="row"><div><b>4.</b><span>Kết quả cắm máy ảnh thật (hãng, đời máy, lỗi nếu có).</span></div></div>
+</div>
+</main>
+<script>
+(function(){
+  var boxes=[].slice.call(document.querySelectorAll('input[type=checkbox]'));
+  var key='unroll-checklist';
+  var saved=[];try{saved=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){}
+  boxes.forEach(function(b,i){b.checked=!!saved[i];b.addEventListener('change',update)});
+  function update(){
+    var s=boxes.map(function(b){return b.checked});
+    try{localStorage.setItem(key,JSON.stringify(s))}catch(e){}
+    var n=s.filter(Boolean).length;
+    document.getElementById('progress').textContent='Đã xong '+n+' / '+boxes.length+' việc';
+  }
+  update();
+})();
+</script>
+</body>
+</html>
