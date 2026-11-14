@@ -132,5 +132,9 @@ Demo Roll có một nhóm ảnh (Nostalgic Neg.) dùng DRP Fixed/Strong để xe
   - Các khối xuất hiện lần lượt; ô ảnh bật vào; số liệu lăn khi đổi.
   - Nút Photo Walk biến hình giữa tròn và vuông; lỗ phim trên thẻ hero chạy liên tục; thẻ hero có parallax khi cuộn.
   - Paywall trượt lên theo spring.
-  - Thẻ hero nghiêng tối đa 4° theo cảm biến trọng lực, đổ hai lớp bóng; rung phản hồi khi đổi bộ lọc, chọn ảnh, bắt đầu và xong import, bắt đầu và dừng Photo Walk. Khi bật "Xoá hiệu ứng" (animator scale = 0), các vòng lặp, độ nghiêng và hiệu ứng xuất hiện lần lượt đều tắt. Phần này chưa thử trên máy thật vì điện thoại đang khoá màn hình.
+  - Thẻ hero nghiêng tối đa 4° theo cảm biến trọng lực, đổ hai lớp bóng; rung phản hồi khi đổi bộ lọc, chọn ảnh, bắt đầu và xong import, bắt đầu và dừng Photo Walk. Khi bật "Xoá hiệu ứng" (animator scale = 0), các vòng lặp, độ nghiêng và hiệu ứng xuất hiện lần lượt đều tắt. Phần này đã kiểm tra trên emulator (14/11/2026):
+    - Nghiêng: chỉnh cảm biến ảo bằng `adb emu sensor set acceleration`; thẻ hero nghiêng theo cả hai chiều.
+    - Rung: `dumpsys vibrator_manager` ghi nhận CLOCK_TICK khi đổi bộ lọc và VIRTUAL_KEY khi nhấn giữ để chọn ảnh.
+    - Giảm chuyển động: với animator scale = 0, app không đăng ký cảm biến và thẻ đứng yên.
+    - Chưa kiểm tra: cảm giác rung thật trên Galaxy A56.
   - Đã kiểm tra bằng video quay màn hình trên Galaxy A56. Bản iOS (Nunito, Phosphor, chuyển động) do nhánh `fix/spec-audit` làm.
