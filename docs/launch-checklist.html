@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unroll Launch Checklist</title>
+<style>
+:root{
+  --bg:#f6f6f4; --card:#ffffff; --ink:#111; --dim:#6b6b6b; --line:#e3e3df; --chip:#efefec;
+  --ok:#1f7a3f; --warn:#9a6200; --todo:#b3261e; --accent:#111;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c0c0c; --card:#161616; --ink:#f1f1ef; --dim:#9a9a96; --line:#2a2a28; --chip:#222220;
+    --ok:#6fd393; --warn:#f0b34a; --todo:#ff8a80; --accent:#f1f1ef;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c0c0c; --card:#161616; --ink:#f1f1ef; --dim:#9a9a96; --line:#2a2a28; --chip:#222220;
+  --ok:#6fd393; --warn:#f0b34a; --todo:#ff8a80; --accent:#f1f1ef;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:16px/1.55 "Nunito",ui-rounded,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:40px 16px 80px}
+header .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:800}
+h1{font-size:40px;line-height:1.05;margin:6px 0 10px;font-weight:900;letter-spacing:-.02em}
+.lede{color:var(--dim);max-width:640px;margin:0}
+.progress{margin:22px 0 8px;display:flex;align-items:center;gap:12px}
+.bar{flex:1;height:6px;background:var(--chip);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .4s cubic-bezier(.2,.8,.2,1)}
+.count{font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;min-width:70px;text-align:right}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+nav a{font-size:13px;font-weight:800;color:var(--ink);text-decoration:none;background:var(--chip);padding:7px 12px;border-radius:99px}
+section{margin-top:40px}
+h2{font-size:24px;margin:0 0 4px;font-weight:900;letter-spacing:-.01em}
+.sub{color:var(--dim);margin:0 0 14px;font-size:15px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:6px 0;overflow:hidden}
+.item{display:flex;gap:14px;padding:14px 18px;border-top:1px solid var(--line);align-items:flex-start}
+.item:first-child{border-top:0}
+.item input{appearance:none;-webkit-appearance:none;flex:none;width:22px;height:22px;margin:2px 0 0;border:2px solid var(--dim);border-radius:7px;cursor:pointer;display:grid;place-content:center;transition:background .15s,border-color .15s}
+.item input:checked{background:var(--accent);border-color:var(--accent)}
+.item input:checked::after{content:"";width:10px;height:6px;border:2.5px solid var(--bg);border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.item.done .t{text-decoration:line-through;color:var(--dim)}
+.t{font-weight:800}
+.d{color:var(--dim);font-size:14.5px;margin-top:2px}
+.d code,.t code,p code,td code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--chip);padding:1px 6px;border-radius:6px;word-break:break-all}
+.tag{display:inline-block;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:99px;margin-left:6px;vertical-align:2px;border:1.5px solid currentColor}
+.you{color:var(--todo)} .me{color:var(--warn)} .both{color:var(--dim)}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{text-align:left;padding:12px 18px;border-top:1px solid var(--line);vertical-align:top}
+tr:first-child th{border-top:0}
+th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:900}
+.s{font-weight:900;white-space:nowrap}
+.s.ok{color:var(--ok)} .s.part{color:var(--warn)} .s.no{color:var(--todo)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--dim);margin:10px 0 0}
+.note{font-size:13.5px;color:var(--dim);margin-top:10px}
+.table-scroll{overflow-x:auto}
+footer{margin-top:48px;color:var(--dim);font-size:13px}
+@media (max-width:560px){h1{font-size:32px} th,td{padding:10px 14px} .item{padding:13px 14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Unroll · iOS + Android · 14/11/2026</div>
+  <h1>Còn gì trước khi lên store</h1>
+  <p class="lede">Tình trạng tính năng, những thứ cần bạn đưa, và việc setup cho App Store + Google Play. Tick vào ô khi xong, trình duyệt sẽ nhớ.</p>
+  <div class="progress"><div class="bar"><i id="bar"></i></div><div class="count" id="count">0 / 0</div></div>
+  <div class="legend"><span><span class="tag you">Bạn</span> cần bạn làm / đưa</span><span><span class="tag me">Claude</span> mình code được</span><span><span class="tag both">Cùng</span> cần cả hai</span></div>
+  <nav>
+    <a href="#status">Tình trạng</a><a href="#input">Cần bạn đưa</a><a href="#icon">Icon</a><a href="#shots">Screenshot</a><a href="#billing">Billing</a><a href="#setup">Setup store</a><a href="#code">Code còn lại</a><a href="#test">Test máy thật</a>
+  </nav>
+</header>
+
+<section id="status">
+  <h2>Tình trạng tính năng</h2>
+  <p class="sub">Code đã viết đủ mọi tính năng. Phần “đã chạy” là đã thử bằng Demo Roll trên Galaxy A56 / emulator. Phần cần máy ảnh thật thì <b>chưa ai thử</b>.</p>
+  <div class="card table-scroll"><table>
+    <tr><th>Tính năng</th><th>Android</th><th>Ghi chú</th></tr>
+    <tr><td>Parser EXIF / RAW / HEIF / recipe Fuji + D-Range Priority</td><td class="s ok">Đã chạy</td><td>42/42 test pass</td></tr>
+    <tr><td>Demo Roll → thư viện, lọc ★ 🔒 RAW, chi tiết ảnh</td><td class="s ok">Đã chạy</td><td>Galaxy A56</td></tr>
+    <tr><td>Import vào thư viện, quota 10/ngày, ledger, gắn GPS</td><td class="s ok">Đã chạy</td><td>Với ảnh demo</td></tr>
+    <tr><td>Frame Studio, Recap, Recipe Book, Clock Sync, Walks (demo), Settings</td><td class="s ok">Đã chạy</td><td>Galaxy A56</td></tr>
+    <tr><td>Animation, Nunito, icon Phosphor, nghiêng gyro, rung</td><td class="s ok">Đã chạy</td><td>Còn khựng 150 ms khi đóng ảnh, cuộn lưới 9–14% khung giật</td></tr>
+    <tr><td>Cắm máy ảnh qua USB (MTP), ảnh mới khi đang cắm</td><td class="s no">Chưa thử</td><td>Cần máy ảnh thật</td></tr>
+    <tr><td>Thẻ SD qua đầu đọc / thư mục (SAF)</td><td class="s no">Chưa thử</td><td>Cần đầu đọc USB-C</td></tr>
+    <tr><td>Ricoh GR qua Wi-Fi (beta)</td><td class="s no">Chưa thử</td><td>Cần máy Ricoh GR</td></tr>
+    <tr><td>Photo Walk ghi GPS thật khi tắt màn hình</td><td class="s part">Chưa thử</td><td>Cần đi bộ thật</td></tr>
+    <tr><td>Mua Pro (Play Billing / StoreKit)</td><td class="s no">Chưa thử</td><td>Cần tạo sản phẩm trên store trước</td></tr>
+    <tr><td>Bản release (R8 minify bật)</td><td class="s no">Chưa build</td><td>Mới chỉ chạy bản debug</td></tr>
+  </table></div>
+  <p class="note">iOS do nhánh <code>fix/spec-audit</code> làm; bảng này chỉ chắc chắn cho Android. Nhánh Android <code>claude/android-app-e481af</code> chưa merge và chưa push.</p>
+</section>
+
+<section id="input">
+  <h2>Cần bạn đưa</h2>
+  <p class="sub">Những thứ chỉ bạn có hoặc chỉ bạn quyết được.</p>
+  <div class="card">
+    <label class="item"><input type="checkbox" data-id="in-apple"><div><div class="t">Tài khoản Apple Developer + Team ID <span class="tag you">Bạn</span></div><div class="d">99 USD/năm. <code>project.yml</code> chưa có <code>DEVELOPMENT_TEAM</code>, cần Team ID để ký.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="in-play"><div><div class="t">Tài khoản Google Play Console <span class="tag you">Bạn</span></div><div class="d">25 USD một lần, xác minh danh tính. Tài khoản cá nhân mới phải chạy closed test với 12 người trong 14 ngày trước khi lên production (kiểm tra lại quy định hiện hành).</div></div></label>
+    <label class="item"><input type="checkbox" data-id="in-privacy"><div><div class="t">Link Privacy Policy + Terms of Use (EULA) <span class="tag you">Bạn</span></div><div class="d">Bắt buộc cho app có subscription trên cả hai store và phải hiện trong paywall. Nội dung chính: không account, không cloud, ảnh và GPS chỉ nằm trên máy. Có thể dùng EULA chuẩn của Apple.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="in-support"><div><div class="t">Support URL + email liên hệ <span class="tag you">Bạn</span></div><div class="d">Cả hai store đều bắt buộc. Một trang web đơn giản là đủ.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="in-name"><div><div class="t">Tên hiển thị trên store, subtitle, mô tả <span class="tag both">Cùng</span></div><div class="d">Kiểm tra tên “Unroll” còn trống trên App Store và Play. Mình viết nháp mô tả được nếu bạn chốt giọng văn.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="in-price"><div><div class="t">Chốt giá và thị trường <span class="tag you">Bạn</span></div><div class="d">Hiện tại: Lifetime 29,99 USD, Yearly 14,99 USD + 7 ngày dùng thử, free 10 ảnh/ngày. Chọn quốc gia phát hành.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="in-bank"><div><div class="t">Thông tin ngân hàng + thuế <span class="tag you">Bạn</span></div><div class="d">Paid Apps Agreement (App Store Connect) và payments profile (Play). Bạn tự nhập, mình không nhập hộ.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="in-gear"><div><div class="t">Máy ảnh + đầu đọc thẻ để test <span class="tag you">Bạn</span></div><div class="d">Tối thiểu một máy Fujifilm qua USB-C. Có thêm Sony / Canon / Nikon, đầu đọc SD USB-C, Ricoh GR thì càng tốt.</div></div></label>
+  </div>
+</section>
+
+<section id="icon">
+  <h2>Icon</h2>
+  <p class="sub">iOS đã có icon cuộn phim 1024×1024. Android mới dùng icon tạm (khung phim vẽ bằng vector).</p>
+  <div class="card">
+    <label class="item"><input type="checkbox" data-id="ic-decide"><div><div class="t">Chốt icon cuối cùng <span class="tag you">Bạn</span></div><div class="d">Giữ icon cuộn phim của iOS cho cả hai, hay làm icon mới. Nên dùng chung một icon.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="ic-master"><div><div class="t">File gốc dạng vector (SVG) hoặc PNG 1024×1024 không trong suốt <span class="tag you">Bạn</span></div><div class="d">App Store không nhận icon có kênh alpha.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="ic-android"><div><div class="t">Adaptive icon Android <span class="tag me">Claude</span></div><div class="d">Foreground + background 108dp, vùng an toàn 66dp, thêm bản monochrome cho themed icon Android 13+. Mình làm từ file gốc của bạn.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="ic-play512"><div><div class="t">Icon Play Store 512×512 PNG <span class="tag me">Claude</span></div><div class="d">Xuất từ cùng file gốc.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="ic-feature"><div><div class="t">Feature graphic Google Play 1024×500 <span class="tag both">Cùng</span></div><div class="d">Bắt buộc trên Play. Cần bạn chốt hình ảnh, mình dựng được bản đơn sắc.</div></div></label>
+  </div>
+</section>
+
+<section id="shots">
+  <h2>Screenshot store</h2>
+  <p class="sub">Kích thước theo quy định mình biết; mở App Store Connect / Play Console xem lại trước khi upload.</p>
+  <div class="card table-scroll"><table>
+    <tr><th>Store</th><th>Cần</th><th>Ghi chú</th></tr>
+    <tr><td>App Store, iPhone 6.9″</td><td>1320×2868 (hoặc 1290×2796), 3–10 ảnh</td><td>Bắt buộc. Apple tự thu nhỏ cho iPhone nhỏ hơn.</td></tr>
+    <tr><td>App Store, iPad 13″</td><td>2064×2752 (hoặc 2048×2732)</td><td><b>Bắt buộc</b> vì app đang bật iPad (<code>TARGETED_DEVICE_FAMILY "1,2"</code>). Hoặc tắt iPad nếu không cần.</td></tr>
+    <tr><td>Google Play, phone</td><td>2–8 ảnh, 9:16, ví dụ 1080×1920</td><td>Bắt buộc. Cạnh dài tối đa gấp 2 cạnh ngắn.</td></tr>
+    <tr><td>Google Play, tablet 7″ / 10″</td><td>Tuỳ chọn</td><td>Bỏ qua được nếu không nhắm tablet.</td></tr>
+  </table></div>
+  <div class="card" style="margin-top:14px">
+    <label class="item"><input type="checkbox" data-id="sh-pick"><div><div class="t">Chốt 5–6 màn hình muốn khoe <span class="tag you">Bạn</span></div><div class="d">Gợi ý: Home “Plug in your camera”, lưới ảnh với ★ 🔒 J+R, chi tiết ảnh + recipe, Frame Studio, Recap card, Recipe Book.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="sh-photos"><div><div class="t">Ảnh thật đẹp để thay ảnh demo vẽ bằng code <span class="tag you">Bạn</span></div><div class="d">Ảnh demo hiện là phố vẽ tay, nhìn không “bán” được. Nên dùng ảnh bạn chụp (có quyền dùng).</div></div></label>
+    <label class="item"><input type="checkbox" data-id="sh-capture"><div><div class="t">Chụp screenshot đúng kích thước <span class="tag me">Claude</span></div><div class="d">Mình chụp từ simulator iPhone / iPad và emulator Android ở đúng độ phân giải.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="sh-frame"><div><div class="t">Thêm caption / khung cho screenshot <span class="tag both">Cùng</span></div><div class="d">Tuỳ chọn. Bạn chốt câu chữ, mình ghép.</div></div></label>
+  </div>
+</section>
+
+<section id="billing">
+  <h2>Billing</h2>
+  <p class="sub">Code cả hai bản đã dùng đúng hai product ID này. Chỉ cần tạo trên store, giữ đúng ID.</p>
+  <div class="card">
+    <label class="item"><input type="checkbox" data-id="bi-asc-agree"><div><div class="t">App Store Connect: ký Paid Apps Agreement <span class="tag you">Bạn</span></div><div class="d">Chưa ký thì sản phẩm không tải được.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-asc-sub"><div><div class="t">App Store: subscription group “Unroll Pro” → <code>com.uranashel.unroll.pro.yearly</code> <span class="tag you">Bạn</span></div><div class="d">Auto-renewable 1 năm, 14,99 USD, introductory offer free trial 7 ngày. Cần ảnh review + mô tả.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-asc-life"><div><div class="t">App Store: non-consumable <code>com.uranashel.unroll.pro.lifetime</code> <span class="tag you">Bạn</span></div><div class="d">29,99 USD.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-asc-sandbox"><div><div class="t">App Store: tạo Sandbox tester <span class="tag you">Bạn</span></div><div class="d">Để mua thử trên máy thật qua TestFlight.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-play-merchant"><div><div class="t">Play Console: payments profile / merchant <span class="tag you">Bạn</span></div><div class="d">Mục tạo sản phẩm chỉ mở sau khi có payments profile và đã upload một bản build có thư viện Billing.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-play-sub"><div><div class="t">Play: subscription <code>com.uranashel.unroll.pro.yearly</code> <span class="tag you">Bạn</span></div><div class="d">Một base plan 1 năm, 14,99 USD, auto-renew; thêm offer free trial 7 ngày cho người mới. App tự chọn offer có giá 0.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-play-life"><div><div class="t">Play: one-time product <code>com.uranashel.unroll.pro.lifetime</code> <span class="tag you">Bạn</span></div><div class="d">29,99 USD.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-play-testers"><div><div class="t">Play: license testers <span class="tag you">Bạn</span></div><div class="d">Thêm email Google của bạn để mua thử không mất tiền.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="bi-verify"><div><div class="t">Mua thử, restore, hết hạn trial <span class="tag both">Cùng</span></div><div class="d">Bạn bấm mua (mình không thực hiện thanh toán), mình kiểm tra app mở khoá Pro và “Restore purchases”.</div></div></label>
+  </div>
+</section>
+
+<section id="setup">
+  <h2>Setup store</h2>
+  <div class="card">
+    <label class="item"><input type="checkbox" data-id="st-keystore"><div><div class="t">Android: upload keystore + Play App Signing <span class="tag both">Cùng</span></div><div class="d">Bạn tạo và giữ keystore (đừng commit vào git). Mình thêm <code>signingConfig</code> đọc từ biến môi trường.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-aab"><div><div class="t">Android: build AAB release <span class="tag me">Claude</span></div><div class="d"><code>./gradlew bundleRelease</code>. versionCode 1 / versionName 0.1.0. Bản release bật R8 chưa từng chạy; file <code>proguard-rules.pro</code> mới có 2 dòng, cần test kỹ.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-datasafety"><div><div class="t">Play: Data safety form <span class="tag both">Cùng</span></div><div class="d">Không thu thập dữ liệu, không chia sẻ. Vị trí và ảnh chỉ xử lý trên máy. Mình soạn câu trả lời, bạn điền.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-fgs"><div><div class="t">Play: khai báo foreground service <span class="tag both">Cùng</span></div><div class="d">App dùng type <code>dataSync</code> (import) và <code>location</code> (Photo Walk). Play yêu cầu mô tả + video ngắn cho từng loại.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-media"><div><div class="t">Play: khai báo quyền ảnh <code>READ_MEDIA_IMAGES</code> <span class="tag both">Cùng</span></div><div class="d">Play chỉ cho quyền này khi truy cập ảnh là chức năng chính. App dùng nó để mượn vị trí từ ảnh điện thoại; nếu bị từ chối, mình bỏ tính năng đó hoặc chuyển sang Photo Picker.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-location"><div><div class="t">Play: khai báo quyền vị trí <span class="tag both">Cùng</span></div><div class="d">Chỉ dùng khi app đang mở / foreground service, không xin vị trí nền.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-rating"><div><div class="t">Content rating, target audience, ads = không <span class="tag you">Bạn</span></div><div class="d">Cả hai store.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-closed"><div><div class="t">Play: internal test → closed test → production <span class="tag you">Bạn</span></div><div class="d">Mời tester, chờ đủ ngày theo quy định của tài khoản.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-ios-sign"><div><div class="t">iOS: ký app, archive, upload TestFlight <span class="tag both">Cùng</span></div><div class="d">Sau khi có Team ID. Bạn đăng nhập Xcode bằng Apple ID.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-ios-privacy"><div><div class="t">iOS: App Privacy (nutrition label) <span class="tag both">Cùng</span></div><div class="d">“Data Not Collected”.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-ios-manifest"><div><div class="t">iOS: thêm <code>PrivacyInfo.xcprivacy</code> <span class="tag me">Claude</span></div><div class="d">Chưa có. Apple bắt buộc khai báo các API dùng UserDefaults, ngày tạo file...</div></div></label>
+    <label class="item"><input type="checkbox" data-id="st-ios-review"><div><div class="t">iOS: ghi chú cho reviewer <span class="tag both">Cùng</span></div><div class="d">Reviewer không có máy ảnh, nên ghi rõ: bấm “Open the demo roll” để xem toàn bộ luồng.</div></div></label>
+  </div>
+</section>
+
+<section id="code">
+  <h2>Code còn lại</h2>
+  <p class="sub">Việc mình làm được ngay, không cần bạn đưa gì.</p>
+  <div class="card">
+    <label class="item"><input type="checkbox" data-id="cd-links"><div><div class="t">Thêm link Privacy + Terms vào paywall và Settings (iOS + Android) <span class="tag me">Claude</span></div><div class="d">Cả hai bản đều chưa có. Thiếu là bị Apple từ chối theo guideline 3.1.2. Cần URL của bạn.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="cd-jank"><div><div class="t">Sửa khựng khi đóng ảnh và khi cuộn lưới (Android) <span class="tag me">Claude</span></div><div class="d">Đóng ảnh khựng 150 ms mỗi lần, cuộn lưới 9–14% khung giật trên Galaxy A56.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="cd-release"><div><div class="t">Chạy thử bản release Android (R8) <span class="tag me">Claude</span></div><div class="d">Kiểm tra Billing, ZXing, JSON không bị R8 cắt mất.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="cd-merge"><div><div class="t">Merge nhánh <span class="tag both">Cùng</span></div><div class="d"><code>claude/android-app-e481af</code> (Android) và <code>fix/spec-audit</code> (iOS) vào <code>main</code>. Bạn quyết thứ tự và có mở PR không.</div></div></label>
+  </div>
+</section>
+
+<section id="test">
+  <h2>Test với máy thật</h2>
+  <p class="sub">Phần chưa ai chạy, cần máy ảnh trong tay.</p>
+  <div class="card">
+    <label class="item"><input type="checkbox" data-id="ts-mtp"><div><div class="t">Cắm máy ảnh qua USB-C: xin quyền, ảnh mới nhất hiện trước, thumbnail <span class="tag both">Cùng</span></div><div class="d">Samsung / Pixel có thể để app Files chiếm máy ảnh khi vừa cắm.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="ts-live"><div><div class="t">Chụp khi đang cắm cáp → ảnh tự hiện <span class="tag both">Cùng</span></div></div></label>
+    <label class="item"><input type="checkbox" data-id="ts-raw"><div><div class="t">Import RAW từng hãng (RAF, ARW, CR3, NEF...) <span class="tag both">Cùng</span></div><div class="d">Xem MediaStore nhận loại nào; loại bị từ chối sẽ vào <code>Download/Unroll</code>.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="ts-protect"><div><div class="t">Ảnh khoá 🔒 và sao ★ đọc đúng từ máy ảnh thật <span class="tag both">Cùng</span></div></div></label>
+    <label class="item"><input type="checkbox" data-id="ts-sd"><div><div class="t">Thẻ SD qua đầu đọc USB-C <span class="tag both">Cùng</span></div></div></label>
+    <label class="item"><input type="checkbox" data-id="ts-walk"><div><div class="t">Photo Walk: đi bộ 15–30 phút, tắt màn hình, rồi import <span class="tag you">Bạn</span></div></div></label>
+    <label class="item"><input type="checkbox" data-id="ts-ricoh"><div><div class="t">Ricoh GR qua Wi-Fi (beta) <span class="tag both">Cùng</span></div><div class="d">Không có máy thì nên ẩn tính năng này khi phát hành.</div></div></label>
+    <label class="item"><input type="checkbox" data-id="ts-iphone"><div><div class="t">Lặp lại các bước trên với iPhone <span class="tag both">Cùng</span></div></div></label>
+  </div>
+</section>
+
+<footer>Tạo từ nhánh <code>claude/android-app-e481af</code>. Trạng thái tick chỉ lưu trong trình duyệt này.</footer>
+</div>
+<script>
+(function(){
+  var KEY='unroll-launch-checklist';
+  var state={};
+  try{state=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){state={}}
+  var boxes=[].slice.call(document.querySelectorAll('input[type=checkbox][data-id]'));
+  function paint(){
+    var done=0;
+    boxes.forEach(function(b){b.closest('.item').classList.toggle('done',b.checked);if(b.checked)done++;});
+    document.getElementById('count').textContent=done+' / '+boxes.length;
+    document.getElementById('bar').style.width=(boxes.length?done/boxes.length*100:0)+'%';
+  }
+  boxes.forEach(function(b){
+    b.checked=!!state[b.dataset.id];
+    b.addEventListener('change',function(){
+      state[b.dataset.id]=b.checked;
+      try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+      paint();
+    });
+  });
+  paint();
+})();
+</script>
+</body>
+</html>
