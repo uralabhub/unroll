@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Unroll - Mở thẻ nhớ máy ảnh trên điện thoại và chép đúng tấm bạn cần</title>
+  <meta name="description" content="Cắm đầu đọc thẻ SD hoặc nối Wi-Fi máy Ricoh GR để xem cả cuộn ảnh trên điện thoại, lọc những tấm đã đánh dấu, đọc công thức màu film, gắn GPS theo đường đi và đóng khung chia sẻ.">
+  <meta property="og:title" content="Unroll - Mở thẻ nhớ máy ảnh trên điện thoại">
+  <meta property="og:description" content="Xem nhanh cả thẻ nhớ, lọc đúng ảnh đã chọn trên máy ảnh, giữ công thức màu gốc, gắn GPS từ đường đi và đóng khung chia sẻ.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://unroll.uranashel.com/">
+  <meta property="og:image" content="https://unroll.uranashel.com/assets/og.png">
+  <meta name="theme-color" content="#0b0b0a">
+  <link rel="canonical" href="https://unroll.uranashel.com/">
+  <link rel="alternate" hreflang="vi" href="https://unroll.uranashel.com/">
+  <link rel="alternate" hreflang="en" href="https://unroll.uranashel.com/en/">
+  <link rel="alternate" hreflang="x-default" href="https://unroll.uranashel.com/">
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/site.css?v=20261116b">
+</head>
+<body>
+  <div class="scroll-progress" aria-hidden="true"></div>
+  <a class="skip" href="#main">Chuyển tới nội dung chính</a>
+
+  <div class="darkroom-opener">
+    <header class="wrap top">
+      <a class="brand" href="/">
+        <img src="/assets/icon.png" alt="Unroll" width="34" height="34">
+        <span>Unroll</span>
+      </a>
+      <div class="top-right">
+        <nav class="nav" aria-label="Điều hướng chính">
+          <a href="#tong-quan">Tổng quan</a>
+          <a href="#use-cases">Cách dùng</a>
+          <a href="#khung-anh">Đóng khung</a>
+          <a href="#man-hinh">24 màn hình</a>
+          <a href="#gia-tai">Giá &amp; Tải</a>
+          <a href="/support">Hỗ trợ</a>
+        </nav>
+        <a class="pill-ctrl" href="/en/" lang="en" title="English">EN</a>
+        <button class="pill-ctrl" type="button" data-motion-toggle data-on-label="✦" data-off-label="⏸" aria-label="Bật hoặc giảm chuyển động" aria-pressed="false">✦</button>
+        <button class="pill-ctrl" type="button" data-theme-toggle aria-label="Đổi giao diện sáng tối" aria-pressed="false">◐</button>
+      </div>
+    </header>
+
+    <section class="wrap dark-hero">
+      <div class="status-chip"><span class="status-dot" aria-hidden="true"></span><span>Dành cho iPhone, iPad và Android</span></div>
+      <h1>Cắm thẻ nhớ vào điện thoại, mở cuộn ảnh và chỉ lấy những tấm bạn cần.</h1>
+      <p class="lede">Đi chụp về, bạn cắm đầu đọc thẻ SD hoặc kết nối Wi-Fi với máy Ricoh GR để xem cả thẻ ngay trên điện thoại. Những tấm bạn đã bấm khóa hay đánh dấu sao trên máy ảnh được lọc sẵn để chép trước, kèm nguyên công thức màu và vị trí chụp.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="/download/Unroll-1.0.0-android-preview.apk" download>Tải bản Android (APK)</a>
+        <a class="btn btn-secondary" href="#use-cases">Xem cách hoạt động</a>
+      </div>
+      <p class="dark-note">Thẻ nhớ luôn mở ở chế độ chỉ đọc nên file gốc trên máy ảnh không bị sửa hay xóa nhầm, và ứng dụng cũng không bắt bạn tạo tài khoản.</p>
+
+      <div class="unroll-stage" id="unroll-stage">
+        <div class="unroll-fan">
+          <button class="fan-card" type="button" data-slot="-2" data-screen="/assets/screens/ios-library.webp" data-title="Thư viện thẻ nhớ" data-caption="Hai file RAW và JPEG chụp cùng lúc được gộp chung vào một ô để bạn cuộn xem gọn hơn.">
+            <div class="fan-screen"><img src="/assets/screens/ios-library.webp" alt="Thư viện ảnh gộp cặp RAW JPEG"></div>
+            <div class="fan-foot"><span>Thư viện thẻ</span><code>01A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="-1" data-screen="/assets/screens/ios-detail.webp" data-title="Đọc công thức màu" data-caption="Mở bất kỳ bức ảnh nào lên là đọc được ngay thông số phơi sáng và giả lập màu phim đi kèm.">
+            <div class="fan-screen"><img src="/assets/screens/ios-detail.webp" alt="Chi tiết ảnh và công thức màu"></div>
+            <div class="fan-foot"><span>Công thức màu</span><code>02A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="0" data-screen="/assets/screens/ios-home.webp" data-title="Màn hình chính" data-caption="Nhận tự động đầu đọc thẻ vừa cắm, có sẵn cuộn ảnh mẫu để bạn bấm thử trước khi kết nối máy.">
+            <div class="fan-screen"><img src="/assets/screens/ios-home.webp" alt="Màn hình chính Unroll trên iOS"></div>
+            <div class="fan-foot"><span>Trang chính</span><code>03A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="1" data-screen="/assets/screens/ios-frame-instant.webp" data-title="Đóng khung chia sẻ" data-caption="Lồng tên máy ảnh, thông số chụp, ngày giờ và địa điểm vào khung ảnh giấy sạch sẽ.">
+            <div class="fan-screen"><img src="/assets/screens/ios-frame-instant.webp" alt="Đóng khung ảnh lấy liền"></div>
+            <div class="fan-foot"><span>Đóng khung</span><code>04A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="2" data-screen="/assets/screens/ios-recap.webp" data-title="Tổng kết đường đi" data-caption="Ghép các bức ảnh đã chọn cùng bản đồ tuyến đường bạn vừa đi bộ chụp ảnh thành tấm dọc 9:16.">
+            <div class="fan-screen"><img src="/assets/screens/ios-recap.webp" alt="Thẻ tổng kết 9:16 kèm bản đồ"></div>
+            <div class="fan-foot"><span>Bản đồ 9:16</span><code>05A</code></div>
+          </button>
+        </div>
+        <div class="unroll-caption" id="unroll-caption">Rê chuột lên từng máy hoặc cuộn xuống để bung xòe cuộn ảnh · Bấm để xem phóng to</div>
+      </div>
+    </section>
+
+    <div class="rebate-strip">
+      <div class="sprockets moving" aria-hidden="true"></div>
+      <div class="wrap rebate-row">
+        <span><strong>UNROLL 1.0.0</strong> · IOS &amp; ANDROID</span>
+        <span>HỖ TRỢ THẺ SD · USB-C OTG · RICOH GR WI-FI</span>
+        <span>FUJIFILM · SONY · LEICA · RICOH GR · CANON · NIKON</span>
+      </div>
+      <div class="sprockets moving" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <main id="main">
+    <section class="spec-ledger" id="tong-quan">
+      <div class="wrap spec-grid" data-reveal>
+        <div class="spec-cell">
+          <span class="spec-num">01 · LÀ GÌ</span>
+          <h3>Trình xem thẻ SD và chép ảnh có chọn lọc</h3>
+          <p>Xem toàn bộ ảnh trên thẻ nhớ ngay bằng điện thoại, tách riêng những tấm bạn đã đánh dấu trên máy ảnh rồi chỉ chép về đúng những tấm cần dùng.</p>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-num">02 · KHI NÀO, Ở ĐÂU</span>
+          <h3>Ngay sau buổi chụp, ngoài quán hay trên đường về</h3>
+          <p>Bạn không cần đợi về nhà mở máy tính hay ngồi chờ app Wi-Fi của hãng máy ảnh truyền chậm từng tấm khi chỉ mang theo điện thoại bên mình.</p>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-num">03 · VÌ SAO CẦN</span>
+          <h3>Tránh làm đầy bộ nhớ điện thoại bởi hàng trăm file thừa</h3>
+          <p>Đổ nguyên thẻ nhớ vào máy vừa tốn dung lượng vừa lặp hai lần mỗi cặp RAW và JPEG. Unroll gộp cặp cùng tên vào một ô và ưu tiên chép ảnh đã chọn trước.</p>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-num">04 · LÀM THẾ NÀO</span>
+          <h3>Đọc thẳng file gốc, giữ màu phim và gắn vị trí GPS</h3>
+          <p>Thẻ nhớ mở ở chế độ chỉ đọc. Ứng dụng trích xuất công thức màu từ ảnh gốc, khớp tọa độ từ lộ trình bạn đi bộ trên điện thoại và bù sai số giờ máy ảnh.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="use-cases">
+      <div class="sec-head" data-reveal>
+        <span class="caps">Theo dõi trực tiếp khi cuộn trang</span>
+        <h2>Bốn việc thực tế diễn ra trên một cuộn ảnh</h2>
+        <p>Cuộn qua từng mục bên trái, màn hình điện thoại bên phải sẽ chuyển cảnh và mô phỏng đúng thao tác bấm ngay trong ứng dụng.</p>
+      </div>
+
+      <div class="scroll-story">
+        <div class="story-chapters">
+          <article class="story-chapter is-active" data-chapter="0">
+            <div class="chap-num"><span>EXP 01</span><span>· Lọc và chép ảnh từ thẻ</span></div>
+            <h3>Chỉ đưa về điện thoại những tấm bạn đã chọn lúc chụp</h3>
+            <p class="chap-pain"><strong>Vấn đề hay gặp:</strong> Bạn chụp nhiều để bắt khoảnh khắc, về cắm thẻ vào máy lại phải kéo từ đầu cuộn ảnh hàng trăm tấm để tìm đúng mười tấm đẹp nhất.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+
+          <article class="story-chapter" data-chapter="1">
+            <div class="chap-num"><span>EXP 02</span><span>· Công thức màu phim</span></div>
+            <h3>Đọc sẵn công thức chỉnh màu nằm bên trong file ảnh</h3>
+            <p class="chap-pain"><strong>Vấn đề hay gặp:</strong> Máy ảnh ra tấm ảnh màu phim rất hợp mắt, nhưng vài tuần sau mở lại bạn quên sạch hôm đó mình đã đặt giả lập phim hay cân bằng trắng ra sao.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+
+          <article class="story-chapter" data-chapter="2">
+            <div class="chap-num"><span>EXP 03</span><span>· Đi bộ &amp; đồng bộ giờ</span></div>
+            <h3>Tự gắn địa điểm bản đồ cho máy ảnh không có chip GPS</h3>
+            <p class="chap-pain"><strong>Vấn đề hay gặp:</strong> Hầu hết máy ảnh rời không có GPS, và đồng hồ trong thân máy hay chạy lệch vài phút hoặc sai múi giờ khi đi xa.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+
+          <article class="story-chapter" data-chapter="3">
+            <div class="chap-num"><span>EXP 04</span><span>· Đóng khung &amp; tổng kết</span></div>
+            <h3>Lồng thông số chụp hoặc bản đồ chuyến đi rồi đăng ngay</h3>
+            <p class="chap-pain"><strong>Vấn đề hay gặp:</strong> Muốn chia sẻ ảnh có tên ống kính, khẩu tốc hoặc tóm tắt lại quãng đường vừa đi chụp mà phải mở ứng dụng thiết kế gõ tay lại từ đầu thì rất ngại.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+        </div>
+
+        <aside class="story-stage-col" aria-label="Màn hình mô phỏng thao tác trực tiếp">
+          <div class="story-console" id="sticky-console" data-play-label="Tự chạy" data-stop-label="Tạm dừng">
+            <div class="console-top">
+              <strong id="console-badge">EXP 01 · LỌC THẺ NHỚ</strong>
+              <div style="display:flex;align-items:center;gap:10px">
+                <button class="console-play" type="button" id="console-play" aria-pressed="false">▷ Tự chạy</button>
+                <span class="num" id="console-counter">1 / 4</span>
+              </div>
+            </div>
+
+            <div class="console-stage">
+              <div class="loupe-tag t-left" id="callout-left"></div>
+              <div class="loupe-tag t-right" id="callout-right"></div>
+              <div class="phone-bezel">
+                <div class="phone-screen" id="console-frame">
+                  <img id="console-img" src="/assets/screens/ios-home.webp" alt="Màn hình minh họa theo từng bước" width="720" height="1565">
+                  <div class="shutter-flash" id="console-shutter" aria-hidden="true"></div>
+                  <div class="j-hotspot" id="console-hotspot" aria-hidden="true"></div>
+                  <div class="tap-finger" id="console-tap" aria-hidden="true"></div>
+                  <button class="phone-zoom-btn" type="button" id="console-zoom">Phóng to ⤢</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="console-thumbs" id="console-thumbs"></div>
+            <div class="console-hint" id="console-hint">Chạm vào thẻ nhớ hoặc cuộn ảnh mẫu</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="khung-anh">
+      <div class="sec-head" data-reveal>
+        <span class="caps">Đóng khung và xuất ảnh</span>
+        <h2>Xáo xem thành phẩm thật, rồi kéo màn trập để thử đóng khung</h2>
+        <p>Bên trái là năm kiểu ảnh hoàn chỉnh chụp từ chính ứng dụng; bấm vào chồng ảnh để lật từng tấm. Bên phải bạn có thể kéo thanh màu cam qua lại để so sánh ảnh trần và ảnh đã đóng khung kèm thông số.</p>
+      </div>
+
+      <div class="print-desk" data-reveal>
+        <div class="deck-stage">
+          <div class="print-stack" id="print-stack" title="Bấm để lật sang tấm tiếp theo">
+            <div class="print-card" data-order="0">
+              <img src="/assets/screens/ios-frame.webp" alt="Khung triển lãm thực tế trong Unroll">
+              <div class="print-card-cap"><span>Khung triển lãm (Gallery)</span><code>01</code></div>
+            </div>
+            <div class="print-card" data-order="1">
+              <img src="/assets/screens/ios-frame-instant.webp" alt="Khung ảnh lấy liền thực tế">
+              <div class="print-card-cap"><span>Khung lấy liền (Instant)</span><code>02</code></div>
+            </div>
+            <div class="print-card" data-order="2">
+              <img src="/assets/screens/ios-frame-recipe.webp" alt="Khung thẻ công thức màu thực tế">
+              <div class="print-card-cap"><span>Thẻ công thức màu</span><code>03</code></div>
+            </div>
+            <div class="print-card" data-order="3">
+              <img src="/assets/screens/ios-frame-film.webp" alt="Khung cuộn phim âm bản thực tế">
+              <div class="print-card-cap"><span>Khung cuộn phim (Film)</span><code>04</code></div>
+            </div>
+            <div class="print-card" data-order="4">
+              <img src="/assets/screens/ios-recap.webp" alt="Ảnh tổng kết bản đồ 9:16 thực tế">
+              <div class="print-card-cap"><span>Tổng kết hành trình 9:16</span><code>05</code></div>
+            </div>
+          </div>
+          <div class="deck-controls">
+            <button type="button" class="chip-btn" aria-pressed="true" data-deck-select="0">Triển lãm</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="1">Lấy liền</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="2">Công thức</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="3">Cuộn phim</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="4">Recap 9:16</button>
+            <button type="button" class="chip-btn" id="deck-next">Lật tiếp ↻</button>
+          </div>
+        </div>
+
+        <div class="wipe-bench">
+          <div class="wipe-stage" id="wipe-stage">
+            <div class="wipe-compare">
+              <div class="frame-canvas is-raw-layer" aria-hidden="true">
+                <div class="frame-photo" id="frame-photo-raw" data-scene="land"></div>
+                <span class="wipe-tag is-raw">Ảnh gốc</span>
+              </div>
+              <div class="wipe-layer wipe-framed">
+                <span class="wipe-tag is-framed">Có khung</span>
+                <div class="frame-canvas" id="frame-canvas" data-style="gallery" data-ratio="fit" data-dark="false">
+                  <div class="frame-photo" id="frame-photo" data-scene="land"></div>
+                  <div class="frame-meta">
+                    <div class="frame-camera" id="frame-cam">Fujifilm X100VI</div>
+                    <div class="frame-sub" id="frame-sub">23mm · f/2.8 · 1/2000s · ISO 1600 · Nostalgic Neg.</div>
+                    <div class="frame-recipe-grid" id="frame-recipe-grid"></div>
+                    <div class="frame-mark" id="frame-mark">Unroll</div>
+                  </div>
+                </div>
+              </div>
+              <div class="wipe-handle" id="wipe-handle" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="58" aria-label="Kéo để so ảnh gốc với ảnh đã đóng khung">
+                <div class="wipe-knob">⇆</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="studio-controls">
+            <div class="ctrl-group">
+              <h4>Ảnh mẫu</h4>
+              <div class="chip-row">
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-scene="land">Ảnh ngang · Nostalgic Neg.</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-scene="port">Ảnh dọc · Classic Chrome</button>
+              </div>
+            </div>
+            <div class="ctrl-group">
+              <h4>Kiểu khung &amp; tỷ lệ</h4>
+              <div class="chip-row">
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-style="gallery">Triển lãm</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="caption">Chú thích</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="minimal">Viền trắng</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="polaroid">Lấy liền <span class="pro-tag">Pro</span></button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="recipe">Thẻ công thức <span class="pro-tag">Pro</span></button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="film">Cuộn phim <span class="pro-tag">Pro</span></button>
+              </div>
+            </div>
+            <div class="ctrl-group">
+              <h4>Tỷ lệ &amp; hiển thị</h4>
+              <div class="chip-row">
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-ratio="fit">Ảnh gốc</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-ratio="1:1">1:1</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-ratio="4:5">4:5</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="dark">Giấy tối</button>
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-toggle="exposure">Thông số</button>
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-toggle="recipe">Màu film</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="date">Ngày</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="place">Địa điểm</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="clean">Ẩn chữ Unroll <span class="pro-tag">Pro</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="contact-sheet" id="man-hinh">
+      <div class="wrap">
+        <div class="sec-head" data-reveal>
+          <span class="caps">Tấm contact sheet 24 khung hình</span>
+          <h2>Soi đủ 24 màn hình thật trên iOS và Android</h2>
+          <p>Toàn bộ ảnh dưới đây đều chụp trực tiếp từ bản đang chạy. Bạn lọc theo nhóm chức năng hoặc bấm vào từng khung để soi trên bàn đèn cỡ lớn.</p>
+        </div>
+
+        <div class="gallery-controls" data-reveal>
+          <div class="gallery-filters" role="group" aria-label="Lọc màn hình">
+            <button class="chip-btn" type="button" aria-pressed="true" data-gallery-filter="all">Tất cả (24)</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="import">Chép &amp; Lọc ảnh</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="recipe">Công thức màu</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="frame">Khung &amp; Recap</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="tools">Đi bộ &amp; Công cụ</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="android">Android</button>
+          </div>
+          <span class="gallery-count" id="gallery-count">24 / 24</span>
+        </div>
+
+        <div class="sheet-grid" data-reveal>
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-home.webp" data-title="Màn hình chính trên iOS" data-caption="Mở đầu đọc thẻ nhớ đang gắn, thử trước cuộn ảnh mẫu hoặc bắt đầu ghi lộ trình đi chụp.">
+            <div class="frame-rebate"><span>▸ 01A</span><span>HOME</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-home.webp" alt="Màn hình chính iOS" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Màn hình chính</strong><span>Mở thẻ nhớ, cuộn ảnh mẫu và công cụ đi dạo</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-library.webp" data-title="Thư viện toàn bộ cuộn ảnh" data-caption="Hai file RAW và JPEG của cùng một tấm chụp được gộp chung một ô để cuộn ảnh nhìn thoáng hơn.">
+            <div class="frame-rebate"><span>▸ 02A</span><span>LIBRARY</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-library.webp" alt="Thư viện cuộn ảnh iOS" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Thư viện cuộn ảnh</strong><span>Các cặp RAW và JPEG được gộp gọn chung một ô</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-picks.webp" data-title="Mục Ảnh đã chọn (Picks)" data-caption="Gom riêng những bức ảnh bạn đã bấm khóa bảo vệ hoặc đánh dấu sao trên máy ảnh.">
+            <div class="frame-rebate"><span>▸ 03A</span><span>PICKS</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-picks.webp" alt="Màn hình Picks" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Mục Ảnh đã chọn</strong><span>Lọc riêng những tấm bạn đánh dấu trên thân máy</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-rated.webp" data-title="Mục Ảnh gắn sao (Rated)" data-caption="Xem lại những tấm có chấm điểm sao từ thân máy Fujifilm, Sony hoặc Ricoh GR.">
+            <div class="frame-rebate"><span>▸ 04A</span><span>RATED</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-rated.webp" alt="Màn hình Rated" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Ảnh gắn sao</strong><span>Lọc riêng theo số sao bạn chấm lúc đi chụp</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-select.webp" data-title="Chế độ chọn nhiều ảnh" data-caption="Đánh dấu hàng loạt những tấm đẹp để chép về máy hoặc ghép thành ảnh tổng kết có bản đồ.">
+            <div class="frame-rebate"><span>▸ 05A</span><span>SELECT</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-select.webp" alt="Chế độ chọn nhiều ảnh" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Chọn nhiều ảnh</strong><span>Chọn hàng loạt để chép về hoặc làm thẻ tổng kết</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-importing.webp" data-title="Tiến trình chép ảnh trực tiếp" data-caption="Thanh thông báo phía dưới cho biết số lượng ảnh đang truyền vào thư viện Apple Photos.">
+            <div class="frame-rebate"><span>▸ 06A</span><span>TRANSFER</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-importing.webp" alt="Màn hình đang chép ảnh" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Đang chép ảnh</strong><span>Hiển thị số lượng ảnh đang lưu về điện thoại</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-imported.webp" data-title="Mục Đã chép (Imported)" data-caption="Đánh dấu những tấm đã được chép sang điện thoại trước đó để bạn không chép trùng lần sau.">
+            <div class="frame-rebate"><span>▸ 07A</span><span>HISTORY</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-imported.webp" alt="Màn hình ảnh đã chép" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Ảnh đã chép</strong><span>Phân biệt rõ tấm nào đã có sẵn trên điện thoại</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-detail.webp" data-title="Chi tiết ảnh và thông số chụp" data-caption="Hiển thị đầy đủ tiêu cự, khẩu độ, tốc độ màn trập, ISO cùng tên bộ giả lập màu phim ngay dưới bức ảnh.">
+            <div class="frame-rebate"><span>▸ 08A</span><span>DETAIL</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-detail.webp" alt="Chi tiết bức ảnh" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Chi tiết bức ảnh</strong><span>Đọc thông số chụp và giả lập màu dưới tấm ảnh</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-recipe.webp" data-title="Bảng chi tiết công thức màu" data-caption="Liệt kê đủ 11 cài đặt chỉnh màu đọc từ file gốc như kiểu phim, độ hạt, vùng sáng tối và cân bằng trắng.">
+            <div class="frame-rebate"><span>▸ 09A</span><span>RECIPE</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recipe.webp" alt="Bảng công thức màu" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Bảng công thức</strong><span>Hiển thị đủ 11 thông số chỉnh màu của bức ảnh</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-recipes-book.webp" data-title="Sổ công thức màu" data-caption="Lưu lại các công thức bạn thích vào một danh sách riêng để không bị thất lạc giữa hàng trăm ảnh cũ.">
+            <div class="frame-rebate"><span>▸ 10A</span><span>NOTEBOOK</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recipes-book.webp" alt="Sổ công thức màu" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Sổ công thức</strong><span>Nơi lưu giữ lại những bộ màu bạn hay chụp nhất</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-recipe-detail.webp" data-title="Thông số một công thức đã lưu" data-caption="Mở xem rõ từng dòng cài đặt để bạn vặn lại vào mục Custom Setting trên máy ảnh khi cần.">
+            <div class="frame-rebate"><span>▸ 11A</span><span>VALUES</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recipe-detail.webp" alt="Chi tiết công thức trong sổ" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Chi tiết bộ màu</strong><span>Tra cứu từng dòng thiết lập khi cài lại máy ảnh</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame.webp" data-title="Khung Triển lãm (Gallery)" data-caption="Kiểu viền giấy trắng rộng rãi có ghi tên máy ảnh, ống kính và thông số phơi sáng gọn gàng bên dưới.">
+            <div class="frame-rebate"><span>▸ 12A</span><span>GALLERY</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame.webp" alt="Khung Gallery" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Khung triển lãm</strong><span>Viền giấy rộng kèm tên máy và thông số phơi sáng</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame-instant.webp" data-title="Khung Ảnh lấy liền (Instant)" data-caption="Phong cách khung vuông lấy liền có dòng chữ nhỏ ghi lại ngày tháng và nơi bạn chụp tấm ảnh.">
+            <div class="frame-rebate"><span>▸ 13A</span><span>INSTANT</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame-instant.webp" alt="Khung ảnh lấy liền" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Khung lấy liền</strong><span>Kiểu ảnh giấy vuông kèm ngày chụp và địa điểm</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame-recipe.webp" data-title="Khung Thẻ công thức" data-caption="Ghép chung bức ảnh với các thông số công thức màu ở cạnh dưới để tiện chia sẻ cho bạn bè cùng thử.">
+            <div class="frame-rebate"><span>▸ 14A</span><span>RECIPE CARD</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame-recipe.webp" alt="Khung thẻ công thức" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Thẻ công thức</strong><span>Trình bày bức ảnh đi kèm bảng công thức màu</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame-film.webp" data-title="Khung Cuộn phim (Film Strip)" data-caption="Đóng khung nền đen với hàng lỗ phim âm bản cổ điển và lưu ra thư viện ở nhiều tỷ lệ khác nhau.">
+            <div class="frame-rebate"><span>▸ 15A</span><span>FILM STRIP</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame-film.webp" alt="Khung cuộn phim" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Khung cuộn phim</strong><span>Viền lỗ phim âm bản sẵn sàng lưu về thư viện</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-recap.webp" data-title="Ảnh tổng kết chuyến đi (Recap 9:16)" data-caption="Tự động ghép các bức ảnh bạn chọn cùng bản đồ tuyến đường đã đi thành một tấm dọc để giữ làm kỷ niệm.">
+            <div class="frame-rebate"><span>▸ 16A</span><span>RECAP 9:16</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recap.webp" alt="Thẻ tổng kết hành trình" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Thẻ tổng kết 9:16</strong><span>Ghép bản đồ tuyến đường chung với ảnh trong ngày</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-walk-tools.webp" data-title="Công cụ ngoài trời và Ricoh GR" data-caption="Chỗ để bạn nối Wi-Fi trực tiếp vào máy ảnh Ricoh GR, bật ghi lộ trình hoặc mở đồng bộ đồng hồ.">
+            <div class="frame-rebate"><span>▸ 17A</span><span>TOOLS</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-walk-tools.webp" alt="Màn hình công cụ" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Công cụ ngoài trời</strong><span>Chỗ kết nối Ricoh GR và mở đồng bộ giờ máy ảnh</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-walks-map.webp" data-title="Nhật ký đi bộ chụp ảnh" data-caption="Lưu lại từng buổi đi dạo cùng quãng đường, thời gian và vị trí những tấm ảnh chụp dọc đường.">
+            <div class="frame-rebate"><span>▸ 18A</span><span>WALKS MAP</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-walks-map.webp" alt="Nhật ký bản đồ đi dạo" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Nhật ký đi dạo</strong><span>Xem lại đường đã đi bộ và những chỗ từng dừng chụp</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-clock-sync.webp" data-title="Mã QR đồng bộ đồng hồ" data-caption="Chỉ cần giơ máy ảnh chụp một tấm vào mã QR đang chạy theo giây này để ứng dụng tự bù độ lệch giờ.">
+            <div class="frame-rebate"><span>▸ 19A</span><span>CLOCK QR</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-clock-sync.webp" alt="Mã QR đồng bộ đồng hồ" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Đồng bộ đồng hồ</strong><span>Chụp 1 ảnh mã QR để khớp giờ máy ảnh với điện thoại</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-settings.webp" data-title="Màn hình Cài đặt" data-caption="Cho phép chỉnh ngôn ngữ ứng dụng, tùy chọn lưu cặp RAW hoặc JPEG và các thiết lập GPS.">
+            <div class="frame-rebate"><span>▸ 20A</span><span>SETTINGS</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-settings.webp" alt="Màn hình cài đặt" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Cài đặt</strong><span>Điều chỉnh ngôn ngữ và quy tắc chép file ảnh</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-paywall.webp" data-title="Thông tin bản Miễn phí và Pro" data-caption="Trình bày rõ ràng những tính năng miễn phí mỗi ngày cùng tùy chọn gói năm có 7 ngày dùng thử hoặc gói trọn đời.">
+            <div class="frame-rebate"><span>▸ 21A</span><span>UPGRADE</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-paywall.webp" alt="Màn hình gói Pro" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Thông tin gói Pro</strong><span>So sánh cụ thể quyền lợi bản miễn phí và nâng cấp</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="android" data-lightbox-src="/assets/screens/android-home.webp" data-title="Màn hình chính trên Android" data-caption="Tự động nhận đầu đọc thẻ USB-C OTG ngay khi cắm vào máy và hiển thị dung lượng cuộn ảnh.">
+            <div class="frame-rebate"><span>▸ 22A</span><span>ANDROID</span></div>
+            <div class="gallery-thumb is-android"><img src="/assets/screens/android-home.webp" alt="Trang chính Android" loading="lazy"><span class="gallery-badge">Android</span></div>
+            <div class="gallery-meta"><strong>Trang chính Android</strong><span>Tự nhận đầu đọc thẻ nhớ cắm qua cổng USB-C</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="android" data-lightbox-src="/assets/screens/android-library.webp" data-title="Thư viện ảnh trên Android" data-caption="Hiển thị cuộn ảnh mượt mà với đầy đủ các thẻ lọc Ảnh đã chọn, Gắn sao và Đã chép như bản iOS.">
+            <div class="frame-rebate"><span>▸ 23A</span><span>ANDROID</span></div>
+            <div class="gallery-thumb is-android"><img src="/assets/screens/android-library.webp" alt="Thư viện Android" loading="lazy"><span class="gallery-badge">Android</span></div>
+            <div class="gallery-meta"><strong>Thư viện Android</strong><span>Duyệt thẻ SD và lọc ảnh đã chọn mượt mà</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="android" data-lightbox-src="/assets/screens/android-detail.webp" data-title="Chi tiết ảnh trên Android" data-caption="Xem thông số phơi sáng, đọc giả lập màu phim và đóng khung chia sẻ trực tiếp từ điện thoại Android.">
+            <div class="frame-rebate"><span>▸ 24A</span><span>ANDROID</span></div>
+            <div class="gallery-thumb is-android"><img src="/assets/screens/android-detail.webp" alt="Chi tiết ảnh Android" loading="lazy"><span class="gallery-badge">Android</span></div>
+            <div class="gallery-meta"><strong>Chi tiết Android</strong><span>Xem EXIF, công thức màu và đóng khung xuất ảnh</span></div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="gia-tai">
+      <div class="sec-head" data-reveal>
+        <span class="caps">Chi phí và tải ứng dụng</span>
+        <h2>Dùng miễn phí mỗi ngày hoặc nâng cấp khi chụp nhiều</h2>
+        <p>Bản miễn phí cho phép xem toàn bộ thẻ nhớ, lưu công thức màu, ghi lộ trình đi bộ và chép tối đa 10 tấm mỗi ngày.</p>
+      </div>
+
+      <div class="ledger-grid" data-reveal>
+        <article class="ledger-col">
+          <span class="caps">Miễn phí</span>
+          <div class="ledger-price">$0</div>
+          <p style="margin:0;color:var(--dim);font-size:15px;">Phù hợp nếu mỗi buổi đi chụp bạn chỉ lấy vài tấm đẹp để đăng hoặc gửi bạn bè.</p>
+          <ul class="ledger-list">
+            <li>Xem toàn bộ ảnh trên thẻ nhớ và gộp cặp RAW + JPEG.</li>
+            <li>Chép tối đa 10 tấm mỗi ngày về thư viện điện thoại.</li>
+            <li>Đọc và lưu các công thức màu vào sổ tay không giới hạn.</li>
+            <li>Ghi lộ trình đi dạo và dùng mã QR đồng bộ đồng hồ.</li>
+            <li>Đóng khung với 3 mẫu khung ảnh cơ bản.</li>
+          </ul>
+        </article>
+
+        <article class="ledger-col is-pro">
+          <span class="caps" style="color:var(--amber)">Unroll Pro</span>
+          <div class="ledger-price">$14.99 <span style="font-size:16px;font-weight:700;opacity:0.78;">/ năm · hoặc $29.99 trọn đời</span></div>
+          <p style="margin:0;font-size:15px;">Gói năm có sẵn 7 ngày dùng thử miễn phí để bạn mang theo chụp thử một chuyến.</p>
+          <ul class="ledger-list">
+            <li>Chép ảnh không giới hạn số lượng mỗi ngày.</li>
+            <li>Tự động chép riêng những tấm bạn đã đánh dấu trên máy ảnh ngay khi cắm dây.</li>
+            <li>Tự động đối chiếu lộ trình đi bộ để gắn vị trí GPS cho từng bức ảnh.</li>
+            <li>Mở khóa toàn bộ 6 mẫu khung ảnh và bỏ chữ Unroll ở góc.</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="apk-bar" data-reveal>
+        <div class="dl-meta">
+          <span class="meta-tag ok">Android APK 1.0.0</span>
+          <span class="meta-tag">34.1 MB (35,756,769 bytes)</span>
+          <span class="meta-tag">Android 10 trở lên</span>
+        </div>
+        <div class="hero-cta" style="justify-content:flex-start;margin:0">
+          <a class="btn btn-primary" href="/download/Unroll-1.0.0-android-preview.apk" download>Tải tệp cài đặt APK</a>
+          <a class="btn btn-secondary" href="mailto:uralab95@gmail.com?subject=Unroll%20iOS%20TestFlight">Nhận bản iOS qua TestFlight</a>
+        </div>
+        <div class="sha-box">
+          <span id="apk-sha">SHA-256: d67be6c4200dd31fe2d288423218fec05bdab8bcbdba33d2a26d4c5ac5bb0681</span>
+          <button class="copy-btn" type="button" data-copy-text="d67be6c4200dd31fe2d288423218fec05bdab8bcbdba33d2a26d4c5ac5bb0681" data-copied-label="Đã sao chép">Sao chép</button>
+        </div>
+        <ol class="steps-ol">
+          <li>Nhấn nút tải phía trên để lưu trực tiếp tệp cài đặt APK về điện thoại Android của bạn.</li>
+          <li>Bạn có thể kiểm tra lại mã SHA-256 ở trên để xác nhận tệp tải về không bị sai lệch.</li>
+          <li>Mở tệp vừa tải và cho phép trình duyệt cài đặt ứng dụng khi hệ thống hỏi quyền.</li>
+          <li>Nếu bạn dùng iPhone hoặc iPad, hãy gửi email tới uralab95@gmail.com để nhận lời mời dùng thử qua TestFlight trong lúc ứng dụng chờ duyệt lên App Store.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="hoi-dap">
+      <div class="sec-head" data-reveal>
+        <span class="caps">Hỏi đáp nhanh</span>
+        <h2>Một vài thắc mắc trước khi dùng</h2>
+        <p>Nếu cần xem hướng dẫn chỉnh chế độ USB trên từng hãng máy ảnh, bạn xem thêm ở trang <a href="/support">Hỗ trợ</a>.</p>
+      </div>
+
+      <div class="faq" data-reveal>
+        <details>
+          <summary>Unroll dùng được với những hãng máy ảnh nào?</summary>
+          <p>Ứng dụng đọc được hầu hết thẻ nhớ SD, microSD hoặc đầu đọc gắn cổng USB-C và Lightning từ máy Fujifilm, Sony, Leica, Ricoh GR, Canon hay Nikon. Riêng dòng máy Ricoh GR có thêm kết nối thẳng qua Wi-Fi phát từ thân máy.</p>
+        </details>
+        <details>
+          <summary>Ảnh gốc trên thẻ nhớ có bị ứng dụng xóa hay sửa nhầm không?</summary>
+          <p>Không. Mọi thẻ nhớ ngoài đều được mở ở chế độ chỉ đọc nên ứng dụng chỉ lấy bản sao những tấm bạn chọn về điện thoại, không bao giờ xóa hoặc ghi đè lên thẻ nhớ.</p>
+        </details>
+        <details>
+          <summary>Máy ảnh không có GPS thì làm sao gắn được vị trí cho ảnh?</summary>
+          <p>Lúc đi bộ chụp ảnh, bạn mở Unroll bật ghi lộ trình trên điện thoại. Đến lúc cắm thẻ chép ảnh về, ứng dụng tự đối chiếu giờ chụp của từng tấm với con đường bạn đã đi qua, kể cả trường hợp máy ảnh lệch giờ nếu bạn có chụp trước một tấm vào mã QR đồng bộ đồng hồ.</p>
+        </details>
+        <details>
+          <summary>Ảnh của tôi có bị tải lên mạng không?</summary>
+          <p>Không. Toàn bộ việc xem thẻ nhớ, đọc công thức màu, gắn vị trí GPS và đóng khung ảnh đều chạy ngay trên điện thoại của bạn. Chi tiết kỹ thuật có ghi rõ trong <a href="/privacy">Chính sách quyền riêng tư</a>.</p>
+        </details>
+        <details>
+          <summary>Sau này đổi điện thoại mới thì có giữ lại được gói Pro không?</summary>
+          <p>Có. Bạn chỉ cần đăng nhập đúng Apple ID hoặc tài khoản Google Play đã mua trên cùng hệ điều hành, rồi bấm nút Khôi phục giao dịch trong phần Cài đặt của ứng dụng.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>© 2026 uranashel · <a href="mailto:uralab95@gmail.com">uralab95@gmail.com</a></span>
+    <nav aria-label="Liên kết chân trang">
+      <a href="/en/">English</a>
+      <a href="/privacy">Quyền riêng tư</a>
+      <a href="/terms">Điều khoản</a>
+      <a href="/support">Hỗ trợ</a>
+    </nav>
+  </footer>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Xem ảnh màn hình phóng to">
+    <div class="lb-shell">
+      <button type="button" class="lb-nav prev" data-lb-prev aria-label="Ảnh trước">‹</button>
+      <div class="lb-stage">
+        <div class="lb-top">
+          <span class="lb-count" id="lb-count">1 / 24</span>
+          <button type="button" class="lb-close" data-lb-close aria-label="Đóng">Đóng</button>
+        </div>
+        <div class="lb-img-wrap">
+          <img id="lb-img" src="/assets/screens/ios-home.webp" alt="Ảnh chụp màn hình Unroll">
+        </div>
+        <div class="lb-caption">
+          <strong id="lb-title">Màn hình chính</strong>
+          <p id="lb-cap"></p>
+        </div>
+      </div>
+      <button type="button" class="lb-nav next" data-lb-next aria-label="Ảnh sau">›</button>
+    </div>
+  </dialog>
+
+  <script type="application/json" id="usecases-data">
+  [
+    {
+      "badge": "EXP 01 · LỌC THẺ NHỚ",
+      "calloutLeft": { "k": "ĐÃ ĐÁNH DẤU", "v": "Tách riêng nhóm Picks" },
+      "calloutRight": { "k": "GỘP CẶP", "v": "RAW + JPEG chung 1 ô" },
+      "steps": [
+        {
+          "title": "Cắm đầu đọc thẻ vào điện thoại và mở cuộn ảnh",
+          "detail": "Trang chính nhận thẻ nhớ vừa cắm (hoặc cho phép bạn mở thử cuộn ảnh mẫu để làm quen thao tác).",
+          "img": "/assets/screens/ios-home.webp",
+          "alt": "Màn hình chính iOS",
+          "platform": "ios",
+          "hint": "Chạm vào đầu đọc thẻ hoặc cuộn ảnh mẫu trên trang chính",
+          "hotspot": { "left": 8, "top": 50, "width": 84, "height": 8 }
+        },
+        {
+          "title": "Chuyển qua mục Ảnh đã chọn (Picks)",
+          "detail": "Cặp RAW và JPEG được gom gọn thành một ô, còn những tấm bạn bấm khóa hoặc gắn sao trên máy ảnh được lọc sẵn vào đây.",
+          "img": "/assets/screens/ios-library.webp",
+          "alt": "Thư viện cuộn ảnh với các thẻ lọc ở phía trên",
+          "platform": "ios",
+          "hint": "Chạm vào thẻ Picks để tách riêng những tấm bạn đã đánh dấu",
+          "hotspot": { "left": 18, "top": 20, "width": 17, "height": 5 }
+        },
+        {
+          "title": "Chép nhóm ảnh đã chọn chỉ với một chạm",
+          "detail": "Bạn bấm nút Import picks ở góc dưới để chép toàn bộ những tấm vừa đánh dấu về điện thoại ngay lập tức.",
+          "img": "/assets/screens/ios-picks.webp",
+          "alt": "Danh sách Picks và nút chép nhanh",
+          "platform": "ios",
+          "hint": "Bấm nút Import picks ở góc dưới bên trái",
+          "hotspot": { "left": 5, "top": 89, "width": 44, "height": 7 }
+        },
+        {
+          "title": "Theo dõi tiến độ truyền trực tiếp",
+          "detail": "Thanh thông báo phía dưới báo rõ số tấm đang lưu về thư viện và ghi nhớ lại để tránh chép lặp ở lần cắm thẻ sau.",
+          "img": "/assets/screens/ios-importing.webp",
+          "alt": "Thanh trạng thái đang chép ảnh",
+          "platform": "ios",
+          "hint": "Số ảnh đã lưu được cập nhật trực tiếp ngay trên thanh tiến trình",
+          "hotspot": { "left": 5, "top": 78, "width": 90, "height": 11 }
+        }
+      ]
+    },
+    {
+      "badge": "EXP 02 · CÔNG THỨC MÀU",
+      "calloutLeft": { "k": "GIẢ LẬP PHIM", "v": "Nostalgic Neg. từ file gốc" },
+      "calloutRight": { "k": "ĐẦY ĐỦ", "v": "11 thông số chỉnh màu" },
+      "steps": [
+        {
+          "title": "Mở chi tiết bức ảnh vừa chụp",
+          "detail": "Ngay bên dưới tấm ảnh có ghi đầy đủ tiêu cự, khẩu độ, tốc độ, ISO và tên bộ màu giả lập phim được đọc từ file gốc.",
+          "img": "/assets/screens/ios-detail.webp",
+          "alt": "Chi tiết ảnh và thanh công thức màu",
+          "platform": "ios",
+          "hint": "Chạm vào mục Recipe ngay dưới bức ảnh",
+          "hotspot": { "left": 4, "top": 79, "width": 92, "height": 6 }
+        },
+        {
+          "title": "Xem toàn bộ các thông số chỉnh màu",
+          "detail": "Bảng mở rộng hiển thị đủ 11 cài đặt từ giả lập phim, hiệu ứng hạt, độ tương phản vùng sáng tối cho đến độ lệch cân bằng trắng.",
+          "img": "/assets/screens/ios-recipe.webp",
+          "alt": "Bảng thông số 11 dòng cài đặt màu",
+          "platform": "ios",
+          "hint": "Tất cả thông số màu được đọc tự động từ file ảnh",
+          "hotspot": { "left": 4, "top": 43, "width": 92, "height": 35 }
+        },
+        {
+          "title": "Cất công thức hay dùng vào sổ tay riêng",
+          "detail": "Các bộ màu bạn thích sẽ nằm gọn trong Sổ công thức thay vì lẫn đâu đó trong hàng trăm thư mục ảnh cũ.",
+          "img": "/assets/screens/ios-recipes-book.webp",
+          "alt": "Danh sách công thức màu trong sổ tay",
+          "platform": "ios",
+          "hint": "Chọn bất kỳ bộ màu nào đã lưu trong sổ tay",
+          "hotspot": { "left": 4, "top": 15, "width": 92, "height": 12 }
+        },
+        {
+          "title": "Mở lại khi muốn chỉnh lại máy ảnh",
+          "detail": "Mỗi công thức lưu rõ từng dòng thiết lập để lần sau ra đường bạn chỉ việc nhìn theo và vặn lại vào máy ảnh.",
+          "img": "/assets/screens/ios-recipe-detail.webp",
+          "alt": "Chi tiết công thức trong sổ tay",
+          "platform": "ios",
+          "hint": "Danh sách từng dòng cài đặt giúp bạn chỉnh lại máy dễ dàng",
+          "hotspot": { "left": 4, "top": 27, "width": 92, "height": 58 }
+        }
+      ]
+    },
+    {
+      "badge": "EXP 03 · ĐI BỘ & CÂN GIỜ",
+      "calloutLeft": { "k": "ĐỒNG BỘ GIỜ", "v": "Chụp 1 ảnh mã QR" },
+      "calloutRight": { "k": "GẮN VỊ TRÍ", "v": "Khớp từ đường đi bộ" },
+      "steps": [
+        {
+          "title": "Bật ghi lộ trình ngay lúc bắt đầu đi chụp",
+          "detail": "Từ màn hình chính, bạn nhấn vào biểu tượng đi bộ để điện thoại tự lưu tuyến đường và thời gian di chuyển.",
+          "img": "/assets/screens/ios-home.webp",
+          "alt": "Nút bắt đầu ghi lộ trình ở góc dưới phải",
+          "platform": "ios",
+          "hint": "Chạm vào biểu tượng ở góc dưới bên phải trước khi đi chụp",
+          "hotspot": { "left": 74, "top": 88, "width": 16, "height": 8 }
+        },
+        {
+          "title": "Mở công cụ đồng bộ giờ hoặc Wi-Fi Ricoh GR",
+          "detail": "Trong trang công cụ, bạn có thể nối thẳng Wi-Fi tới máy Ricoh GR hoặc mở màn hình căn lại giờ máy ảnh.",
+          "img": "/assets/screens/ios-walk-tools.webp",
+          "alt": "Màn hình công cụ đi chụp",
+          "platform": "ios",
+          "hint": "Mở mục Clock sync nếu đồng hồ trên máy ảnh bị sai giờ",
+          "hotspot": { "left": 51, "top": 33, "width": 45, "height": 12 }
+        },
+        {
+          "title": "Chụp một tấm vào mã QR giờ chuẩn",
+          "detail": "Nếu máy ảnh bị chạy chậm hoặc lệch múi giờ, bạn chỉ cần chụp một tấm vào mã QR đang chạy giờ này để Unroll tự bù đúng độ lệch.",
+          "img": "/assets/screens/ios-clock-sync.webp",
+          "alt": "Mã QR đồng bộ đồng hồ chạy theo giây",
+          "platform": "ios",
+          "hint": "Dùng máy ảnh chụp một tấm vào mã QR này để khớp thời gian",
+          "hotspot": { "left": 16, "top": 26, "width": 68, "height": 37 }
+        },
+        {
+          "title": "Xem lại bản đồ đường đi và điểm chụp",
+          "detail": "Sau buổi chụp, mọi cung đường đã đi cùng vị trí các bức ảnh chụp dọc đường được lưu lại ngay trên điện thoại của bạn.",
+          "img": "/assets/screens/ios-walks-map.webp",
+          "alt": "Bản đồ lưu lại các buổi đi bộ chụp ảnh",
+          "platform": "ios",
+          "hint": "Toàn bộ tuyến đường và điểm dừng chân hiển thị rõ trên bản đồ",
+          "hotspot": { "left": 4, "top": 22, "width": 92, "height": 22 }
+        }
+      ]
+    },
+    {
+      "badge": "EXP 04 · ĐÓNG KHUNG & RECAP",
+      "calloutLeft": { "k": "6 KIỂU KHUNG", "v": "Triển lãm tới Cuộn phim" },
+      "calloutRight": { "k": "RECAP 9:16", "v": "Ghép bản đồ chuyến đi" },
+      "steps": [
+        {
+          "title": "Chọn vài tấm đẹp nhất trong buổi chụp",
+          "detail": "Bật chế độ chọn nhiều ảnh, đánh dấu các khoảnh khắc bạn ưng ý rồi chạm nút Recap ở cạnh dưới.",
+          "img": "/assets/screens/ios-select.webp",
+          "alt": "Chế độ chọn nhiều ảnh và nút Recap",
+          "platform": "ios",
+          "hint": "Chọn những tấm ảnh đẹp nhất rồi chạm vào nút Recap",
+          "hotspot": { "left": 42, "top": 89, "width": 23, "height": 7 }
+        },
+        {
+          "title": "Ghép bản đồ đường đi với bộ ảnh",
+          "detail": "Ứng dụng tự sắp xếp tuyến đường bạn vừa đi chung với các tấm ảnh đã chọn thành một tấm ảnh dọc 9:16 sạch sẽ.",
+          "img": "/assets/screens/ios-recap.webp",
+          "alt": "Ảnh tổng kết dọc gồm bản đồ và lưới ảnh",
+          "platform": "ios",
+          "hint": "Bản đồ lộ trình và lưới ảnh tự căn chỉnh trong một khung 9:16",
+          "hotspot": { "left": 16, "top": 16, "width": 68, "height": 52 }
+        },
+        {
+          "title": "Thử nhiều kiểu khung và thẻ công thức",
+          "detail": "Với từng bức ảnh riêng lẻ, bạn có thể đổi qua lại giữa khung triển lãm, khung lấy liền, thẻ công thức màu hay cuộn phim.",
+          "img": "/assets/screens/ios-frame-recipe.webp",
+          "alt": "Thanh chọn các kiểu khung ảnh",
+          "platform": "ios",
+          "hint": "Chọn kiểu khung phù hợp ngay ở hàng nút bên dưới bức ảnh",
+          "hotspot": { "left": 3, "top": 80, "width": 94, "height": 5 }
+        },
+        {
+          "title": "Lưu ảnh hoàn chỉnh về thư viện điện thoại",
+          "detail": "Chọn xong tỷ lệ xuất và thông tin muốn hiện, bạn chỉ cần chạm nút Save ở góc trên là ảnh được lưu sắc nét vào máy.",
+          "img": "/assets/screens/ios-frame-film.webp",
+          "alt": "Khung cuộn phim với nút Save ở góc trên",
+          "platform": "ios",
+          "hint": "Nhấn nút Save ở góc trên bên phải để lưu vào điện thoại",
+          "hotspot": { "left": 68, "top": 7, "width": 28, "height": 5 }
+        }
+      ]
+    }
+  ]
+  </script>
+
+  <script src="/assets/app.js?v=20261116b" defer></script>
+</body>
+</html>

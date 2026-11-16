@@ -1,0 +1,14 @@
+services:
+  unroll-web:
+    image: caddy:2.8-alpine
+    container_name: unroll-web
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site:/srv:ro
+    networks:
+      - nengap-prod_default
+
+networks:
+  nengap-prod_default:
+    external: true

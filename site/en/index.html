@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Unroll - Browse camera cards on your phone and copy only the shots you want</title>
+  <meta name="description" content="Plug in an SD reader or join Ricoh GR Wi-Fi to inspect your camera roll on your phone, filter marked picks, read film recipes, geotag from walks, and frame shots for sharing.">
+  <meta property="og:title" content="Unroll - Browse camera cards on your phone">
+  <meta property="og:description" content="Copy only marked camera picks onto your phone, keep original recipes, geotag walks, and export clean borders.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://unroll.uranashel.com/en/">
+  <meta property="og:image" content="https://unroll.uranashel.com/assets/og.png">
+  <meta name="theme-color" content="#0b0b0a">
+  <link rel="canonical" href="https://unroll.uranashel.com/en/">
+  <link rel="alternate" hreflang="vi" href="https://unroll.uranashel.com/">
+  <link rel="alternate" hreflang="en" href="https://unroll.uranashel.com/en/">
+  <link rel="alternate" hreflang="x-default" href="https://unroll.uranashel.com/">
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/site.css?v=20261116b">
+</head>
+<body>
+  <div class="scroll-progress" aria-hidden="true"></div>
+  <a class="skip" href="#main">Skip to main content</a>
+
+  <div class="darkroom-opener">
+    <header class="wrap top">
+      <a class="brand" href="/en/">
+        <img src="/assets/icon.png" alt="Unroll" width="34" height="34">
+        <span>Unroll</span>
+      </a>
+      <div class="top-right">
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="#overview">Overview</a>
+          <a href="#use-cases">Workflow</a>
+          <a href="#framing">Framing</a>
+          <a href="#screens">24 screens</a>
+          <a href="#download">Download</a>
+          <a href="/en/support">Support</a>
+        </nav>
+        <a class="pill-ctrl" href="/" lang="vi" title="Tiếng Việt">VI</a>
+        <button class="pill-ctrl" type="button" data-motion-toggle data-on-label="✦" data-off-label="⏸" aria-label="Toggle motion effects" aria-pressed="false">✦</button>
+        <button class="pill-ctrl" type="button" data-theme-toggle aria-label="Toggle light or dark theme" aria-pressed="false">◐</button>
+      </div>
+    </header>
+
+    <section class="wrap dark-hero">
+      <div class="status-chip"><span class="status-dot" aria-hidden="true"></span><span>For iPhone, iPad, and Android</span></div>
+      <h1>Browse camera cards on your phone and copy only the shots you want.</h1>
+      <p class="lede">After a walk with your camera, plug in an SD card reader or connect over Ricoh GR Wi-Fi to inspect the entire card right on your phone. Frames you locked or starred on camera are filtered automatically so you can bring them over first with their film recipes intact.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="/download/Unroll-1.0.0-android-preview.apk" download>Download Android APK</a>
+        <a class="btn btn-secondary" href="#use-cases">See how it runs</a>
+      </div>
+      <p class="dark-note">Attached memory cards mount strictly read-only so camera files are never altered, and no account login is required.</p>
+
+      <div class="unroll-stage" id="unroll-stage">
+        <div class="unroll-fan">
+          <button class="fan-card" type="button" data-slot="-2" data-screen="/assets/screens/ios-library.webp" data-title="Card library" data-caption="Matching RAW and JPEG shots collapse into a single tile so browsing your roll stays uncluttered.">
+            <div class="fan-screen"><img src="/assets/screens/ios-library.webp" alt="Unroll card library"></div>
+            <div class="fan-foot"><span>Card library</span><code>01A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="-1" data-screen="/assets/screens/ios-detail.webp" data-title="Film recipe view" data-caption="Open any frame to inspect exposure telemetry alongside its decoded film look recipe.">
+            <div class="fan-screen"><img src="/assets/screens/ios-detail.webp" alt="Shot detail with film recipe"></div>
+            <div class="fan-foot"><span>Color recipe</span><code>02A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="0" data-screen="/assets/screens/ios-home.webp" data-title="Home screen" data-caption="Detects attached card readers right away and provides a built-in demo roll to explore immediately.">
+            <div class="fan-screen"><img src="/assets/screens/ios-home.webp" alt="Unroll iOS home screen"></div>
+            <div class="fan-foot"><span>Home</span><code>03A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="1" data-screen="/assets/screens/ios-frame-instant.webp" data-title="Print borders" data-caption="Frame photos with camera body, shutter, aperture, date, and shooting spot in seconds.">
+            <div class="fan-screen"><img src="/assets/screens/ios-frame-instant.webp" alt="Instant print frame"></div>
+            <div class="fan-foot"><span>Print border</span><code>04A</code></div>
+          </button>
+          <button class="fan-card" type="button" data-slot="2" data-screen="/assets/screens/ios-recap.webp" data-title="Walk recap 9:16" data-caption="Combines selected highlights with your recorded walking map into a vertical shareable layout.">
+            <div class="fan-screen"><img src="/assets/screens/ios-recap.webp" alt="Vertical 9:16 walk recap"></div>
+            <div class="fan-foot"><span>Route recap</span><code>05A</code></div>
+          </button>
+        </div>
+        <div class="unroll-caption" id="unroll-caption">Hover across any phone or scroll down to unroll the fan · Click to view full screen</div>
+      </div>
+    </section>
+
+    <div class="rebate-strip">
+      <div class="sprockets moving" aria-hidden="true"></div>
+      <div class="wrap rebate-row">
+        <span><strong>UNROLL 1.0.0</strong> · IOS &amp; ANDROID</span>
+        <span>SD CARD READERS · USB-C OTG · RICOH GR WI-FI</span>
+        <span>FUJIFILM · SONY · LEICA · RICOH GR · CANON · NIKON</span>
+      </div>
+      <div class="sprockets moving" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <main id="main">
+    <section class="spec-ledger" id="overview">
+      <div class="wrap spec-grid" data-reveal>
+        <div class="spec-cell">
+          <span class="spec-num">01 · WHAT IT IS</span>
+          <h3>A selective SD card browser and importer for your phone</h3>
+          <p>Inspect an entire memory card directly on iPhone or Android, isolate photos you flagged on camera, and copy only the keepers into your library.</p>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-num">02 · WHEN &amp; WHERE</span>
+          <h3>Right after shooting, over coffee or on the ride home</h3>
+          <p>Avoid waiting until you reach a laptop at night or nursing slow wireless camera apps when you just want to pull a few finished frames outdoors.</p>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-num">03 · WHY USE IT</span>
+          <h3>Keep phone storage clear of heavy raw dumps and test frames</h3>
+          <p>Dumping everything fills albums quickly and duplicates RAW + JPEG captures. Unroll pairs matching files into one tile and separates flagged picks up front.</p>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-num">04 · HOW IT WORKS</span>
+          <h3>Read-only mounting, recipe extraction, and walk GPS matching</h3>
+          <p>Cards open read-only so originals stay safe. Embedded look recipes decode locally while Photo Walk timestamps match map coordinates and offset clock drift.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="use-cases">
+      <div class="sec-head" data-reveal>
+        <span class="caps">Scroll through the live phone</span>
+        <h2>Four real workflows mapped onto one interactive device</h2>
+        <p>Scroll down the left chapters and watch the docked phone switch tools, flash shutter cues, and animate every tap point automatically.</p>
+      </div>
+
+      <div class="scroll-story">
+        <div class="story-chapters">
+          <article class="story-chapter is-active" data-chapter="0">
+            <div class="chap-num"><span>EXP 01</span><span>· Filter &amp; import picks</span></div>
+            <h3>Move only the frames you flagged while shooting</h3>
+            <p class="chap-pain"><strong>Common pain point:</strong> You shoot dozens of frames chasing light, then have to scroll past every test shot again just to pull a handful onto your phone.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+
+          <article class="story-chapter" data-chapter="1">
+            <div class="chap-num"><span>EXP 02</span><span>· Camera film recipes</span></div>
+            <h3>Keep exact color settings saved straight from the image</h3>
+            <p class="chap-pain"><strong>Common pain point:</strong> A roll comes back with colors you love, and a month later you cannot remember which film simulation or white balance shift produced it.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+
+          <article class="story-chapter" data-chapter="2">
+            <div class="chap-num"><span>EXP 03</span><span>· Walk routes &amp; clock sync</span></div>
+            <h3>Know which street corner every non-GPS shot came from</h3>
+            <p class="chap-pain"><strong>Common pain point:</strong> Most cameras have no GPS chip inside, and camera clocks easily drift off time or stay stuck in a home time zone while traveling.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+
+          <article class="story-chapter" data-chapter="3">
+            <div class="chap-num"><span>EXP 04</span><span>· Framing &amp; route recaps</span></div>
+            <h3>Export clean metadata borders or a day-walk collage</h3>
+            <p class="chap-pain"><strong>Common pain point:</strong> Typing camera names, shutter speeds, and map routes by hand inside separate design tools gets tedious quickly.</p>
+            <div class="chap-steps" data-chap-steps></div>
+            <div class="chap-mobile-shots" data-chap-mobile></div>
+          </article>
+        </div>
+
+        <aside class="story-stage-col" aria-label="Interactive sticky app preview">
+          <div class="story-console" id="sticky-console" data-play-label="Auto-play" data-stop-label="Pause">
+            <div class="console-top">
+              <strong id="console-badge">EXP 01 · CARD PICKS</strong>
+              <div style="display:flex;align-items:center;gap:10px">
+                <button class="console-play" type="button" id="console-play" aria-pressed="false">▷ Auto-play</button>
+                <span class="num" id="console-counter">1 / 4</span>
+              </div>
+            </div>
+
+            <div class="console-stage">
+              <div class="loupe-tag t-left" id="callout-left"></div>
+              <div class="loupe-tag t-right" id="callout-right"></div>
+              <div class="phone-bezel">
+                <div class="phone-screen" id="console-frame">
+                  <img id="console-img" src="/assets/screens/ios-home.webp" alt="Interactive workflow screen" width="720" height="1565">
+                  <div class="shutter-flash" id="console-shutter" aria-hidden="true"></div>
+                  <div class="j-hotspot" id="console-hotspot" aria-hidden="true"></div>
+                  <div class="tap-finger" id="console-tap" aria-hidden="true"></div>
+                  <button class="phone-zoom-btn" type="button" id="console-zoom">Enlarge ⤢</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="console-thumbs" id="console-thumbs"></div>
+            <div class="console-hint" id="console-hint">Open connected card or sample roll</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="framing">
+      <div class="sec-head" data-reveal>
+        <span class="caps">Physical print table</span>
+        <h2>Shuffle real outputs on the left, drag the shutter curtain on the right</h2>
+        <p>Click the fanned print stack to flip through real screenshots exported inside the app, then drag the amber divider handle across the preview mat to compare raw vs framed.</p>
+      </div>
+
+      <div class="print-desk" data-reveal>
+        <div class="deck-stage">
+          <div class="print-stack" id="print-stack" title="Click to shuffle to the next print">
+            <div class="print-card" data-order="0">
+              <img src="/assets/screens/ios-frame.webp" alt="Real Gallery border screen in Unroll">
+              <div class="print-card-cap"><span>Gallery border</span><code>01</code></div>
+            </div>
+            <div class="print-card" data-order="1">
+              <img src="/assets/screens/ios-frame-instant.webp" alt="Real Instant print screen">
+              <div class="print-card-cap"><span>Instant print</span><code>02</code></div>
+            </div>
+            <div class="print-card" data-order="2">
+              <img src="/assets/screens/ios-frame-recipe.webp" alt="Real Recipe card border">
+              <div class="print-card-cap"><span>Recipe card</span><code>03</code></div>
+            </div>
+            <div class="print-card" data-order="3">
+              <img src="/assets/screens/ios-frame-film.webp" alt="Real Film strip border">
+              <div class="print-card-cap"><span>Film strip</span><code>04</code></div>
+            </div>
+            <div class="print-card" data-order="4">
+              <img src="/assets/screens/ios-recap.webp" alt="Real 9:16 walk recap screen">
+              <div class="print-card-cap"><span>Walk Recap 9:16</span><code>05</code></div>
+            </div>
+          </div>
+          <div class="deck-controls">
+            <button type="button" class="chip-btn" aria-pressed="true" data-deck-select="0">Gallery</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="1">Instant</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="2">Recipe</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="3">Film Strip</button>
+            <button type="button" class="chip-btn" aria-pressed="false" data-deck-select="4">Recap 9:16</button>
+            <button type="button" class="chip-btn" id="deck-next">Shuffle ↻</button>
+          </div>
+        </div>
+
+        <div class="wipe-bench">
+          <div class="wipe-stage" id="wipe-stage">
+            <div class="wipe-compare">
+              <div class="frame-canvas is-raw-layer" aria-hidden="true">
+                <div class="frame-photo" id="frame-photo-raw" data-scene="land"></div>
+                <span class="wipe-tag is-raw">Original</span>
+              </div>
+              <div class="wipe-layer wipe-framed">
+                <span class="wipe-tag is-framed">Framed</span>
+                <div class="frame-canvas" id="frame-canvas" data-style="gallery" data-ratio="fit" data-dark="false">
+                  <div class="frame-photo" id="frame-photo" data-scene="land"></div>
+                  <div class="frame-meta">
+                    <div class="frame-camera" id="frame-cam">Fujifilm X100VI</div>
+                    <div class="frame-sub" id="frame-sub">23mm · f/2.8 · 1/2000s · ISO 1600 · Nostalgic Neg.</div>
+                    <div class="frame-recipe-grid" id="frame-recipe-grid"></div>
+                    <div class="frame-mark" id="frame-mark">Unroll</div>
+                  </div>
+                </div>
+              </div>
+              <div class="wipe-handle" id="wipe-handle" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="58" aria-label="Drag to compare the original photo with the framed one">
+                <div class="wipe-knob">⇆</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="studio-controls">
+            <div class="ctrl-group">
+              <h4>Sample scene</h4>
+              <div class="chip-row">
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-scene="land">Landscape · Nostalgic Neg.</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-scene="port">Portrait · Classic Chrome</button>
+              </div>
+            </div>
+            <div class="ctrl-group">
+              <h4>Border style</h4>
+              <div class="chip-row">
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-style="gallery">Gallery</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="caption">Caption</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="minimal">Minimal</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="polaroid">Instant <span class="pro-tag">Pro</span></button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="recipe">Recipe Card <span class="pro-tag">Pro</span></button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-style="film">Film Strip <span class="pro-tag">Pro</span></button>
+              </div>
+            </div>
+            <div class="ctrl-group">
+              <h4>Ratio &amp; labels</h4>
+              <div class="chip-row">
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-ratio="fit">Original</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-ratio="1:1">1:1</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-ratio="4:5">4:5</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="dark">Dark paper</button>
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-toggle="exposure">Exposure</button>
+                <button type="button" class="chip-btn" aria-pressed="true" data-f-toggle="recipe">Recipe</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="date">Date</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="place">Place</button>
+                <button type="button" class="chip-btn" aria-pressed="false" data-f-toggle="clean">No mark <span class="pro-tag">Pro</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="contact-sheet" id="screens">
+      <div class="wrap">
+        <div class="sec-head" data-reveal>
+          <span class="caps">35mm Contact Sheet · 24 frames</span>
+          <h2>Inspect every live screen across iOS and Android</h2>
+          <p>Captured directly from running iOS and Android builds. Filter by feature group or click any numbered frame to inspect on the lightbox.</p>
+        </div>
+
+        <div class="gallery-controls" data-reveal>
+          <div class="gallery-filters" role="group" aria-label="Filter screens">
+            <button class="chip-btn" type="button" aria-pressed="true" data-gallery-filter="all">All (24)</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="import">Import &amp; Filter</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="recipe">Recipes</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="frame">Frames &amp; Recap</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="tools">Walks &amp; Tools</button>
+            <button class="chip-btn" type="button" aria-pressed="false" data-gallery-filter="android">Android</button>
+          </div>
+          <span class="gallery-count" id="gallery-count">24 / 24</span>
+        </div>
+
+        <div class="sheet-grid" data-reveal>
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-home.webp" data-title="Home screen (iOS)" data-caption="Connect an SD card reader, preview the built-in sample roll, or start tracking a walk.">
+            <div class="frame-rebate"><span>▸ 01A</span><span>HOME</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-home.webp" alt="Home screen iOS" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Home screen</strong><span>Open attached readers, demo roll, or walk tools</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-library.webp" data-title="Full card library" data-caption="Pairs matching RAW and JPEG captures into one tile so your grid is never cluttered.">
+            <div class="frame-rebate"><span>▸ 02A</span><span>LIBRARY</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-library.webp" alt="Card library grid" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Card library</strong><span>Matching RAW and JPEG shots sit inside one tile</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-picks.webp" data-title="Picks filter tab" data-caption="Displays every frame you locked or rated in-camera so you can copy them together.">
+            <div class="frame-rebate"><span>▸ 03A</span><span>PICKS</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-picks.webp" alt="Picks tab" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Picks filter</strong><span>Collects locked and starred photos from the card</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-rated.webp" data-title="Rated filter tab" data-caption="Isolates frames by star rating recorded by cameras like Fujifilm, Sony, or Ricoh GR.">
+            <div class="frame-rebate"><span>▸ 04A</span><span>RATED</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-rated.webp" alt="Rated tab" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Rated shots</strong><span>Browse only frames carrying camera star ratings</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-select.webp" data-title="Multi-select bar" data-caption="Choose a set of shots either to save to Photos or to build a walking recap collage.">
+            <div class="frame-rebate"><span>▸ 05A</span><span>SELECT</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-select.webp" alt="Multi-select mode" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Multi-select</strong><span>Pick shots for batch import or route collages</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-importing.webp" data-title="Live transfer progress" data-caption="Tracks how many files are transferring into Apple Photos along the lower edge.">
+            <div class="frame-rebate"><span>▸ 06A</span><span>TRANSFER</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-importing.webp" alt="Active import progress" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Active import</strong><span>Shows transfer count and speed while copying</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="import" data-lightbox-src="/assets/screens/ios-imported.webp" data-title="Imported ledger" data-caption="Remembers photos already copied onto your device so future imports skip duplicates.">
+            <div class="frame-rebate"><span>▸ 07A</span><span>HISTORY</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-imported.webp" alt="Imported tab" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Imported ledger</strong><span>Tracks photos already saved inside your library</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-detail.webp" data-title="Shot detail view" data-caption="Shows focal length, aperture, shutter speed, ISO, and the film look summary.">
+            <div class="frame-rebate"><span>▸ 08A</span><span>DETAIL</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-detail.webp" alt="Shot detail" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Shot detail</strong><span>Reads camera exposure and detected film look</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-recipe.webp" data-title="Expanded color recipe" data-caption="Lists all 11 settings extracted from the file including grain, chrome, highlights, and white balance.">
+            <div class="frame-rebate"><span>▸ 09A</span><span>RECIPE</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recipe.webp" alt="Expanded recipe" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Recipe breakdown</strong><span>Reads 11 image-look settings directly from file</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-recipes-book.webp" data-title="Recipe Book" data-caption="Stores your preferred film recipes in one notebook rather than buried in old folders.">
+            <div class="frame-rebate"><span>▸ 10A</span><span>NOTEBOOK</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recipes-book.webp" alt="Recipe Book" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Recipe Book</strong><span>Organized notebook holding your favorite looks</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="recipe" data-lightbox-src="/assets/screens/ios-recipe-detail.webp" data-title="Saved recipe values" data-caption="Clear line-by-line settings table ready to enter into custom camera slots.">
+            <div class="frame-rebate"><span>▸ 11A</span><span>VALUES</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recipe-detail.webp" alt="Recipe detail" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Saved recipe detail</strong><span>Line-by-line reference for setting up cameras</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame.webp" data-title="Gallery paper border" data-caption="Wide white margin paired with your camera body, lens, and exposure details underneath.">
+            <div class="frame-rebate"><span>▸ 12A</span><span>GALLERY</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame.webp" alt="Gallery frame" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Gallery frame</strong><span>Balanced paper margin with exposure text</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame-instant.webp" data-title="Instant print frame" data-caption="Square instant-print look with space along the bottom edge for shooting date and place.">
+            <div class="frame-rebate"><span>▸ 13A</span><span>INSTANT</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame-instant.webp" alt="Instant frame" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Instant frame</strong><span>Card border carrying the date and shot place</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame-recipe.webp" data-title="Recipe Card border" data-caption="Places the finished photograph above its film recipe settings for clean social sharing.">
+            <div class="frame-rebate"><span>▸ 14A</span><span>RECIPE CARD</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame-recipe.webp" alt="Recipe Card border" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Recipe Card</strong><span>Share the photograph alongside its look settings</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-frame-film.webp" data-title="Film Strip border" data-caption="Dark perforated negative frame ready to save to Photos in several aspect ratios.">
+            <div class="frame-rebate"><span>▸ 15A</span><span>FILM STRIP</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-frame-film.webp" alt="Film Strip border" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Film Strip</strong><span>Negative border ready to export in any ratio</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="frame" data-lightbox-src="/assets/screens/ios-recap.webp" data-title="Walk Recap 9:16" data-caption="Combines your walking map and selected shots into a vertical layout ready for stories.">
+            <div class="frame-rebate"><span>▸ 16A</span><span>RECAP 9:16</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-recap.webp" alt="Walk Recap" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Walk Recap 9:16</strong><span>Map track paired with highlights from your day</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-walk-tools.webp" data-title="Field tools & Ricoh GR" data-caption="Connect directly to a Ricoh GR camera over local Wi-Fi or launch the Clock Sync QR helper.">
+            <div class="frame-rebate"><span>▸ 17A</span><span>TOOLS</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-walk-tools.webp" alt="Walk tools" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Field tools</strong><span>Ricoh GR Wi-Fi connection and Clock Sync tool</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-walks-map.webp" data-title="Walk log and map" data-caption="Records distance, duration, and matched photo spots for every walk locally on your phone.">
+            <div class="frame-rebate"><span>▸ 18A</span><span>WALKS MAP</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-walks-map.webp" alt="Walk log map" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Walk log</strong><span>Revisit saved walking paths and shooting stops</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-clock-sync.webp" data-title="Clock sync QR code" data-caption="Take one frame of this ticking QR clock with your camera so Unroll computes exact time offset.">
+            <div class="frame-rebate"><span>▸ 19A</span><span>CLOCK QR</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-clock-sync.webp" alt="Clock sync QR" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Clock sync</strong><span>Photograph once to offset drifted camera time</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-settings.webp" data-title="App settings" data-caption="Choose interface language, import preferences, and location behavior cleanly.">
+            <div class="frame-rebate"><span>▸ 20A</span><span>SETTINGS</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-settings.webp" alt="Settings screen" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Settings</strong><span>Manage interface language and copy behavior</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="tools" data-lightbox-src="/assets/screens/ios-paywall.webp" data-title="Unroll Pro options" data-caption="Shows daily Free allowances next to Pro annual (with 7-day trial) and lifetime unlock.">
+            <div class="frame-rebate"><span>▸ 21A</span><span>UPGRADE</span></div>
+            <div class="gallery-thumb"><img src="/assets/screens/ios-paywall.webp" alt="Paywall screen" loading="lazy"></div>
+            <div class="gallery-meta"><strong>Unroll Pro</strong><span>Straight comparison between Free and Pro</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="android" data-lightbox-src="/assets/screens/android-home.webp" data-title="Android home screen" data-caption="Recognizes attached USB-C OTG card readers immediately and reads the roll count.">
+            <div class="frame-rebate"><span>▸ 22A</span><span>ANDROID</span></div>
+            <div class="gallery-thumb is-android"><img src="/assets/screens/android-home.webp" alt="Android home" loading="lazy"><span class="gallery-badge">Android</span></div>
+            <div class="gallery-meta"><strong>Android home</strong><span>Recognizes USB-C OTG card readers right away</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="android" data-lightbox-src="/assets/screens/android-library.webp" data-title="Android card library" data-caption="Scrolls attached cards smoothly with the same Picks, Rated, and Imported tabs.">
+            <div class="frame-rebate"><span>▸ 23A</span><span>ANDROID</span></div>
+            <div class="gallery-thumb is-android"><img src="/assets/screens/android-library.webp" alt="Android library" loading="lazy"><span class="gallery-badge">Android</span></div>
+            <div class="gallery-meta"><strong>Android library</strong><span>Browse and filter USB-C SD cards quickly</span></div>
+          </button>
+
+          <button class="gallery-item" type="button" data-cat="android" data-lightbox-src="/assets/screens/android-detail.webp" data-title="Android shot detail" data-caption="Reads EXIF exposure data, camera recipes, and exports framed images directly on Android.">
+            <div class="frame-rebate"><span>▸ 24A</span><span>ANDROID</span></div>
+            <div class="gallery-thumb is-android"><img src="/assets/screens/android-detail.webp" alt="Android detail" loading="lazy"><span class="gallery-badge">Android</span></div>
+            <div class="gallery-meta"><strong>Android detail</strong><span>Inspect EXIF data, recipes, and share borders</span></div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="download">
+      <div class="sec-head" data-reveal>
+        <span class="caps">Pricing &amp; Downloads</span>
+        <h2>Free for everyday rolls, or unlock Pro</h2>
+        <p>Browse whole memory cards, save unlimited recipes, record walking paths, and copy up to 10 shots per day free.</p>
+      </div>
+
+      <div class="ledger-grid" data-reveal>
+        <article class="ledger-col">
+          <span class="caps">Free</span>
+          <div class="ledger-price">$0</div>
+          <p style="margin:0;color:var(--dim);font-size:15px;">Plenty when you only want a handful of favorite frames per shoot.</p>
+          <ul class="ledger-list">
+            <li>Browse full cards with automatic RAW + JPEG pairing.</li>
+            <li>Copy up to 10 photos per day onto your phone.</li>
+            <li>Read and store unlimited color recipes in your Recipe Book.</li>
+            <li>Record Photo Walks and use the Clock Sync QR helper.</li>
+            <li>Export framed photos with 3 standard border styles.</li>
+          </ul>
+        </article>
+
+        <article class="ledger-col is-pro">
+          <span class="caps" style="color:var(--amber)">Unroll Pro</span>
+          <div class="ledger-price">$14.99 <span style="font-size:16px;font-weight:700;opacity:0.78;">/ year · or $29.99 once</span></div>
+          <p style="margin:0;font-size:15px;">The annual plan starts with a 7-day free trial for testing on a real trip.</p>
+          <ul class="ledger-list">
+            <li>Unlimited daily photo imports from SD cards or Ricoh GR Wi-Fi.</li>
+            <li>One-tap auto-import for starred and locked in-camera picks.</li>
+            <li>Automatic GPS geotagging matched from recorded Photo Walks.</li>
+            <li>All 6 border styles unlocked with no corner watermark.</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="apk-bar" data-reveal>
+        <div class="dl-meta">
+          <span class="meta-tag ok">Android APK 1.0.0</span>
+          <span class="meta-tag">34.1 MB (35,756,769 bytes)</span>
+          <span class="meta-tag">Android 10+</span>
+        </div>
+        <div class="hero-cta" style="justify-content:flex-start;margin:0">
+          <a class="btn btn-primary" href="/download/Unroll-1.0.0-android-preview.apk" download>Download signed APK</a>
+          <a class="btn btn-secondary" href="mailto:uralab95@gmail.com?subject=Unroll%20iOS%20TestFlight">Request iOS TestFlight invite</a>
+        </div>
+        <div class="sha-box">
+          <span id="apk-sha">SHA-256: d67be6c4200dd31fe2d288423218fec05bdab8bcbdba33d2a26d4c5ac5bb0681</span>
+          <button class="copy-btn" type="button" data-copy-text="d67be6c4200dd31fe2d288423218fec05bdab8bcbdba33d2a26d4c5ac5bb0681" data-copied-label="Copied">Copy</button>
+        </div>
+        <ol class="steps-ol">
+          <li>Download the APK directly onto your Android phone using the button above.</li>
+          <li>Optionally match the SHA-256 hash above before installing to check file integrity.</li>
+          <li>Open the downloaded file and allow your browser to install the app if asked.</li>
+          <li>For iPhone or iPad, email uralab95@gmail.com for a TestFlight invite while App Store review finishes.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="wrap sec" id="faq">
+      <div class="sec-head" data-reveal>
+        <span class="caps">FAQ</span>
+        <h2>Quick questions before you start</h2>
+        <p>For camera USB mode notes and Android USB conflict fixes, check the <a href="/en/support">Support</a> guide.</p>
+      </div>
+
+      <div class="faq" data-reveal>
+        <details>
+          <summary>Which cameras and card readers work with Unroll?</summary>
+          <p>Unroll supports standard SD and microSD readers over USB-C and Lightning across Fujifilm, Sony, Leica, Ricoh GR, Canon, and Nikon bodies. Ricoh GR cameras also support direct transfer over camera Wi-Fi.</p>
+        </details>
+        <details>
+          <summary>Are original files on my SD card ever modified?</summary>
+          <p>No. Memory cards mount strictly read-only, so Unroll only copies your selected photos and never deletes or modifies card originals.</p>
+        </details>
+        <details>
+          <summary>How do non-GPS cameras get map locations?</summary>
+          <p>Start a Photo Walk on your phone when heading out. On import, Unroll matches photo timestamps to the route and corrects clock drift if you snapped a Clock Sync QR frame.</p>
+        </details>
+        <details>
+          <summary>Do you upload photos or require an account?</summary>
+          <p>No. Browsing cards, reading recipes, matching routes, and framing exports happen directly on your phone. See the full <a href="/en/privacy">Privacy Policy</a>.</p>
+        </details>
+        <details>
+          <summary>Can I restore Unroll Pro if I get a new phone?</summary>
+          <p>Yes. Sign in with the same Apple ID or Google Play account on the same OS and tap Restore purchases inside Settings.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>© 2026 uranashel · <a href="mailto:uralab95@gmail.com">uralab95@gmail.com</a></span>
+    <nav aria-label="Footer links">
+      <a href="/">Tiếng Việt</a>
+      <a href="/en/privacy">Privacy</a>
+      <a href="/en/terms">Terms</a>
+      <a href="/en/support">Support</a>
+    </nav>
+  </footer>
+
+  <dialog class="lightbox" id="lightbox" aria-label="Expanded screenshot view">
+    <div class="lb-shell">
+      <button type="button" class="lb-nav prev" data-lb-prev aria-label="Previous screen">‹</button>
+      <div class="lb-stage">
+        <div class="lb-top">
+          <span class="lb-count" id="lb-count">1 / 24</span>
+          <button type="button" class="lb-close" data-lb-close aria-label="Close">Close</button>
+        </div>
+        <div class="lb-img-wrap">
+          <img id="lb-img" src="/assets/screens/ios-home.webp" alt="Expanded Unroll screenshot">
+        </div>
+        <div class="lb-caption">
+          <strong id="lb-title">Home screen</strong>
+          <p id="lb-cap"></p>
+        </div>
+      </div>
+      <button type="button" class="lb-nav next" data-lb-next aria-label="Next screen">›</button>
+    </div>
+  </dialog>
+
+  <script type="application/json" id="usecases-data">
+  [
+    {
+      "badge": "EXP 01 · CARD PICKS",
+      "calloutLeft": { "k": "IN-CAMERA PICKS", "v": "Isolated from test shots" },
+      "calloutRight": { "k": "RAW + JPEG", "v": "Grouped in one tile" },
+      "steps": [
+        {
+          "title": "Plug in your reader and open the camera roll",
+          "detail": "The home screen picks up attached card readers immediately or lets you try the built-in sample roll first.",
+          "img": "/assets/screens/ios-home.webp",
+          "alt": "Unroll iOS home screen",
+          "platform": "ios",
+          "hint": "Tap an active card reader or try the built-in demo roll",
+          "hotspot": { "left": 8, "top": 50, "width": 84, "height": 8 }
+        },
+        {
+          "title": "Switch directly to the Picks filter",
+          "detail": "RAW + JPEG pairs collapse into single tiles, while frames you locked or starred on camera appear under Picks.",
+          "img": "/assets/screens/ios-library.webp",
+          "alt": "Library with filter tabs",
+          "platform": "ios",
+          "hint": "Tap Picks along the top filter row to isolate your selections",
+          "hotspot": { "left": 18, "top": 20, "width": 17, "height": 5 }
+        },
+        {
+          "title": "Copy all flagged picks with one tap",
+          "detail": "Tap Import picks along the lower left edge instead of picking shots over again on your phone.",
+          "img": "/assets/screens/ios-picks.webp",
+          "alt": "Picks view with Import picks button",
+          "platform": "ios",
+          "hint": "Tap Import picks in the bottom corner",
+          "hotspot": { "left": 5, "top": 89, "width": 44, "height": 7 }
+        },
+        {
+          "title": "Watch live progress and skip duplicates later",
+          "detail": "A live progress strip confirms transfers to Photos and marks imported shots cleanly for future card plugs.",
+          "img": "/assets/screens/ios-importing.webp",
+          "alt": "Live import progress strip",
+          "platform": "ios",
+          "hint": "Live counter updates as each photo reaches your phone",
+          "hotspot": { "left": 5, "top": 78, "width": 90, "height": 11 }
+        }
+      ]
+    },
+    {
+      "badge": "EXP 02 · FILM RECIPES",
+      "calloutLeft": { "k": "FILM LOOK", "v": "Nostalgic Neg. decoded" },
+      "calloutRight": { "k": "SETTINGS", "v": "11 parameters preserved" },
+      "steps": [
+        {
+          "title": "Open exposure and color details for a shot",
+          "detail": "Below each photo you get focal length, aperture, shutter speed, ISO, and the decoded film look name.",
+          "img": "/assets/screens/ios-detail.webp",
+          "alt": "Shot detail with recipe bar",
+          "platform": "ios",
+          "hint": "Tap the Recipe strip below the frame",
+          "hotspot": { "left": 4, "top": 79, "width": 92, "height": 6 }
+        },
+        {
+          "title": "Inspect every decoded look parameter",
+          "detail": "Expand the recipe card to see all 11 settings including film simulation, grain, shadows, highlights, and white balance shift.",
+          "img": "/assets/screens/ios-recipe.webp",
+          "alt": "Expanded 11-row recipe panel",
+          "platform": "ios",
+          "hint": "All look settings read straight from the original photo file",
+          "hotspot": { "left": 4, "top": 43, "width": 92, "height": 35 }
+        },
+        {
+          "title": "Keep favorite recipes inside Recipe Book",
+          "detail": "Save any look you want to reuse into a clean notebook instead of hunting through old photo folders.",
+          "img": "/assets/screens/ios-recipes-book.webp",
+          "alt": "Recipe Book screen",
+          "platform": "ios",
+          "hint": "Open any saved color setup inside your Recipe Book",
+          "hotspot": { "left": 4, "top": 15, "width": 92, "height": 12 }
+        },
+        {
+          "title": "Dial exact settings back into your camera",
+          "detail": "Every saved entry renders a clean reference sheet whenever you set up a camera custom bank outdoors.",
+          "img": "/assets/screens/ios-recipe-detail.webp",
+          "alt": "Saved recipe reference sheet",
+          "platform": "ios",
+          "hint": "Readable value table ready to dial into your camera body",
+          "hotspot": { "left": 4, "top": 27, "width": 92, "height": 58 }
+        }
+      ]
+    },
+    {
+      "badge": "EXP 03 · WALKS & CLOCK SYNC",
+      "calloutLeft": { "k": "CLOCK SYNC", "v": "1 frame aligns offset" },
+      "calloutRight": { "k": "GEOTAG", "v": "Matched to walk path" },
+      "steps": [
+        {
+          "title": "Start recording your walk before heading out",
+          "detail": "Tap the walk control on the home bar so your phone records location coordinates locally as you shoot.",
+          "img": "/assets/screens/ios-home.webp",
+          "alt": "Walk start control",
+          "platform": "ios",
+          "hint": "Tap bottom right on the home screen to start a Photo Walk",
+          "hotspot": { "left": 74, "top": 88, "width": 16, "height": 8 }
+        },
+        {
+          "title": "Open Clock Sync or Ricoh GR Wi-Fi tools",
+          "detail": "From Walk Tools you can link up with a Ricoh GR body over local Wi-Fi or bring up Clock Sync.",
+          "img": "/assets/screens/ios-walk-tools.webp",
+          "alt": "Walk tools screen",
+          "platform": "ios",
+          "hint": "Tap Clock sync if your camera clock is off or in another time zone",
+          "hotspot": { "left": 51, "top": 33, "width": 45, "height": 12 }
+        },
+        {
+          "title": "Snap one quick frame of the Clock Sync QR",
+          "detail": "Photographing the ticking QR code once tells Unroll the exact offset between your camera clock and your phone.",
+          "img": "/assets/screens/ios-clock-sync.webp",
+          "alt": "Clock sync live QR",
+          "platform": "ios",
+          "hint": "Take one photo of the QR screen to align timestamps accurately",
+          "hotspot": { "left": 16, "top": 26, "width": 68, "height": 37 }
+        },
+        {
+          "title": "Revisit past routes and shot pins on the map",
+          "detail": "Every walk track and matched photo stop stays logged privately on your phone after import.",
+          "img": "/assets/screens/ios-walks-map.webp",
+          "alt": "Walks map log",
+          "platform": "ios",
+          "hint": "Completed routes and photo locations stay organized locally",
+          "hotspot": { "left": 4, "top": 22, "width": 92, "height": 22 }
+        }
+      ]
+    },
+    {
+      "badge": "EXP 04 · FRAMING & RECAP",
+      "calloutLeft": { "k": "6 STYLES", "v": "Gallery to Film Strip" },
+      "calloutRight": { "k": "RECAP 9:16", "v": "Route map collage" },
+      "steps": [
+        {
+          "title": "Pick highlights from the day in multi-select",
+          "detail": "Tap Select in the library grid, mark a handful of shots you liked, and choose Recap along the bottom bar.",
+          "img": "/assets/screens/ios-select.webp",
+          "alt": "Multi-select screen with Recap button",
+          "platform": "ios",
+          "hint": "Select favorite shots and tap Recap along the bottom edge",
+          "hotspot": { "left": 42, "top": 89, "width": 23, "height": 7 }
+        },
+        {
+          "title": "Build a vertical route map + photo recap",
+          "detail": "Unroll lays out your walking path alongside your selected photographs in a clean 9:16 card.",
+          "img": "/assets/screens/ios-recap.webp",
+          "alt": "Vertical Recap card",
+          "platform": "ios",
+          "hint": "Map route and selected photographs composed into a 9:16 card",
+          "hotspot": { "left": 16, "top": 16, "width": 68, "height": 52 }
+        },
+        {
+          "title": "Switch between paper borders and recipe cards",
+          "detail": "Try Gallery, Instant, Recipe Card, or Film Strip templates on any single photo using the style strip.",
+          "img": "/assets/screens/ios-frame-recipe.webp",
+          "alt": "Frame style selector",
+          "platform": "ios",
+          "hint": "Pick any frame style along the selector row below",
+          "hotspot": { "left": 3, "top": 80, "width": 94, "height": 5 }
+        },
+        {
+          "title": "Save full-resolution framed output to Photos",
+          "detail": "Once ratio and metadata match what you want, tap Save in the upper corner to export cleanly.",
+          "img": "/assets/screens/ios-frame-film.webp",
+          "alt": "Film strip frame with Save button",
+          "platform": "ios",
+          "hint": "Tap Save in the upper right corner to export",
+          "hotspot": { "left": 68, "top": 7, "width": 28, "height": 5 }
+        }
+      ]
+    }
+  ]
+  </script>
+
+  <script src="/assets/app.js?v=20261116b" defer></script>
+</body>
+</html>

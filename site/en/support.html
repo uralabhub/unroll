@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Support &amp; Quick Fixes · Unroll</title>
+<meta name="description" content="Practical help for USB-C cameras and card readers, Android USB conflicts, where saved photos go, Ricoh GR Wi-Fi transfers, recipes, and Unroll Pro.">
+<link rel="canonical" href="https://unroll.uranashel.com/en/support">
+<link rel="alternate" hreflang="vi" href="https://unroll.uranashel.com/support">
+<link rel="alternate" hreflang="en" href="https://unroll.uranashel.com/en/support">
+<link rel="alternate" hreflang="x-default" href="https://unroll.uranashel.com/support">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Support &amp; Quick Fixes · Unroll">
+<meta property="og:description" content="Quick fixes for USB-C cameras, SD readers, Ricoh GR Wi-Fi, Photo Walk GPS, and Pro restores.">
+<meta property="og:url" content="https://unroll.uranashel.com/en/support">
+<meta property="og:image" content="https://unroll.uranashel.com/assets/og.png">
+<meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#090909" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css?v=20261116b">
+</head>
+<body>
+<div class="scroll-progress" aria-hidden="true"></div>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/en/">
+      <img src="/assets/icon.png" alt="Unroll" width="34" height="34">
+      <span>Unroll</span>
+    </a>
+    <div class="top-right">
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="/en/">Overview</a>
+        <a href="/en/#download">Download</a>
+        <a href="/en/support" aria-current="page">Support</a>
+        <a href="/en/privacy">Privacy</a>
+        <a href="/en/terms">Terms</a>
+      </nav>
+      <a class="pill-ctrl" href="/support" lang="vi" aria-label="Chuyển sang Tiếng Việt">VI</a>
+      <button type="button" class="pill-ctrl" data-motion-toggle data-on-label="✦" data-off-label="⏸" aria-label="Toggle motion effects" title="Toggle motion effects" aria-pressed="false">✦</button>
+      <button type="button" class="pill-ctrl" data-theme-toggle aria-label="Toggle light or dark appearance" aria-pressed="false">◐</button>
+    </div>
+  </header>
+
+  <main id="main" class="doc">
+    <span class="caps">Support · Unroll 1.0.0</span>
+    <h1>Quick fixes for getting your camera connected.</h1>
+    <p class="meta">For iPhone, iPad, and Android</p>
+
+    <div class="tldr">
+      <strong>Write to the team directly</strong>
+      <p>If a body won't mount or something behaves strangely, email <a href="mailto:uralab95@gmail.com">uralab95@gmail.com</a> with your phone model, camera model, and what appeared on screen. We usually reply within one or two working days.</p>
+    </div>
+
+    <nav class="toc" aria-label="Support topics">
+      <a href="#usb">1. Camera not showing up</a>
+      <a href="#android-lock">2. Android USB conflict</a>
+      <a href="#storage">3. Where photos go</a>
+      <a href="#ricoh">4. Ricoh GR Wi-Fi</a>
+      <a href="#recipes">5. Recipes &amp; Frames</a>
+      <a href="#geotag">6. Photo Walk &amp; GPS</a>
+      <a href="#pro">7. Pro &amp; restores</a>
+    </nav>
+
+    <section id="usb">
+      <h2>1. My camera is plugged in, but Unroll doesn't see it</h2>
+      <p>Start by swapping the cable. Many USB-C cords shipped with power banks or earbuds carry charging wires only and omit data lines altogether, so switching to your camera's cable or a proper data lead resolves it immediately.</p>
+      <p>Next, check the USB Connection mode inside your camera's Setup or Connection menu: choose <em>USB Card Reader</em> or <em>MTP</em> on Fujifilm, <em>MSC</em> or <em>MTP</em> on Sony, and <em>PTP/MTP</em> on Canon or Nikon. Leave Webcam and PC Tethered modes off so your phone can browse the card. If you use an older Lightning iPhone, connect through Apple's <em>Lightning to USB 3 Camera Adapter</em> or an MFi Lightning card reader for enough port power.</p>
+      <p>Whenever a camera battery is low or an older body draws too much bus power, moving the SD card into a USB-C reader and opening <strong>Folder / SD Card</strong> in Unroll is faster anyway.</p>
+    </section>
+
+    <section id="android-lock">
+      <h2>2. Android says another app is holding the camera</h2>
+      <p>Android allows only one app at a time to hold a USB PTP/MTP session. If the built-in <strong>Files</strong> app or <strong>Google Photos</strong> pops open when you plug in, it has claimed the port before Unroll can reach it.</p>
+      <p>Swipe that app closed, or clear its default under <em>Settings → Apps → Open by default → Clear defaults</em>. Then unplug the cable, keep Unroll open on screen first, plug the camera back in, and tap <strong>Always open Unroll</strong> when Android prompts. With external SD card readers, you can also open the card's <code>DCIM</code> directory directly from the folder picker.</p>
+    </section>
+
+    <section id="storage">
+      <h2>3. Where imported photos go and card safety</h2>
+      <p>Every memory card connection opens strictly read-only. Unroll only copies the files you choose and never deletes, renames, or modifies anything on your camera media.</p>
+      <p>On iPhone and iPad, photos and videos save directly into <strong>Apple Photos</strong> with original capture timestamps intact and RAW+JPEG pairs combined into one item. On Android, JPEGs, videos, and supported RAWs (RAF, ARW, NEF, CR2, CR3, DNG, ORF, RW2, PEF) land in <code>DCIM/Unroll</code> so your gallery apps see them immediately, falling back to <code>Download/Unroll</code> on devices that restrict certain RAW extensions.</p>
+      <p>In the card grid, matching pairs like <code>DSCF0123.JPG</code> and <code>DSCF0123.RAF</code> appear as one clean tile. You can use the filters to copy JPEG only, RAW only, or both.</p>
+    </section>
+
+    <section id="ricoh">
+      <h2>4. Ricoh GR wireless transfer (Beta)</h2>
+      <p>Unroll connects directly to Ricoh GR cameras supporting local HTTP transfer (including the GR II, GR III, and GR IIIx) over the hotspot created by the camera itself.</p>
+      <p>Turn on Wi-Fi on your Ricoh and join its network in system settings, then open <strong>Wi-Fi Connect</strong> in Unroll and allow the <strong>Local Network</strong> prompt. Because the camera's hotspot has no internet connection, choose to stay on that Wi-Fi network if your phone offers to fall back to cellular data.</p>
+    </section>
+
+    <section id="recipes">
+      <h2>5. Film recipes &amp; Frame Studio</h2>
+      <p>For JPEG and RAW files from <strong>Fujifilm X / GFX</strong> cameras, Unroll extracts your built-in settings including Film Simulation, grain, highlight and shadow tone, color depth, clarity, and white balance shifts. It also reads Nikon Picture Control and Sony Creative Style notes and organizes everything into your <strong>Recipe Book</strong>.</p>
+      <p>Inside <strong>Frame Studio</strong>, you can export at full native resolution with bordered camera and exposure details, or combine up to 6 shots into a 9:16 walk recap card.</p>
+    </section>
+
+    <section id="geotag">
+      <h2>6. Photo Walk GPS &amp; Clock Sync</h2>
+      <p>Most dedicated cameras have no built-in GPS, yet knowing where a frame was taken makes trips far easier to revisit later. Tap <strong>Start Photo Walk</strong> before heading out to log a lightweight route locally on your phone.</p>
+      <p>When importing afterward, Unroll matches each photo's timestamp against your walk route or borrows coordinates from phone snapshots taken within ±20 minutes. If a body's clock drifted, photograph the <strong>QR Clock Sync</strong> code on your phone to teach Unroll the exact offset.</p>
+    </section>
+
+    <section id="pro">
+      <h2>7. Free tier, Unroll Pro, and restores</h2>
+      <p>The free tier lets you browse whole memory cards, filter ★ and 🔒 picks, read recipes, log Photo Walks, use 3 frame styles, and import up to <strong>10 photos a day</strong>.</p>
+      <p><strong>Unroll Pro</strong> ($14.99/year with a 7-day trial, or $29.99 Founder Lifetime) removes daily limits and unlocks Auto-import Picks (automatically pulls ★/🔒 shots on plug-in), automatic geotagging, all 6 frame styles, and exports without the Unroll corner mark.</p>
+      <p>When moving to a new phone on the same platform, sign into the same Apple ID or Google account and tap <em>Settings → Restore purchases</em>. To cancel a yearly subscription before it renews, turn off auto-renew in App Store or Google Play Subscriptions at least 24 hours before the renewal date.</p>
+    </section>
+
+    <section id="contact">
+      <h2>8. Reporting a bug or requesting a camera</h2>
+      <p>When emailing <a href="mailto:uralab95@gmail.com">uralab95@gmail.com</a>, please share your camera brand and model (such as Fujifilm X-T5, Ricoh GR IIIx, or Sony A7C II), your phone and OS version, and whether you connected via USB-C, card reader, or Wi-Fi. Attaching one unedited JPEG or RAW sample also helps us add recipe support faster.</p>
+      <p>See also: <a href="/en/privacy">Privacy Policy</a> and <a href="/en/terms">Terms &amp; Conditions</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 uranashel · Vietnam</span>
+    <nav aria-label="Footer navigation">
+      <a href="/en/">Overview</a>
+      <a href="/en/privacy">Privacy</a>
+      <a href="/en/terms">Terms</a>
+      <a href="/en/support">Support</a>
+      <a href="/support" lang="vi">Tiếng Việt</a>
+    </nav>
+  </footer>
+</div>
+<script defer src="/assets/app.js?v=20261116b"></script>
+</body>
+</html>
