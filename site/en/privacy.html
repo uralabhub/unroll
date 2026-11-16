@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy · Unroll</title>
+<meta name="description" content="Unroll reads memory cards, film recipes, frames, and photo walks directly on your phone. No accounts, no uranashel server, and no ad or analytics SDKs.">
+<link rel="canonical" href="https://unroll.uranashel.com/en/privacy">
+<link rel="alternate" hreflang="vi" href="https://unroll.uranashel.com/privacy">
+<link rel="alternate" hreflang="en" href="https://unroll.uranashel.com/en/privacy">
+<link rel="alternate" hreflang="x-default" href="https://unroll.uranashel.com/privacy">
+<meta property="og:title" content="Privacy Policy · Unroll">
+<meta property="og:description" content="Photos stay between your camera and your phone, with no server in between.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://unroll.uranashel.com/en/privacy">
+<meta property="og:image" content="https://unroll.uranashel.com/assets/og.png">
+<meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#090909" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css?v=20261116b">
+</head>
+<body>
+<div class="scroll-progress" aria-hidden="true"></div>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/en/">
+      <img src="/assets/icon.png" alt="Unroll" width="34" height="34">
+      <span>Unroll</span>
+    </a>
+    <div class="top-right">
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="/en/">Overview</a>
+        <a href="/en/#download">Download</a>
+        <a href="/en/support">Support</a>
+        <a href="/en/privacy" aria-current="page">Privacy</a>
+        <a href="/en/terms">Terms</a>
+      </nav>
+      <a class="pill-ctrl" href="/privacy" lang="vi" aria-label="Đọc bản tiếng Việt">VI</a>
+      <button type="button" class="pill-ctrl" data-motion-toggle data-on-label="✦" data-off-label="⏸" aria-label="Toggle motion effects" title="Toggle motion effects" aria-pressed="false">✦</button>
+      <button type="button" class="pill-ctrl" data-theme-toggle aria-label="Toggle light or dark appearance" aria-pressed="false">◐</button>
+    </div>
+  </header>
+
+  <main id="main" class="doc">
+    <span class="caps">Privacy Policy</span>
+    <h1>Your photos stay between your camera and your phone.</h1>
+    <p class="meta">Effective 15 November 2026 · Covers Unroll for iOS, Android, and <code>unroll.uranashel.com</code> · Built by uranashel</p>
+
+    <div class="tldr">
+      <strong>The short version</strong>
+      <p>Unroll has no backend server, asks for no account, and carries no analytics or ad SDKs in the app or on this website. Reading cards over USB-C, pulling Fujifilm recipes, framing prints, and recording walks all run offline in your pocket.</p>
+    </div>
+
+    <nav class="toc" aria-label="Contents">
+      <a href="#principle">No middleman server</a>
+      <a href="#on-device">What stays on your phone</a>
+      <a href="#permissions">Permissions we ask for</a>
+      <a href="#network">When the app goes online</a>
+      <a href="#website">This site &amp; children</a>
+      <a href="#contact">Contact</a>
+    </nav>
+
+    <section id="principle">
+      <h2>1. No middleman server</h2>
+      <p>Moving shots from your camera to your phone should stay strictly between those two devices. That is why we built Unroll to do all its work locally on the phone you hold in your hand.</p>
+      <p>Because uranashel operates no server or account database for Unroll, your photos, camera details, exposure settings, and walking tracks never travel through our infrastructure.</p>
+    </section>
+
+    <section id="on-device">
+      <h2>2. What stays on your phone</h2>
+      <p>When you connect a camera or card reader over USB-C, Unroll reads only the first 192 KB of each file to extract embedded previews and EXIF metadata. Camera storage is treated as strictly read-only, so Unroll never deletes or edits originals on your card.</p>
+      <p>On your device, Unroll stores only the photos you save in Apple Photos (on iOS) or <code>DCIM/Unroll</code> (on Android), together with your app settings and any Photo Walk tracks you start. Removing the app clears its local state while leaving saved library photos untouched.</p>
+      <p>When you turn on JPEG geotagging on Android, Unroll appends a standard APP1 GPS segment solely to those saved JPEGs and leaves RAWs, HEIFs, and videos unchanged. On iOS, locations attach cleanly at the Apple Photos library level.</p>
+    </section>
+
+    <section id="permissions">
+      <h2>3. Permissions we ask for</h2>
+      <p>iOS and Android ask your permission before letting an app access ports, folders, or location. Here is what each prompt does and what still works if you say no.</p>
+
+      <div class="table-card table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Permission</th>
+              <th>Why Unroll asks for it</th>
+              <th>If you leave it off</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Photos or folder storage</td>
+              <td>Opens existing shots to frame and saves newly imported or exported photos to your gallery.</td>
+              <td>You can still browse cards over USB-C, though saving to your gallery or framing library shots waits until granted.</td>
+            </tr>
+            <tr>
+              <td>USB-C devices &amp; external folders</td>
+              <td>Reads image folders on the camera or SD card reader connected to your phone.</td>
+              <td>Local framing and wireless Ricoh GR transfers still work normally.</td>
+            </tr>
+            <tr>
+              <td>Location (while using the app)</td>
+              <td>Records your path during a Photo Walk so Unroll can match timestamps afterward.</td>
+              <td>Card browsing, recipe reading, and framing work fine; only walk logging and geotagging stay disabled.</td>
+            </tr>
+            <tr>
+              <td>Local Network / Wi-Fi</td>
+              <td>Connects straight to your Ricoh GR camera over the local Wi-Fi network created by the camera.</td>
+              <td>Wireless Ricoh GR transfer cannot find the camera, while cable import is unaffected.</td>
+            </tr>
+            <tr>
+              <td>Notifications (Android walks)</td>
+              <td>Keeps the walk recorder active when your phone screen locks in a pocket.</td>
+              <td>Android may pause location updates once the screen stays off for several minutes.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="network">
+      <h2>4. The few moments Unroll touches a network</h2>
+      <p>Aside from the direct camera-to-phone Wi-Fi link used for Ricoh GR transfers, Unroll stays offline. The only moments it reaches a network go straight to Apple or Google rather than through uranashel.</p>
+      <p>When generating a trip recap, Unroll asks the system geocoder on iOS or Android to turn coordinates into a readable city or street name. On iOS, exporting a trip map card also requests a static route background from Apple Maps; on Android, the route draws cleanly offline without downloading map tiles.</p>
+      <p>Pro upgrades run directly through Apple StoreKit 2 or Google Play Billing. Apple and Google tell the app when Pro is unlocked while keeping payment cards and billing records strictly with them. Likewise, if iCloud Backup or Android device backup is enabled on your phone, Unroll's small local preferences follow your own personal OS backup settings.</p>
+    </section>
+
+    <section id="website">
+      <h2>5. This website, updates, and children</h2>
+      <p>Every page on <code>unroll.uranashel.com</code> consists of static HTML and CSS, served with no tracking cookies, no visitor analytics, and no third-party ad requests.</p>
+      <p>Unroll is not directed at children under 13 and collects no personal data from anyone. If a future update changes how any optional feature handles data, we will update this page and its effective date clearly beforehand.</p>
+    </section>
+
+    <section id="contact">
+      <h2>6. Contact</h2>
+      <p>If you want to verify how a specific file format, reader, or permission works, email <a href="mailto:uralab95@gmail.com">uralab95@gmail.com</a>. Messages go straight to the team building Unroll in Vietnam.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 uranashel · Vietnam</span>
+    <nav aria-label="Footer navigation">
+      <a href="/en/">Overview</a>
+      <a href="/en/privacy">Privacy</a>
+      <a href="/en/terms">Terms</a>
+      <a href="/en/support">Support</a>
+      <a href="/privacy" lang="vi">Tiếng Việt</a>
+    </nav>
+  </footer>
+</div>
+<script defer src="/assets/app.js?v=20261116b"></script>
+</body>
+</html>

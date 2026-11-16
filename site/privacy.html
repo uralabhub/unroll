@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quyền riêng tư · Unroll</title>
+<meta name="description" content="Unroll xử lý thẻ nhớ, công thức màu, khung ảnh và lộ trình chụp hoàn toàn trên thiết bị. Không tài khoản, không máy chủ, không theo dõi.">
+<link rel="canonical" href="https://unroll.uranashel.com/privacy">
+<link rel="alternate" hreflang="vi" href="https://unroll.uranashel.com/privacy">
+<link rel="alternate" hreflang="en" href="https://unroll.uranashel.com/en/privacy">
+<link rel="alternate" hreflang="x-default" href="https://unroll.uranashel.com/privacy">
+<meta property="og:title" content="Quyền riêng tư · Unroll">
+<meta property="og:description" content="Ảnh của bạn chỉ đi giữa máy ảnh và điện thoại, không qua máy chủ trung gian.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://unroll.uranashel.com/privacy">
+<meta property="og:image" content="https://unroll.uranashel.com/assets/og.png">
+<meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#090909" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css?v=20261116b">
+</head>
+<body>
+<div class="scroll-progress" aria-hidden="true"></div>
+<a class="skip" href="#main">Chuyển tới nội dung</a>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/">
+      <img src="/assets/icon.png" alt="Unroll" width="34" height="34">
+      <span>Unroll</span>
+    </a>
+    <div class="top-right">
+      <nav class="nav" aria-label="Điều hướng chính">
+        <a href="/">Tổng quan</a>
+        <a href="/#gia-tai">Tải về</a>
+        <a href="/support">Hỗ trợ</a>
+        <a href="/privacy" aria-current="page">Quyền riêng tư</a>
+        <a href="/terms">Điều khoản</a>
+      </nav>
+      <a class="pill-ctrl" href="/en/privacy" lang="en" aria-label="Read in English">EN</a>
+      <button type="button" class="pill-ctrl" data-motion-toggle data-on-label="✦" data-off-label="⏸" aria-label="Bật hoặc giảm hiệu ứng chuyển động" title="Bật hoặc giảm hiệu ứng" aria-pressed="false">✦</button>
+      <button type="button" class="pill-ctrl" data-theme-toggle aria-label="Đổi giao diện sáng tối" aria-pressed="false">◐</button>
+    </div>
+  </header>
+
+  <main id="main" class="doc">
+    <span class="caps">Quyền riêng tư</span>
+    <h1>Ảnh chỉ đi giữa máy ảnh và điện thoại.</h1>
+    <p class="meta">Hiệu lực 15/11/2026 · Áp dụng cho Unroll trên iOS, Android và <code>unroll.uranashel.com</code> · Phát triển bởi uranashel</p>
+
+    <div class="tldr">
+      <strong>Tóm tắt</strong>
+      <p>Unroll không chạy máy chủ lưu ảnh, không bắt tạo tài khoản và không gắn SDK thống kê hay quảng cáo. Việc đọc thẻ nhớ qua USB-C, lấy công thức màu Fujifilm, đóng khung hay ghi lộ trình Photo Walk đều xử lý ngoại tuyến trên máy của bạn.</p>
+    </div>
+
+    <nav class="toc" aria-label="Mục lục">
+      <a href="#nguyen-tac">Không máy chủ trung gian</a>
+      <a href="#tren-may">Dữ liệu trên thiết bị</a>
+      <a href="#quyen">Quyền truy cập</a>
+      <a href="#mang">Khi nào app dùng mạng</a>
+      <a href="#web">Trang web &amp; Trẻ em</a>
+      <a href="#lien-he">Liên hệ</a>
+    </nav>
+
+    <section id="nguyen-tac">
+      <h2>1. Không có máy chủ trung gian</h2>
+      <p>Chép ảnh từ máy ảnh sang điện thoại là chuyện giữa hai thiết bị của bạn, không liên quan đến máy chủ bên ngoài. Toàn bộ khâu đọc thẻ, lọc ảnh, lưu công thức và xuất khung của Unroll đều chạy ngay trên điện thoại.</p>
+      <p>uranashel không vận hành tài khoản người dùng hay cơ sở dữ liệu đám mây nào cho Unroll. Ảnh gốc, thông số máy ảnh, công thức màu và cung đường đi bộ nằm lại hoàn toàn trên máy bạn.</p>
+    </section>
+
+    <section id="tren-may">
+      <h2>2. Những gì được lưu và xử lý trên máy bạn</h2>
+      <p>Khi bạn cắm đầu đọc thẻ hoặc máy ảnh qua USB-C, Unroll chỉ đọc 192 KB phần đầu tệp để lấy ảnh xem trước và thông tin EXIF. Mọi thẻ nhớ ngoài đều mở ở chế độ chỉ đọc nên ứng dụng không bao giờ xoá hay sửa tệp gốc trong thẻ.</p>
+      <p>Những tấm ảnh bạn chọn chép hoặc xuất khung được lưu vào thư viện Apple Photos trên iOS hoặc thư mục <code>DCIM/Unroll</code> trên Android, kèm theo tuỳ chọn hiển thị và nhật ký Photo Walk nếu bạn từng ghi lại lộ trình. Khi bạn gỡ cài đặt ứng dụng, dữ liệu nội bộ của Unroll cũng được dọn sạch mà không ảnh hưởng tới những ảnh đã lưu trong thư viện máy.</p>
+      <p>Nếu bạn bật tính năng gắn toạ độ GPS vào ảnh JPEG trên Android, Unroll chỉ chèn phần dữ liệu GPS chuẩn vào thẻ APP1 của chính các tệp JPEG đó, còn RAW, HEIF và video luôn được chép nguyên bản. Trên iPhone và iPad, toạ độ được gắn trực tiếp qua thư viện Apple Photos.</p>
+    </section>
+
+    <section id="quyen">
+      <h2>3. Các quyền hệ thống ứng dụng cần xin phép</h2>
+      <p>Hệ điều hành chỉ cho phép Unroll chạm tới phần cứng khi bạn đồng ý. Dưới đây là mục đích của từng quyền và ứng dụng vẫn hoạt động ra sao nếu bạn chọn không cấp.</p>
+
+      <div class="table-card table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Quyền truy cập</th>
+              <th>Dùng vào việc gì</th>
+              <th>Nếu bạn từ chối</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Thư viện Ảnh hoặc thư mục lưu trữ</td>
+              <td>Mở ảnh sẵn có để đóng khung và lưu các bức ảnh bạn vừa chép hoặc xuất xong.</td>
+              <td>Bạn vẫn xem được ảnh trên thẻ nhớ USB-C, nhưng không lưu về máy hay mở ảnh cũ lên đóng khung được.</td>
+            </tr>
+            <tr>
+              <td>Thiết bị USB-C và tệp ngoài</td>
+              <td>Đọc danh sách ảnh từ máy ảnh hoặc đầu đọc thẻ SD bạn cắm qua cổng USB-C.</td>
+              <td>Bạn vẫn đóng khung được ảnh có sẵn trên điện thoại và chép ảnh qua Wi-Fi Ricoh GR.</td>
+            </tr>
+            <tr>
+              <td>Vị trí (khi đang mở ứng dụng)</td>
+              <td>Ghi lại quãng đường trong lúc chạy Photo Walk để tự gắn địa điểm cho ảnh máy ảnh sau đó.</td>
+              <td>Mọi tính năng chép ảnh, đọc công thức màu và đóng khung đều chạy bình thường, chỉ bỏ qua phần gắn vị trí.</td>
+            </tr>
+            <tr>
+              <td>Mạng cục bộ và Wi-Fi</td>
+              <td>Kết nối thẳng với máy ảnh Ricoh GR khi điện thoại đang bắt sóng Wi-Fi do chính máy ảnh phát ra.</td>
+              <td>Tính năng chép không dây cho Ricoh GR sẽ không tìm thấy máy ảnh, còn kết nối qua dây vẫn hoạt động bình thường.</td>
+            </tr>
+            <tr>
+              <td>Thông báo (Android, lúc chạy Photo Walk)</td>
+              <td>Giữ tiến trình ghi lộ trình ổn định khi bạn khoá màn hình bỏ điện thoại vào túi.</td>
+              <td>Android có thể tạm dừng cập nhật vị trí nếu màn hình tắt quá lâu.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="mang">
+      <h2>4. Khi nào app cần mạng</h2>
+      <p>Ngoài kết nối Wi-Fi nội bộ trực tiếp với máy Ricoh GR ở cự ly gần, Unroll chạy ngoại tuyến là chính. Vài tác vụ hiếm hoi có gọi mạng dưới đây đều đi thẳng tới hạ tầng của Apple hoặc Google, không qua máy chủ nào của uranashel:</p>
+      <p>Khi tạo thẻ tổng kết chuyến đi, Unroll hỏi dịch vụ bản đồ có sẵn trên iOS hoặc Android để đổi toạ độ GPS thành tên đường, tên quận hoặc thành phố. Trên iOS, thẻ bản đồ dùng thêm Apple Maps để lấy ảnh nền tĩnh cho tuyến đường; trên Android, tuyến đường được vẽ thẳng ngoại tuyến.</p>
+      <p>Thanh toán gói Unroll Pro đi trực tiếp qua StoreKit 2 (Apple) hoặc Google Play Billing. Ứng dụng chỉ nhận trạng thái đã mở khoá hay chưa, không tiếp cận số thẻ hay thông tin hoá đơn của bạn. Nếu bạn bật iCloud Backup hoặc sao lưu Android, phần tuỳ chọn cài đặt của Unroll nằm trong bản sao lưu cá nhân đó.</p>
+    </section>
+
+    <section id="web">
+      <h2>5. Trang web, trẻ em và cập nhật</h2>
+      <p>Trang <code>unroll.uranashel.com</code> chỉ chứa mã tĩnh. Trang không đặt cookie theo dõi, không nhúng mã thống kê lượt truy cập hay quảng cáo bên thứ ba.</p>
+      <p>Unroll không nhắm tới trẻ em dưới 13 tuổi và không thu thập thông tin cá nhân của người dùng. Nếu bản cập nhật sau có thay đổi cách xử lý dữ liệu, trang này sẽ ghi rõ trước kèm ngày hiệu lực mới.</p>
+    </section>
+
+    <section id="lien-he">
+      <h2>6. Liên hệ</h2>
+      <p>Nếu muốn hỏi cụ thể hơn về quyền hệ thống, cách đọc thẻ hoặc quyền riêng tư, bạn có thể gửi email tới <a href="mailto:uralab95@gmail.com">uralab95@gmail.com</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 uranashel · Vietnam</span>
+    <nav aria-label="Liên kết chân trang">
+      <a href="/">Trang chủ</a>
+      <a href="/privacy">Quyền riêng tư</a>
+      <a href="/terms">Điều khoản</a>
+      <a href="/support">Hỗ trợ</a>
+      <a href="/en/privacy" lang="en">English</a>
+    </nav>
+  </footer>
+</div>
+<script defer src="/assets/app.js?v=20261116b"></script>
+</body>
+</html>
