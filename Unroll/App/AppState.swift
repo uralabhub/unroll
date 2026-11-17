@@ -19,6 +19,8 @@ final class AppState {
     var showPaywall = false
     var photosDenied = false
     var toast: String?
+    /// Shown as a toast once the paywall closes, so it never covers the plans.
+    @ObservationIgnored var paywallNote: String?
     @ObservationIgnored private var securityScoped: URL?
 
     init() {
@@ -131,7 +133,7 @@ final class AppState {
             }
             let refused = importer.enqueue(shots)
             if refused > 0 {
-                toast = "Free plan: \(Quota.freePerDay) imports a day. \(refused) waiting for Pro."
+                paywallNote = "Free plan: \(Quota.freePerDay) imports a day. \(refused) waiting for Pro."
                 showPaywall = true
             }
         }

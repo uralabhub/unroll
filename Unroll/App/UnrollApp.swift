@@ -40,7 +40,9 @@ struct RootView: View {
         }
         .overlay(alignment: .bottom) { ImportHUD().padding(.bottom, 8) }
         .overlay(alignment: .bottom) { ToastView().padding(.bottom, 96) }
-        .sheet(isPresented: $app.showPaywall) { PaywallView() }
+        .sheet(isPresented: $app.showPaywall, onDismiss: {
+            if let note = app.paywallNote { app.toast = note; app.paywallNote = nil }
+        }) { PaywallView() }
         .alert("Photos access is off", isPresented: $app.photosDenied) {
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }

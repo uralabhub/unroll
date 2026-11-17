@@ -53,7 +53,8 @@ import java.io.IOException
 import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicLong
 
-class RunSummary(val count: Int, val seconds: Double, val geotagged: Int, val failed: Int = 0)
+class RunSummary(val count: Int, val seconds: Double, val geotagged: Int, val failed: Int = 0,
+                 val endedAt: Long = System.currentTimeMillis())
 
 /** Shot ids still to import, persisted so a run survives the process being killed or the cable pulled. */
 private class ImportQueueStore(private val disk: Disk, scope: CoroutineScope) {

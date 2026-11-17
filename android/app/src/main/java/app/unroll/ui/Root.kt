@@ -105,12 +105,21 @@ fun Root(app: AppState) {
     val context = LocalContext.current
     val reduce = remember { systemReducesMotion(context) }
 
+    LaunchedEffect(app.showPaywall) {
+        if (!app.showPaywall) app.paywallNote?.let { app.toast = it; app.paywallNote = null }
+    }
+
     // Import summary stays up for a few seconds after a run ends.
     val view = androidx.compose.ui.platform.LocalView.current
     val finished = app.importer.lastFinishedRun
     LaunchedEffect(finished) {
-        if (finished != null) { Haptics.confirm(view); app.showingSummary = true; delay(5000); app.showingSummary = false }
-        else app.showingSummary = false
+        // Measured from when the run ended, so recreating the activity (rotation, font size)
+        // doesn't replay an old summary or its haptic.
+        val left = finished?.let { 5000 - (System.currentTimeMillis() - it.endedAt) } ?: 0
+        if (finished != null && left > 0) {
+            if (left > 4500) Haptics.confirm(view)
+            app.showingSummary = true; delay(left); app.showingSummary = false
+        } else app.showingSummary = false
     }
 
     CompositionLocalProvider(LocalReduceMotion provides reduce) {

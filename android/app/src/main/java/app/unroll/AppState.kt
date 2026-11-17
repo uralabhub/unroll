@@ -65,6 +65,8 @@ class AppState(private val context: Context) {
         private set
     var showPaywall by mutableStateOf(false)
     var toast by mutableStateOf<String?>(null)
+    /** Shown as a toast once the paywall closes, so it never covers the plans. */
+    var paywallNote: String? = null
     /** True for a few seconds after an import run ends, while its summary is on screen. */
     var showingSummary by mutableStateOf(false)
     val stack = mutableStateListOf<Screen>()
@@ -218,7 +220,7 @@ class AppState(private val context: Context) {
     fun importShots(shots: List<Shot>) {
         val refused = importer.enqueue(shots)
         if (refused > 0) {
-            toast = "Free plan: ${Quota.FREE_PER_DAY} imports a day. $refused waiting for Pro."
+            paywallNote = "Free plan: ${Quota.FREE_PER_DAY} imports a day. $refused waiting for Pro."
             showPaywall = true
         }
     }

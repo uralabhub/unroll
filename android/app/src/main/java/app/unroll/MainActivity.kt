@@ -38,7 +38,9 @@ class MainActivity : ComponentActivity() {
         // Dark-only app: light status / navigation bar icons everywhere.
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            // 3-button navigation gets a dark scrim so scrolling content never shows through the
+            // buttons (Samsung default); gesture navigation stays fully transparent.
+            navigationBarStyle = SystemBarStyle.dark(0xE6000000.toInt()),
         )
         super.onCreate(savedInstanceState)
         handle(intent)
