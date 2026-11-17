@@ -147,8 +147,9 @@ struct ConnectPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Circle().fill(denied ? Mono.faint : Mono.accent).frame(width: 7, height: 7)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
                 Text(denied ? "Camera access is off" : "Ready. Waiting for a camera")
                     .font(Mono.sans(.footnote, weight: .medium)).foregroundStyle(Mono.dim)
             }
@@ -168,15 +169,10 @@ struct ConnectPanel: View {
                 .padding(.top, 18)
             }
 
-            HStack(spacing: 10) {
-                Button(action: pickFolder) {
-                    Label { Text("SD card") } icon: { Icon("sd-card", size: 18) }
-                }
-                Button { open("ricoh") { await app.connectRicoh() } } label: {
-                    Label { Text("Ricoh Wi‑Fi") } icon: {
-                        if opening == "ricoh" { ProgressView() } else { Icon("wifi-high", size: 18) }
-                    }
-                }
+            // Side by side when they fit; stacked at large text sizes instead of truncating.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { sourceButtons }
+                VStack(spacing: 10) { sourceButtons }
             }
             .buttonStyle(SecondaryButtonStyle())
             .padding(.top, 20)
@@ -196,6 +192,17 @@ struct ConnectPanel: View {
         }
         .padding(20)
         .disabled(opening != nil)
+    }
+
+    @ViewBuilder private var sourceButtons: some View {
+        Button(action: pickFolder) {
+            Label { Text("SD card").fixedSize() } icon: { Icon("sd-card", size: 18) }
+        }
+        Button { open("ricoh") { await app.connectRicoh() } } label: {
+            Label { Text("Ricoh Wi‑Fi").fixedSize() } icon: {
+                if opening == "ricoh" { ProgressView() } else { Icon("wifi-high", size: 18) }
+            }
+        }
     }
 
     private func open(_ key: String, _ work: @escaping () async -> Void) {

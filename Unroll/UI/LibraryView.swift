@@ -422,13 +422,14 @@ private struct LibraryBottomBar: View {
     @ViewBuilder private var importBar: some View {
         let picks = snapshot.picksToImport, fresh = snapshot.newToImport
         if !picks.isEmpty {
-            HStack(spacing: 10) {
-                Button { app.importShots(picks) } label: { Text("Import \(picks.count) \(picks.count == 1 ? "pick" : "picks")") }
-                    .buttonStyle(PrimaryButtonStyle())
-                if fresh.count > picks.count {
-                    Button { app.importShots(fresh) } label: { Text("All \(fresh.count)") }
-                        .buttonStyle(SecondaryButtonStyle())
-                        .frame(width: 112)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    importPicks(picks)
+                    if fresh.count > picks.count { importAll(fresh).frame(maxWidth: 120) }
+                }
+                VStack(spacing: 8) {
+                    importPicks(picks)
+                    if fresh.count > picks.count { importAll(fresh) }
                 }
             }
         } else if !fresh.isEmpty {
@@ -444,6 +445,16 @@ private struct LibraryBottomBar: View {
         }
     }
 
+    private func importPicks(_ picks: [Shot]) -> some View {
+        Button { app.importShots(picks) } label: { Text("Import \(picks.count) \(picks.count == 1 ? "pick" : "picks")").fixedSize() }
+            .buttonStyle(PrimaryButtonStyle())
+    }
+
+    private func importAll(_ fresh: [Shot]) -> some View {
+        Button { app.importShots(fresh) } label: { Text("All \(fresh.count)").fixedSize() }
+            .buttonStyle(SecondaryButtonStyle())
+    }
+
     private var selectionBar: some View {
         let selected = snapshot.visible.filter { selection.contains($0.id) }
         return HStack(spacing: 10) {
@@ -457,13 +468,13 @@ private struct LibraryBottomBar: View {
             }
             Spacer()
             Button { recap(selected) } label: { Text("Recap") }
-                .buttonStyle(SecondaryButtonStyle()).frame(width: 90)
+                .buttonStyle(SecondaryButtonStyle()).frame(minWidth: 90).fixedSize()
                 .disabled(selected.isEmpty)
             Button {
                 app.importShots(selected)
                 withAnimation(Motion.snap) { selecting = false; selection.removeAll() }
             } label: { Text("Import") }
-                .buttonStyle(PrimaryButtonStyle()).frame(width: 110)
+                .buttonStyle(PrimaryButtonStyle()).frame(minWidth: 110).fixedSize()
                 .disabled(selected.isEmpty)
         }
     }
