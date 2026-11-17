@@ -1,0 +1,13 @@
+# Hand-written baseline profile (no device was available to record one with a Macrobenchmark
+# module). Compose and AndroidX ship their own profiles; these rules cover the app's own hot paths:
+# startup, the camera grid, header parsing, thumbnails and the import pipeline.
+HSPLapp/unroll/UnrollApplication;->**(**)**
+HSPLapp/unroll/MainActivity;->**(**)**
+HSPLapp/unroll/AppState;->**(**)**
+HSPLapp/unroll/ui/**;->**(**)**
+HSPLapp/unroll/source/**;->**(**)**
+HSPLapp/unroll/media/**;->**(**)**
+HSPLapp/unroll/importer/**;->**(**)**
+HSPLapp/unroll/data/**;->**(**)**
+HSPLapp/unroll/core/**;->**(**)**
+Lapp/unroll/**;

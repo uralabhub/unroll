@@ -9,6 +9,7 @@ import app.unroll.core.ByteRange
 import app.unroll.core.FilmRecipe
 import app.unroll.core.FrameOptions
 import app.unroll.core.PhotoWalk
+import app.unroll.core.RgbPreview
 import app.unroll.core.ShotMeta
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +47,7 @@ class Disk(context: Context) {
 /** Parsed headers keyed by shot id — reconnecting the same card is instant. */
 class MetaCache(private val disk: Disk, private val scope: CoroutineScope) {
     @Serializable
-    data class Entry(val meta: ShotMeta, val preview: ByteRange? = null)
+    data class Entry(val meta: ShotMeta, val preview: ByteRange? = null, val rgbPreview: RgbPreview? = null)
 
     private val serializer = MapSerializer(String.serializer(), Entry.serializer())
     private val map: MutableMap<String, Entry> = java.util.concurrent.ConcurrentHashMap(disk.load(serializer, "meta-cache.json") ?: emptyMap())
@@ -67,9 +68,33 @@ class MetaCache(private val disk: Disk, private val scope: CoroutineScope) {
     }
 }
 
+/**
+ * Writes a value to disk off the main thread, at most once per [delayMs]; the latest value wins.
+ * Callers update in-memory state synchronously; only the JSON write is deferred.
+ */
+class DebouncedWriter<T>(
+    private val disk: Disk,
+    private val scope: CoroutineScope,
+    private val serializer: KSerializer<T>,
+    private val name: String,
+    private val delayMs: Long = 500,
+) {
+    private var job: Job? = null
+
+    @Synchronized
+    fun schedule(snapshot: () -> T) {
+        job?.cancel()
+        job = scope.launch(Dispatchers.IO) {
+            delay(delayMs)
+            synchronized(this@DebouncedWriter) { disk.save(serializer, snapshot(), name) }
+        }
+    }
+}
+
 /** Remembers what was already imported so "Import new" never duplicates. */
-class ImportLedger(private val disk: Disk) {
+class ImportLedger(disk: Disk, scope: CoroutineScope) {
     private val serializer = SetSerializer(String.serializer())
+    private val writer = DebouncedWriter(disk, scope, serializer, "imported.json")
     var ids by mutableStateOf(disk.load(serializer, "imported.json") ?: emptySet())
         private set
 
@@ -78,17 +103,19 @@ class ImportLedger(private val disk: Disk) {
     @Synchronized
     fun mark(id: String) {
         ids = ids + id
-        disk.save(serializer, ids, "imported.json")
+        val snapshot = ids
+        writer.schedule { snapshot }
     }
 
+    @Synchronized
     fun reset() {
         ids = emptySet()
-        disk.save(serializer, ids, "imported.json")
+        writer.schedule { emptySet() }
     }
 }
 
 /** Every recipe seen on imported shots, grouped by signature. */
-class RecipeBook(private val disk: Disk) {
+class RecipeBook(private val disk: Disk, scope: CoroutineScope) {
     @Serializable
     data class Item(
         val recipe: FilmRecipe,
@@ -102,6 +129,7 @@ class RecipeBook(private val disk: Disk) {
     }
 
     private val serializer = ListSerializer(Item.serializer())
+    private val writer = DebouncedWriter(disk, scope, serializer, "recipes.json")
     var items by mutableStateOf(disk.load(serializer, "recipes.json") ?: emptyList())
         private set
 
@@ -115,7 +143,8 @@ class RecipeBook(private val disk: Disk) {
         } else {
             items + Item(recipe, null, camera, 1, date)
         }
-        disk.save(serializer, items, "recipes.json")
+        val snapshot = items
+        writer.schedule { snapshot }
     }
 
     fun rename(id: String, name: String) {

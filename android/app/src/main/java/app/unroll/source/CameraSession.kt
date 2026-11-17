@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -60,6 +61,8 @@ class CameraSession(
     private val readFailures = HashMap<String, Int>()
 
     val scanComplete: Boolean get() = scanned >= shots.count { !it.isVideo }
+    /** True once the camera (not this app) has been confirmed gone; header reads stop. */
+    private val closed get() = status is SessionStatus.Failed
 
     fun shot(id: String): Shot? = byID[id]
 
@@ -72,7 +75,7 @@ class CameraSession(
             previous[s.id]?.also { old -> byID[s.id] = old; if (old.raw == null && s.raw != null) old.raw = s.raw } ?: adopt(s)
         }
         shots = merged.sortedByDescending { it.fileDate }
-        scanned = shots.count { it.meta != null }
+        scanned = shots.count { it.meta != null || it.headerFailed }
         restartScan()
     }
 
@@ -92,7 +95,7 @@ class CameraSession(
     }
 
     private fun adopt(s: Shot): Shot {
-        metaCache[s.id]?.let { s.meta = it.meta; s.preview = it.preview }
+        metaCache[s.id]?.let { s.meta = it.meta; s.preview = it.preview; s.rgbPreview = it.rgbPreview }
         s.wasImported = ledger.contains(s.id)
         byID[s.id] = s
         return s
@@ -105,7 +108,7 @@ class CameraSession(
         // A camera accepts object reads only once its catalog is complete.
         if (kind == SourceKind.USB && status != SessionStatus.Ready) { pending.clear(); return }
         pending.clear()
-        pending.addAll(shots.filter { it.meta == null && !it.isVideo })
+        pending.addAll(shots.filter { it.meta == null && !it.isVideo && !it.headerFailed })
         scanJob = scope.launch {
             repeat(readConcurrency) {
                 launch {
@@ -121,7 +124,7 @@ class CameraSession(
     private fun nextPending(): Shot? {
         while (pending.isNotEmpty()) {
             val s = pending.removeFirst()
-            if (s.meta == null && s.id !in inFlight) return s
+            if (s.meta == null && !s.headerFailed && s.id !in inFlight) return s
         }
         return null
     }
@@ -133,38 +136,87 @@ class CameraSession(
         pending.addFirst(shot)
     }
 
-    /** Reads and parses the header once. Always runs on the main thread (it updates UI state). */
-    suspend fun loadMeta(shot: Shot) = withContext(Dispatchers.Main.immediate) { loadMetaOnMain(shot) }
+    /**
+     * Reads and parses the header once; true when [Shot.meta] is set afterwards. State updates
+     * happen on the main thread, the read and the parse off it.
+     */
+    suspend fun loadMeta(shot: Shot): Boolean = withContext(Dispatchers.Main.immediate) { loadMetaOnMain(shot); shot.meta != null }
 
     private suspend fun loadMetaOnMain(shot: Shot) {
         if (shot.meta != null) return
         lock.withLock { if (!inFlight.add(shot.id)) return }
         try {
-            // RAW twin carries the same EXIF; the JPEG header is cheaper to parse.
-            val data = try {
-                shot.primary.read(0, HeaderParser.HEADER_LENGTH)
+            val res = try {
+                withContext(Dispatchers.IO) { readHeader(shot.primary) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: UnsupportedOperationException) {
+                // No partial reads on this camera: no header, but the shot still lists and imports.
+                giveUp(shot); return
             } catch (e: Exception) {
                 val n = (readFailures[shot.id] ?: 0) + 1
                 readFailures[shot.id] = n
-                // One retry on the next scan pass; after that, don't hammer a broken file.
-                if (n >= 2) { shot.meta = ShotMeta(); scanned += 1 }
+                // Retry later with backoff (the camera may be busy or asleep); never fake an
+                // empty header, so ★ shots aren't silently dropped from "picks only" auto-import.
+                if (n >= MAX_READ_TRIES || closed) giveUp(shot)
+                else scope.launch { delay(2_000L shl n); if (shot.meta == null && !closed) { pending.addLast(shot); kickScan() } }
                 return
             }
-            val info = withContext(Dispatchers.Default) { HeaderParser.parse(data) }
+            val info = res.info
             // RAW+HEIF: if the HEIF's EXIF didn't fit in the header, the RAW twin carries the same EXIF.
             // Its preview range points into the RAW file, so it's not used for the HEIF primary.
             val raw = shot.raw
             if (info.format == ShotFormat.HEIF && info.meta.dateTimeOriginal == null && raw != null) {
-                runCatching { raw.read(0, HeaderParser.HEADER_LENGTH) }.getOrNull()?.let { rd ->
-                    info.meta = withContext(Dispatchers.Default) { HeaderParser.parse(rd) }.meta
-                }
+                runCatching { withContext(Dispatchers.IO) { readHeader(raw) } }.getOrNull()?.let { info.meta = it.info.meta }
             }
-            shot.preview = if (info.format == ShotFormat.HEIF) null else info.preview
+            val isHeif = info.format == ShotFormat.HEIF
+            shot.preview = if (isHeif) null else info.preview
+            shot.rgbPreview = if (isHeif) null else info.rgbPreview
             shot.meta = info.meta
-            scanned += 1
-            metaCache[shot.id] = MetaCache.Entry(info.meta, info.preview)
+            readFailures.remove(shot.id)
+            if (shot.headerFailed) shot.headerFailed = false else scanned += 1
+            metaCache[shot.id] = MetaCache.Entry(info.meta, shot.preview, shot.rgbPreview)
         } finally {
             lock.withLock { inFlight.remove(shot.id) }
+        }
+    }
+
+    private fun giveUp(shot: Shot) {
+        if (!shot.headerFailed) { shot.headerFailed = true; scanned += 1 }
+    }
+
+    /** Restarts the scan workers if they ran dry (a retry was queued after they finished). */
+    private fun kickScan() {
+        if (scanJob?.isActive == true) return
+        if (kind == SourceKind.USB && status != SessionStatus.Ready) return
+        scanJob = scope.launch {
+            repeat(readConcurrency) {
+                launch {
+                    while (isActive) {
+                        val s = nextPending() ?: break
+                        loadMeta(s)
+                    }
+                }
+            }
+        }
+    }
+
+    companion object {
+        private const val MAX_READ_TRIES = 4
+
+        /** Header + adaptive follow-up reads for TIFF RAWs whose IFDs lie past the first 192 KB. */
+        suspend fun readHeader(f: ShotFile): app.unroll.core.AdaptiveHeader {
+            val head = f.read(0, HeaderParser.HEADER_LENGTH)
+            // parseAdaptive is inline, so its read lambda may suspend.
+            return HeaderParser.parseAdaptive(head, f.verifiableSize) { r ->
+                try {
+                    f.read(r.offset, r.length.toInt().coerceAtMost(HeaderParser.IFD_READ.toInt() * 4))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+            }
         }
     }
 

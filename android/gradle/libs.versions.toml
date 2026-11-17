@@ -17,6 +17,7 @@ compose-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 activity-compose = { module = "androidx.activity:activity-compose", version = "1.13.0" }
 core-ktx = { module = "androidx.core:core-ktx", version = "1.17.0" }
 exifinterface = { module = "androidx.exifinterface:exifinterface", version = "1.4.2" }
+profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version = "1.4.1" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

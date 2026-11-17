@@ -26,6 +26,36 @@ import kotlin.math.floor
  * segment would outgrow 64 KB.
  */
 object GpsInjector {
+    /**
+     * Streaming form of [inject] for files we don't want in memory (a 60 MB JPEG over USB): the
+     * output is [prefix] followed by the original file from byte [replaces] on. Needs only the
+     * file's first bytes ([head]: everything up to the end of APP1 and of the MPF APP2 segment).
+     */
+    class Patch(val prefix: ByteArray, val replaces: Int)
+
+    fun injectHead(head: ByteArray, lat: Double, lon: Double, altitude: Double? = null): Patch? {
+        val v = ByteView(head)
+        if (!v.matches(0, byteArrayOf(0xFF.toByte(), 0xD8.toByte()))) return null
+        var p = 2
+        var end = -1
+        while (p + 4 <= v.count) {
+            if (v.u8(p) != 0xFF) break
+            val marker = v.u8(p + 1) ?: break
+            if (marker == 0xFF) { p += 1; continue }
+            if (marker == 0xD8 || marker in 0xD0..0xD7 || marker == 0x01) { p += 2; continue }
+            if (marker == 0xDA || marker == 0xD9) break
+            val len = v.u16(p + 2, false) ?: break
+            val segEnd = p + 2 + len
+            if (marker == 0xE1 && v.matches(p + 4, "Exif\u0000\u0000") && end < 0) end = segEnd
+            if (marker == 0xE2 && v.matches(p + 4, "MPF\u0000")) { end = maxOf(end, segEnd); break }
+            p = segEnd
+        }
+        if (end < 0 || end > head.size) return null
+        val cut = head.copyOf(end)
+        val out = inject(cut, lat, lon, altitude) ?: return null
+        return Patch(out, end)
+    }
+
     fun inject(jpeg: ByteArray, lat: Double, lon: Double, altitude: Double? = null): ByteArray? {
         val v = ByteView(jpeg)
         if (!v.matches(0, byteArrayOf(0xFF.toByte(), 0xD8.toByte()))) return null

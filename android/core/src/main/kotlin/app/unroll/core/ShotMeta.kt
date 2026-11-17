@@ -14,6 +14,12 @@ import kotlin.math.floor
 @Serializable
 data class ByteRange(val offset: Long, val length: Long)
 
+/** An uncompressed 8-bit chunky RGB image at [range] (row-major, no padding). */
+@Serializable
+data class RgbPreview(val range: ByteRange, val width: Int, val height: Int) {
+    val pixels: Long get() = width.toLong() * height
+}
+
 /** Everything we can learn about a shot from its first ~192 KB, without downloading it. */
 @Serializable
 data class ShotMeta(
@@ -230,22 +236,43 @@ data class FilmRecipe(
 }
 
 enum class ShotFormat {
-    JPEG, HEIF, RAF, CR3, TIFF_RAW, VIDEO, UNKNOWN;
+    JPEG, HEIF, RAF, CR3, TIFF_RAW,
+    /** A raw format the header parser can't read (CRW, X3F, MRW…): listed and imported byte for byte, no preview. */
+    OTHER_RAW,
+    /** A developed TIFF (scanning backs, Kodak DCS, Phase One TIF): pairs like a JPEG. */
+    TIFF,
+    VIDEO, UNKNOWN;
 
-    val isRAW: Boolean get() = this == RAF || this == CR3 || this == TIFF_RAW
+    val isRAW: Boolean get() = this == RAF || this == CR3 || this == TIFF_RAW || this == OTHER_RAW
+
+    /** The "developed" half of a RAW+X pair. */
+    val isDeveloped: Boolean get() = this == JPEG || this == HEIF || this == TIFF || this == VIDEO
 
     companion object {
-        fun fromFilename(name: String): ShotFormat {
-            val ext = name.substringAfterLast('.', "").lowercase()
-            return when (ext) {
-                "jpg", "jpeg" -> JPEG
-                "heic", "heif", "hif" -> HEIF
-                "raf" -> RAF
-                "cr3" -> CR3
-                "arw", "nef", "nrw", "dng", "cr2", "orf", "rw2", "pef", "srw", "3fr", "iiq", "rwl", "srf", "sr2", "erf", "x3f" -> TIFF_RAW
-                "mov", "mp4", "mts", "m4v", "avi" -> VIDEO
-                else -> UNKNOWN
-            }
+        /**
+         * The single source of truth for which files we list, everywhere (USB/MTP, SAF card, local
+         * folders, Ricoh Wi-Fi). Anything here is importable whether or not the parser knows it.
+         */
+        val byExtension: Map<String, ShotFormat> = buildMap {
+            listOf("jpg", "jpeg").forEach { put(it, JPEG) }
+            listOf("heic", "heif", "hif").forEach { put(it, HEIF) }
+            put("raf", RAF)
+            put("cr3", CR3)
+            // TIFF-structured RAWs (the parser reads EXIF + preview from these).
+            listOf(
+                "arw", "srf", "sr2", "nef", "nrw", "dng", "cr2", "orf", "rw2", "rwl", "raw", "pef", "srw",
+                "3fr", "fff", "iiq", "erf", "mos", "mef", "dcr", "kdc", "gpr",
+            ).forEach { put(it, TIFF_RAW) }
+            // Not TIFF (or not worth parsing): import only.
+            listOf("crw", "mrw", "x3f", "mdc", "cam").forEach { put(it, OTHER_RAW) }
+            listOf("tif", "tiff").forEach { put(it, TIFF) }
+            listOf("mov", "mp4", "m4v", "mts", "m2ts", "avi", "mxf").forEach { put(it, VIDEO) }
         }
+
+        fun extension(name: String): String = name.substringAfterLast('.', "").lowercase()
+
+        fun fromFilename(name: String): ShotFormat = byExtension[extension(name)] ?: UNKNOWN
+
+        fun isMedia(name: String): Boolean = extension(name) in byExtension
     }
 }

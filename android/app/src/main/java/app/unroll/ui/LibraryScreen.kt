@@ -2,6 +2,7 @@ package app.unroll.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,7 +40,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +49,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -111,17 +113,34 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
     LaunchedEffect(session.id) {
         val want = buildList {
-            add(Manifest.permission.POST_NOTIFICATIONS)
-            if (app.settings.borrowPhoneLocations) { add(Manifest.permission.READ_MEDIA_IMAGES); add(Manifest.permission.ACCESS_MEDIA_LOCATION) }
+            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (app.settings.borrowPhoneLocations) {
+                // Android 10–12 read other apps' photos with READ_EXTERNAL_STORAGE; 13+ split it.
+                add(if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE)
+                add(Manifest.permission.ACCESS_MEDIA_LOCATION)
+            }
         }.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
         if (want.isNotEmpty()) perms.launch(want.toTypedArray())
     }
 
     val shots = session.shots
-    val visible = shots.filter { filter.matches(it) && (filter != ShotFilter.RATED || it.rating >= minStars) }
-    val days = visible.groupBy { day(it.fileDate) }.toSortedMap(compareByDescending { it })
-    val keepersNotImported = shots.filter { it.isKeeper && !it.wasImported && !it.isVideo }
-    val newShots = shots.filter { !it.wasImported && !it.isVideo }
+    // Derived lists only recompute when what they read changes (the shot list, a filter, a header
+    // landing), not on every recomposition — e.g. each import progress tick.
+    val visible by remember(shots, filter, minStars) {
+        derivedStateOf { shots.filter { filter.matches(it) && (filter != ShotFilter.RATED || it.rating >= minStars) } }
+    }
+    val days by remember(shots, filter, minStars) {
+        derivedStateOf { visible.groupBy { day(it.fileDate) }.toSortedMap(compareByDescending { it }) }
+    }
+    val keepersNotImported by remember(shots) { derivedStateOf { shots.filter { it.isKeeper && !it.wasImported && !it.isVideo } } }
+    val newShots by remember(shots) { derivedStateOf { shots.filter { !it.wasImported && !it.isVideo } } }
+    val filterCounts by remember(shots) {
+        derivedStateOf {
+            val counts = IntArray(ShotFilter.entries.size)
+            for (sh in shots) for (f in ShotFilter.entries) if (f.matches(sh)) counts[f.ordinal]++
+            counts
+        }
+    }
 
     fun recapCandidates(): List<Shot> {
         val picked = shots.filter { it.id in selection }
@@ -159,7 +178,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
                 item(span = { GridItemSpan(maxLineSpan) }, key = "filters") {
                     Column(Modifier.padding(horizontal = 0.dp)) {
                         Box(Modifier.padding(horizontal = 0.dp)) {
-                            TabStrip(ShotFilter.entries, filter, { it.label }, { f -> if (f == ShotFilter.ALL) shots.size else shots.count(f::matches) }) { filter = it }
+                            TabStrip(ShotFilter.entries, filter, { it.label }, { f -> filterCounts[f.ordinal] }) { filter = it }
                         }
                         AnimatedVisibility(filter == ShotFilter.RATED, enter = expandVertically(Mono.press()) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                             Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -216,10 +235,10 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
                                 }
                             }
                         }
-                        items(list, key = { it.id }) { shot ->
+                        itemsIndexed(list, key = { _, it -> it.id }) { index, shot ->
                             LaunchedEffect(shot.id) { session.prioritize(shot) }
                             ShotCell(
-                                session, shot, list.indexOf(shot), columns, selecting, shot.id in selection,
+                                session, shot, index, columns, selecting, shot.id in selection,
                                 Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = Mono.press()),
                                 onTap = {
                                     if (selecting) { Haptics.tick(view); selection = if (shot.id in selection) selection - shot.id else selection + shot.id }
@@ -234,7 +253,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
         }
 
         // Floating action bar: switches between import and selection modes.
-        val selected = shots.filter { it.id in selection }
+        val selected = remember(shots, selection) { if (selection.isEmpty()) emptyList() else shots.filter { it.id in selection } }
         val mode = when { selecting -> 1; !app.importer.isRunning -> 0; else -> 2 }
         AnimatedContent(
             mode, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -335,7 +354,9 @@ private fun ShotCell(
     session: CameraSession, shot: Shot, index: Int, columns: Int, selecting: Boolean, selected: Boolean,
     modifier: Modifier, onTap: () -> Unit, onLong: () -> Unit,
 ) {
-    LaunchedEffect(shot.id) { Previews.thumbnail(shot, session) }
+    // Re-runs when the thumbnail cache evicted this cell's image while it was still on screen.
+    val missing = shot.thumbnail == null
+    LaunchedEffect(shot.id, missing) { Previews.thumbnail(shot, session) }
     val shape = RoundedCornerShape(if (columns >= 5) 6.dp else 12.dp)
     val inset by animateFloatAsState(if (selecting && selected) 0.88f else if (selecting) 0.95f else 1f, Mono.press(), label = "inset")
     val imageAlpha by animateFloatAsState(if (shot.thumbnail != null) 1f else 0f, tween(260), label = "thumb")
@@ -361,8 +382,10 @@ private fun ShotCell(
             if (shot.hasRAW || shot.isVideo) {
                 Badge(Modifier.align(Alignment.BottomStart)) { Text(if (shot.isVideo) "VID" else if (shot.raw != null) "J+R" else "RAW", style = badgeStyle) }
             }
+            // Keyed by the kind of state, so a progress tick updates the % text instead of starting a transition.
             AnimatedContent(shot.importState to shot.wasImported, Modifier.align(Alignment.BottomEnd), label = "state",
-                transitionSpec = { scaleIn(Mono.press(), initialScale = 0.6f) + fadeIn() togetherWith fadeOut() }) { (st, done) ->
+                transitionSpec = { scaleIn(Mono.press(), initialScale = 0.6f) + fadeIn() togetherWith fadeOut() },
+                contentKey = { (st, done) -> (if (st is ImportState.Importing) "importing" else st.toString()) to done }) { (st, done) ->
                 when (st) {
                     ImportState.Queued -> Badge(Modifier) { Text("···", style = badgeStyle) }
                     is ImportState.Importing -> Badge(Modifier) { Text("${(st.fraction * 100).toInt()}%", style = badgeStyle) }

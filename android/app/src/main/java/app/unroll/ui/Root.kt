@@ -166,7 +166,7 @@ private fun ImportHUD(app: AppState) {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Importing ", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-                                AnimatedCount(minOf(imp.completedInRun + 1, imp.totalInRun), Mono.data(15.sp, FontWeight.ExtraBold), Mono.c.ink)
+                                AnimatedCount(minOf(imp.completedInRun + imp.failedInRun + 1, imp.totalInRun), Mono.data(15.sp, FontWeight.ExtraBold), Mono.c.ink)
                                 Text(" of ${imp.totalInRun}", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
                             }
                             Text(imp.throughputMBps?.let { String.format(Locale.US, "%.0f MB/s", it) } ?: (imp.current?.primary?.name ?: ""), style = Mono.data(12.sp), color = Mono.c.dim)
@@ -178,7 +178,8 @@ private fun ImportHUD(app: AppState) {
                                 Spacer(Modifier.width(10.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text("${run.count} saved to your library", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-                                    Text(String.format(Locale.US, "%.1f s", run.seconds) + if (run.geotagged > 0) "  ·  ${run.geotagged} with location" else "  ·  originals untouched",
+                                    Text(String.format(Locale.US, "%.1f s", run.seconds) + (if (run.failed > 0) "  ·  ${run.failed} failed" else "") +
+                                        if (run.geotagged > 0) "  ·  ${run.geotagged} with location" else "  ·  originals untouched",
                                         style = Mono.data(12.sp), color = Mono.c.dim)
                                 }
                             }

@@ -3,43 +3,71 @@ package app.unroll.core
 /**
  * Bounds-checked random access over a byte buffer. Every read returns null instead of throwing,
  * because we routinely parse *truncated* headers (the first 192 KB of a 60 MB RAW).
+ *
+ * [far] holds extra chunks read from deep inside the file (an IFD0 stored at the end of a 100 MB
+ * IIQ, say) at their absolute offsets, without allocating the gap. Bytes in a gap read as null.
  */
-class ByteView(val b: ByteArray) {
-    val count: Int get() = b.size
+class ByteView(val b: ByteArray, far: List<Pair<Long, ByteArray>> = emptyList()) {
+    private val far: List<Pair<Int, ByteArray>> = far
+        .filter { (o, c) -> o >= b.size && o + c.size <= Int.MAX_VALUE && c.isNotEmpty() }
+        .map { (o, c) -> o.toInt() to c }
+        .sortedBy { it.first }
 
-    fun u8(o: Int): Int? = if (o >= 0 && o < b.size) b[o].toInt() and 0xFF else null
+    /** Logical size: the dense buffer, or the end of the farthest chunk. */
+    val count: Int = maxOf(b.size, this.far.maxOfOrNull { it.first + it.second.size } ?: 0)
+
+    private fun byteAt(o: Int): Int? {
+        if (o < 0) return null
+        if (o < b.size) return b[o].toInt() and 0xFF
+        for ((start, c) in far) if (o >= start && o < start + c.size) return c[o - start].toInt() and 0xFF
+        return null
+    }
+
+    fun u8(o: Int): Int? = if (o >= 0 && o < b.size) b[o].toInt() and 0xFF else byteAt(o)
 
     fun u16(o: Int, little: Boolean): Int? {
-        if (o < 0 || o + 2 > b.size) return null
-        val a = b[o].toInt() and 0xFF
-        val c = b[o + 1].toInt() and 0xFF
+        val a = u8(o) ?: return null
+        val c = u8(o + 1) ?: return null
         return if (little) a or (c shl 8) else (a shl 8) or c
     }
 
     /** Unsigned 32-bit value, as Long so it never goes negative. */
     fun u32(o: Int, little: Boolean): Long? {
-        if (o < 0 || o + 4 > b.size) return null
-        val a = (b[o].toLong() and 0xFF)
-        val c = (b[o + 1].toLong() and 0xFF)
-        val d = (b[o + 2].toLong() and 0xFF)
-        val e = (b[o + 3].toLong() and 0xFF)
+        if (o < 0) return null
+        val a = (u8(o) ?: return null).toLong()
+        val c = (u8(o + 1) ?: return null).toLong()
+        val d = (u8(o + 2) ?: return null).toLong()
+        val e = (u8(o + 3) ?: return null).toLong()
         return if (little) a or (c shl 8) or (d shl 16) or (e shl 24) else (a shl 24) or (c shl 16) or (d shl 8) or e
     }
 
     fun matches(o: Int, s: String): Boolean = matches(o, s.toByteArray(Charsets.ISO_8859_1))
 
     fun matches(o: Int, bytes: ByteArray): Boolean {
-        if (o < 0 || o + bytes.size > b.size) return false
-        for (i in bytes.indices) if (b[o + i] != bytes[i]) return false
+        if (o < 0 || o.toLong() + bytes.size > count) return false
+        if (o + bytes.size <= b.size) {
+            for (i in bytes.indices) if (b[o + i] != bytes[i]) return false
+            return true
+        }
+        for (i in bytes.indices) if (u8(o + i) != (bytes[i].toInt() and 0xFF)) return false
         return true
+    }
+
+    /** [n] bytes at [o], or null when any of them is unknown. */
+    fun slice(o: Int, n: Int): ByteArray? {
+        if (o < 0 || n < 0 || o.toLong() + n > count) return null
+        if (o + n <= b.size) return b.copyOfRange(o, o + n)
+        val out = ByteArray(n)
+        for (i in 0 until n) out[i] = (u8(o + i) ?: return null).toByte()
+        return out
     }
 
     /** Printable ASCII, trimmed at the first NUL. */
     fun ascii(o: Int, n: Int): String? {
-        if (o < 0 || n <= 0 || o + n > b.size) return null
+        if (o < 0 || n <= 0 || o.toLong() + n > count) return null
         val sb = StringBuilder()
         for (i in 0 until n) {
-            val c = b[o + i].toInt() and 0xFF
+            val c = u8(o + i) ?: return null
             if (c == 0) break
             if (c in 0x20..0x7E) sb.append(c.toChar())
         }
@@ -47,6 +75,7 @@ class ByteView(val b: ByteArray) {
         return s.ifEmpty { null }
     }
 
+    /** Searches the dense buffer only (container boxes and segment markers live near the start). */
     fun firstIndexOf(pattern: ByteArray, from: Int = 0, to: Int? = null): Int? {
         val last = minOf(to ?: b.size, b.size) - pattern.size
         if (pattern.isEmpty() || from > last) return null

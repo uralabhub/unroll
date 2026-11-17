@@ -67,10 +67,15 @@ fun Modifier.riseIn(index: Int, key: Any = Unit): Modifier {
     }
 }
 
-/** Grid cells: scale up from 0.92 and fade, staggered a little by position, only the first time. */
+/** Keys that already popped in: a cell scrolled back into view (or recomposed) doesn't animate again. */
+private val poppedIn = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<Any, Boolean>())
+
+/** Grid cells: scale up from 0.92 and fade, staggered a little by position, only the first time per key. */
 @Composable
 fun Modifier.popIn(index: Int, key: Any): Modifier {
     if (LocalReduceMotion.current) return this
+    val first = remember(key) { poppedIn.add(key) }
+    if (!first) return this
     val a = remember(key) { Animatable(0f) }
     LaunchedEffect(key) {
         delay((index % 12) * 22L)

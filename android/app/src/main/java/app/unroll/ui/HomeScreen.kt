@@ -91,7 +91,7 @@ fun HomeScreen(app: AppState) {
             val data = withContext(Dispatchers.IO) { runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() }
                 ?: return@launch
             val img = withContext(Dispatchers.Default) { ImageDecode.decode(data, 4096) } ?: return@launch
-            val meta = HeaderParser.parse(data.copyOf(minOf(data.size, HeaderParser.HEADER_LENGTH))).meta
+            val meta = withContext(Dispatchers.Default) { HeaderParser.parse(data.copyOf(minOf(data.size, HeaderParser.HEADER_LENGTH))).meta }
             app.push(Screen.Frame(img, meta, null))
         }
     }
@@ -307,7 +307,10 @@ private fun PhotoWalkCard(app: AppState, modifier: Modifier) {
                 when {
                     rec.isRecording -> rec.stopWalk()
                     rec.hasPermission -> rec.startWalk()
-                    else -> perm.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.POST_NOTIFICATIONS))
+                    else -> perm.launch(
+                        listOfNotNull(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.POST_NOTIFICATIONS.takeIf { android.os.Build.VERSION.SDK_INT >= 33 }).toTypedArray(),
+                    )
                 }
             }.clip(RoundedCornerShape(corner)).background(Mono.c.ink),
             contentAlignment = Alignment.Center,

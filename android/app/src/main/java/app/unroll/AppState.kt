@@ -32,6 +32,7 @@ import app.unroll.source.UsbCameraService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -51,14 +52,14 @@ class AppState(private val context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val disk = Disk(context)
     val settings = Settings(context, disk)
-    val ledger = ImportLedger(disk)
-    val recipes = RecipeBook(disk)
+    val ledger = ImportLedger(disk, scope)
+    val recipes = RecipeBook(disk, scope)
     val quota = Quota(context)
     val pro = ProStore(context)
     val walks = WalkRecorder(context, WalkStore(disk))
     val usb = UsbCameraService(context)
     val metaCache = MetaCache(disk, scope)
-    val importer = ImportEngine(this)
+    val importer = ImportEngine(this, disk)
 
     var session by mutableStateOf<CameraSession?>(null)
         private set
@@ -94,7 +95,10 @@ class AppState(private val context: Context) {
     private fun watchReady(s: CameraSession) {
         scope.launch {
             val st = androidx.compose.runtime.snapshotFlow { s.status }.first { it == SessionStatus.Ready || it is SessionStatus.Failed }
-            if (st == SessionStatus.Ready && session === s) autoImport(s.shots)
+            if (st == SessionStatus.Ready && session === s) {
+                importer.resume(s)                 // a paused / persisted run continues first
+                autoImport(s.shots)
+            }
         }
     }
 
@@ -131,6 +135,7 @@ class AppState(private val context: Context) {
                 s.name = model
                 s.replaceShots(shots)
                 s.status = SessionStatus.Ready
+                importer.resume(s)
             } catch (e: Exception) {
                 s.status = SessionStatus.Failed("Couldn't reach the camera. Join the GR's Wi-Fi in Settings, then try again.")
             }
@@ -140,6 +145,7 @@ class AppState(private val context: Context) {
     private suspend fun finishOpen(s: CameraSession, shots: List<Shot>, nameFromCamera: Boolean) {
         s.replaceShots(shots)
         s.status = SessionStatus.Ready
+        importer.resume(s)
         // Name the session after the camera once the newest header is in.
         s.shots.firstOrNull()?.let { newest ->
             s.loadMeta(newest)
@@ -169,16 +175,41 @@ class AppState(private val context: Context) {
         val s = session
         scope.launch {
             val picked = mutableListOf<Shot>()
+            var unread = mutableListOf<Shot>()
             for (shot in shots) {
                 if (shot.wasImported || shot.isVideo) continue
                 if (rule == AutoImportRule.KEEPERS) {
-                    if (shot.meta == null) s?.loadMeta(shot)
-                    if (shot.isKeeper) picked += shot
+                    if (shot.meta == null && !shot.isKeeper) s?.loadMeta(shot)
+                    when {
+                        shot.isKeeper -> picked += shot
+                        shot.meta == null -> unread += shot          // header read failed: decide later
+                    }
                 } else {
                     picked += shot
                 }
             }
             if (picked.isNotEmpty()) importShots(picked)
+            // A busy or sleeping camera can fail a header read; a ★ shot must not be dropped for
+            // that. Try those again with backoff, then say how many are still unknown.
+            var wait = 5_000L
+            repeat(3) {
+                if (unread.isEmpty() || session !== s) return@launch
+                delay(wait); wait *= 3
+                val again = unread.filter { it.meta == null && !it.wasImported }
+                unread = mutableListOf()
+                val late = mutableListOf<Shot>()
+                for (shot in again) {
+                    s?.loadMeta(shot)
+                    when {
+                        shot.isKeeper -> late += shot
+                        shot.meta == null -> unread += shot
+                    }
+                }
+                if (late.isNotEmpty()) importShots(late)
+            }
+            if (unread.isNotEmpty() && session === s) {
+                toast = "Couldn't read the rating of ${unread.size} shot${if (unread.size == 1) "" else "s"}. Check them and import by hand."
+            }
         }
     }
 

@@ -7,7 +7,15 @@ class HeaderInfo {
     var preview: ByteRange? = null
     /** Preview announced by a maker note (Olympus/OM System CameraSettings) — a candidate for TIFF RAWs. */
     var makerNotePreview: ByteRange? = null
+    /**
+     * Uncompressed 8-bit RGB thumbnail (DNG IFD0, Hasselblad 3FR, Nikon NEF IFD0). Only a fallback
+     * for files without any embedded JPEG — never preferred over [preview].
+     */
+    var rgbPreview: RgbPreview? = null
 }
+
+/** Result of [HeaderParser.parseAdaptive]: the parse plus the bytes it was made from. */
+class AdaptiveHeader(val info: HeaderInfo, val view: ByteView, val extraBytesRead: Long, val rounds: Int)
 
 /**
  * Parses the *first bytes* of a camera file. This is the heart of the "instant" experience:
@@ -23,8 +31,9 @@ object HeaderParser {
 
     private val SOI = byteArrayOf(0xFF.toByte(), 0xD8.toByte())
 
-    fun parse(data: ByteArray): HeaderInfo {
-        val v = ByteView(data)
+    fun parse(data: ByteArray): HeaderInfo = parse(ByteView(data))
+
+    fun parse(v: ByteView): HeaderInfo {
         val info = HeaderInfo()
         when {
             v.matches(0, SOI) -> {
@@ -45,12 +54,162 @@ object HeaderParser {
                     parseHEIF(v, info)
                 }
             }
+            v.matches(0, "\u0000MRM") -> {
+                info.format = ShotFormat.OTHER_RAW
+                parseMRW(v, info)
+            }
+            // Sigma X3F ("FOVb") and Canon CIFF/CRW ("HEAPCCDR" at 6) aren't TIFF: import only.
+            v.matches(0, "FOVb") || v.matches(6, "HEAPCCDR") -> info.format = ShotFormat.OTHER_RAW
             else -> TiffStructure.at(v, 0)?.let {
                 info.format = ShotFormat.TIFF_RAW
                 parseTIFFRaw(it, info)
             }
         }
         return info
+    }
+
+    // Adaptive header reads
+
+    /** One extra read for an IFD found past the header: IFDs plus their small values fit easily. */
+    const val IFD_READ = 64 * 1024L
+    /** Offsets beyond this are treated as garbage (no camera file puts its IFDs deeper). */
+    const val MAX_STRUCT_OFFSET = 256L shl 20
+    /** [merge] never builds a buffer larger than this. */
+    const val MERGE_CAP = 64 shl 20
+
+    /** A parse that is worth another read: a TIFF RAW without an embedded JPEG or without a model. */
+    fun needsMore(info: HeaderInfo): Boolean =
+        info.format == ShotFormat.TIFF_RAW && (info.preview == null || info.meta.model == null)
+
+    fun missingRanges(data: ByteArray, fileSize: Long?): List<ByteRange> = missingRanges(ByteView(data), fileSize)
+
+    /**
+     * Walks the TIFF structure (IFD0 chain, SubIFDs 0x014A, ExifIFD 0x8769) and returns the byte
+     * ranges it references that we don't have yet: 64 KiB at each unread IFD, and the bytes of an
+     * unread SubIFD offset array. Modern Nikon NEFs keep their SubIFDs at 260–545 KB; Sony NEX-3,
+     * Ricoh GR and Phase One IIQ keep IFD0 itself near the end of the file.
+     */
+    fun missingRanges(v: ByteView, fileSize: Long?): List<ByteRange> {
+        val t = TiffStructure.at(v, 0) ?: return emptyList()
+        val limit = minOf(MAX_STRUCT_OFFSET, fileSize ?: Long.MAX_VALUE)
+        val out = ArrayList<ByteRange>()
+        fun valid(o: Long) = o > 0 && o < limit
+        fun need(o: Long, len: Long) {
+            val l = minOf(len, limit - o)
+            if (l > 0) out += ByteRange(o, l)
+        }
+        fun known(o: Long, len: Long): Boolean =
+            o + len <= v.count && v.u8(o.toInt()) != null && v.u8((o + len - 1).toInt()) != null
+
+        val visited = HashSet<Long>()
+        // (offset, isMainChain): only IFD0's chain follows "next IFD" links.
+        val queue = ArrayDeque<Pair<Long, Boolean>>()
+        t.firstIFDOffset?.let { queue += it to true }
+        while (queue.isNotEmpty() && visited.size < 32) {
+            val (o, chain) = queue.removeFirst()
+            if (!valid(o) || !visited.add(o)) continue
+            if (!known(o, 2)) { need(o, IFD_READ); continue }
+            val n = v.u16(o.toInt(), t.little) ?: continue
+            if (n <= 0 || n >= 1024) continue
+            val size = 2L + n * 12 + 4
+            if (!known(o, size)) { need(o, IFD_READ); continue }
+            val e = t.entries(o)
+            for (tag in intArrayOf(0x014A, 0x8769)) {
+                val x = e.tag(tag) ?: continue
+                val bytes = TiffStructure.typeSize(x.type).toLong() * x.count
+                if (bytes > 4 && x.valuePos != Int.MAX_VALUE && !known(x.valuePos.toLong(), bytes)) {
+                    if (valid(x.valuePos.toLong())) need(x.valuePos.toLong(), bytes)
+                    continue
+                }
+                for (sub in t.ints(x).take(16)) queue += sub to false
+            }
+            // Make / model strings stored out of line (IFD0 at the end of the file: strings often follow it).
+            for (tag in intArrayOf(0x010F, 0x0110)) {
+                val x = e.tag(tag) ?: continue
+                if (x.count > 4 && x.valuePos != Int.MAX_VALUE && !known(x.valuePos.toLong(), x.count.toLong()) && valid(x.valuePos.toLong())) {
+                    need(x.valuePos.toLong(), x.count.toLong().coerceAtMost(256))
+                }
+            }
+            if (chain) t.nextIFD(o)?.let { queue += it to true }
+        }
+        return coalesce(out)
+    }
+
+    /** Sorts and joins overlapping / nearly-adjacent ranges so each becomes one read. */
+    fun coalesce(ranges: List<ByteRange>, slack: Long = 4096): List<ByteRange> {
+        val sorted = ranges.filter { it.length > 0 }.sortedBy { it.offset }
+        val out = ArrayList<ByteRange>()
+        for (r in sorted) {
+            val last = out.lastOrNull()
+            if (last != null && r.offset <= last.offset + last.length + slack) {
+                val end = maxOf(last.offset + last.length, r.offset + r.length)
+                out[out.size - 1] = ByteRange(last.offset, end - last.offset)
+            } else {
+                out += r
+            }
+        }
+        return out
+    }
+
+    /**
+     * Places [chunks] (absolute offset → bytes) over [data] in one buffer of length max(end),
+     * zero-filling the gaps. The buffer never grows past [MERGE_CAP]; chunks that would are skipped.
+     */
+    fun merge(data: ByteArray, chunks: List<Pair<Long, ByteArray>>): ByteArray {
+        val ok = chunks.filter { (o, b) -> o >= 0 && o + b.size <= MERGE_CAP }
+        val end = maxOf(data.size.toLong(), ok.maxOfOrNull { (o, b) -> o + b.size } ?: 0L)
+        if (end == data.size.toLong() && ok.isEmpty()) return data
+        val out = ByteArray(end.toInt())
+        data.copyInto(out)
+        for ((o, b) in ok) b.copyInto(out, o.toInt())
+        return out
+    }
+
+    /**
+     * Parses [head]; when a TIFF RAW lacks its preview or model, reads the referenced ranges past
+     * the header with [read] (null = unavailable), merges them and parses again — at most
+     * [maxRounds] extra rounds. Chunks past [MERGE_CAP] are kept sparse instead of being dropped,
+     * so an IFD0 at the end of a 100 MB file still works without a 100 MB buffer.
+     */
+    inline fun parseAdaptive(head: ByteArray, fileSize: Long?, maxRounds: Int = 2, read: (ByteRange) -> ByteArray?): AdaptiveHeader {
+        var dense = head
+        val far = ArrayList<Pair<Long, ByteArray>>()
+        var view = ByteView(dense)
+        var info = parse(view)
+        var extra = 0L
+        var rounds = 0
+        while (rounds < maxRounds && needsMore(info)) {
+            val ranges = missingRanges(view, fileSize)
+            if (ranges.isEmpty()) break
+            val chunks = ArrayList<Pair<Long, ByteArray>>()
+            for (r in ranges) read(r)?.takeIf { it.isNotEmpty() }?.let { chunks += r.offset to it }
+            rounds += 1
+            if (chunks.isEmpty()) break
+            extra += chunks.sumOf { it.second.size.toLong() }
+            val (near, beyond) = chunks.partition { (o, b) -> o + b.size <= MERGE_CAP }
+            dense = merge(dense, near)
+            far += beyond
+            view = ByteView(dense, far)
+            info = parse(view)
+        }
+        return AdaptiveHeader(info, view, extra, rounds)
+    }
+
+    // Minolta MRW: "\0MRM" + blocks; "\0TTW" holds a TIFF (IFD0 + EXIF) with offsets relative to it.
+
+    fun parseMRW(v: ByteView, info: HeaderInfo) {
+        val dataStart = (v.u32(4, false) ?: return) + 8
+        var p = 8
+        while (p + 8 <= minOf(v.count.toLong(), dataStart) && p < 1 shl 20) {
+            val size = v.u32(p + 4, false) ?: return
+            if (v.matches(p, "\u0000TTW")) {
+                val t = TiffStructure.at(v, p + 8) ?: return
+                parseExifTIFF(t, info)
+                info.preview = info.makerNotePreview
+                return
+            }
+            p += 8 + pos(size)
+        }
     }
 
     // JPEG
@@ -106,7 +265,7 @@ object HeaderParser {
     fun xmpRating(v: ByteView, from: Int, length: Int): Int? {
         val end = minOf(v.count, from + maxOf(0, length))
         if (end <= from || from < 0) return null
-        val s = String(v.b, from, end - from, Charsets.UTF_8)
+        val s = String(v.slice(from, end - from) ?: return null, Charsets.UTF_8)
         for (pattern in listOf("xmp:Rating=\"", "<xmp:Rating>")) {
             val i = s.indexOf(pattern)
             if (i >= 0) {
@@ -204,6 +363,13 @@ object HeaderParser {
             exif.string(e.tag(0xB020))?.let { m.look = "Creative Style: $it" }
         } else if (v.matches(p, "OLYMPUS\u0000") || v.matches(p, "OM SYSTEM\u0000")) {
             return olympusPreview(v, p)
+        } else if (mk.startsWith("minolta") || mk.startsWith("konica")) {
+            // Minolta: header-less IFD, offsets relative to the EXIF TIFF header. PreviewImageStart /
+            // Length are 0x0088 / 0x0089 (ExifTool Minolta tables).
+            val e = exif.entries((p - exif.base).toLong())
+            val start = exif.int(e.tag(0x0088)) ?: return null
+            val len = exif.int(e.tag(0x0089)) ?: return null
+            if (start > 0 && len > 1024) return ByteRange(exif.base + start, len)
         }
         return null
     }
@@ -287,6 +453,7 @@ object HeaderParser {
                 }
             }
         }
+        var rgb: RgbPreview? = null
         val visited = HashSet<Long>()
         val queue = ArrayList<Long>()
         var off = t.firstIFDOffset
@@ -312,8 +479,31 @@ object HeaderParser {
             if (isJPEGStrip && stripOK && offs.size == 1 && lens.size == 1 && lens[0] > 1024) {
                 candidates += ByteRange(t.base + offs[0], lens[0])
             }
+            rgbStrip(t, e, compression, photometric, offs, lens)?.let { r ->
+                if (r.pixels > (rgb?.pixels ?: 0)) rgb = r
+            }
         }
         info.preview = candidates.maxByOrNull { it.length }
+        info.rgbPreview = rgb
+    }
+
+    /**
+     * An uncompressed, chunky 8-bit RGB image stored as contiguous strips: DNG and NEF thumbnails,
+     * and the only preview Hasselblad H3D/H4D/CFV/X1D 3FRs carry.
+     */
+    private fun rgbStrip(t: TiffStructure, e: List<TiffEntry>, compression: Long, photometric: Long, offs: List<Long>, lens: List<Long>): RgbPreview? {
+        if (compression != 1L || photometric != 2L || offs.isEmpty() || offs.size != lens.size) return null
+        if ((t.int(e.tag(0x0115)) ?: 1L) != 3L) return null
+        if ((t.int(e.tag(0x011C)) ?: 1L) != 1L) return null
+        val bpsTag = e.tag(0x0102)
+        if ((0 until maxOf(1, bpsTag?.count ?: 1)).any { (t.int(bpsTag, it) ?: 0L) != 8L }) return null
+        val w = t.int(e.tag(0x0100)) ?: return null
+        val h = t.int(e.tag(0x0101)) ?: return null
+        if (w < 64 || h < 48 || w > 4096 || h > 4096) return null
+        for (i in 1 until offs.size) if (offs[i] != offs[i - 1] + lens[i - 1]) return null
+        val need = w * h * 3
+        if (lens.sum() < need) return null
+        return RgbPreview(ByteRange(t.base + offs[0], need), w.toInt(), h.toInt())
     }
 
     // CR3 (ISO-BMFF)

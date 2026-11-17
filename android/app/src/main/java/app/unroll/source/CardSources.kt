@@ -15,6 +15,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.provider.DocumentsContract
 import app.unroll.core.CardItem
+import app.unroll.core.CardLayout
 import app.unroll.core.DemoRoll
 import app.unroll.core.FolderScanner
 import app.unroll.core.Pairing
@@ -56,10 +57,15 @@ object SafSource {
             }
             return out
         }
-        val top = list(rootId)
-        val start = top.firstOrNull { it.dir && it.name.equals("DCIM", ignoreCase = true) }?.id ?: rootId
+        // DCIM plus the video trees (Sony XAVC clips, AVCHD streams); the picked folder itself
+        // when it has none of them (a copied DCIM or any folder of photos).
+        fun find(path: List<String>): String? = path.fold(rootId as String?) { id, name ->
+            id?.let { p -> list(p).firstOrNull { it.dir && it.name.equals(name, ignoreCase = true) }?.id }
+        }
+        val starts = CardLayout.mediaRoots.mapNotNull { find(it)?.let { id -> id to "/" + it.joinToString("/") } }
+            .ifEmpty { listOf(rootId to "") }
         val items = mutableListOf<CardItem<Uri>>()
-        val queue = ArrayDeque(listOf(start to ""))
+        val queue = ArrayDeque(starts)
         while (queue.isNotEmpty()) {
             val (id, folder) = queue.removeFirst()
             for (r in list(id)) {
@@ -222,6 +228,8 @@ object RicohSource {
 
     suspend fun connect(context: Context): Pair<String, List<Shot>> = withContext(Dispatchers.IO) {
         val net = wifi(context)
+        // Requests retry with backoff and pick up the Wi-Fi network again after a reconnect.
+        Http.networkProvider = { wifi(context) }
         fun loc(path: String) = FileLocation.Http(BASE + path, net)
         val model = runCatching { json.decodeFromString(Props.serializer(), String(Http.get(loc("props"), null).second)).model }.getOrNull() ?: "Ricoh GR"
         val listing = json.decodeFromString(Listing.serializer(), String(Http.get(loc("photos"), null).second))

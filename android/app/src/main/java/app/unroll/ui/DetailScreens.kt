@@ -100,8 +100,11 @@ fun ShotPagerScreen(app: AppState, shots: List<Shot>, startId: String) {
                 pageSpacing = 12.dp, beyondViewportPageCount = 1,
             ) { page ->
                 // Pages shrink and dim as they slide away, so swiping feels like moving prints on a table.
-                val off = ((pager.currentPage - page) + pager.currentPageOffsetFraction).let { kotlin.math.abs(it) }.coerceIn(0f, 1f)
-                Box(Modifier.graphicsLayer { val k = 1f - off * 0.12f; scaleX = k; scaleY = k; alpha = 1f - off * 0.5f }) {
+                // Offset read inside the layer block: swiping only re-draws, it doesn't recompose the page.
+                Box(Modifier.graphicsLayer {
+                    val off = ((pager.currentPage - page) + pager.currentPageOffsetFraction).let { kotlin.math.abs(it) }.coerceIn(0f, 1f)
+                    val k = 1f - off * 0.12f; scaleX = k; scaleY = k; alpha = 1f - off * 0.5f
+                }) {
                     ShotPreview(shots[page], session, sharedKey = page == start)
                 }
             }

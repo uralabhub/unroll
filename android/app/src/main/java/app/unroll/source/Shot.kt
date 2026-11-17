@@ -8,13 +8,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import app.unroll.UnrollApplication
 import app.unroll.core.ByteRange
+import app.unroll.core.RgbPreview
 import app.unroll.core.ShotFormat
 import app.unroll.core.ShotMeta
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.io.OutputStream
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
@@ -44,14 +47,33 @@ class ShotFile(val name: String, val size: Long, val location: FileLocation) {
     companion object {
         /** Ricoh listings carry no size: a safe upper bound for reads, excluded from totals. */
         const val UNKNOWN_SIZE: Long = 1L shl 36
+        private const val MTP_READ_CHUNK = 1 shl 20
     }
+
+    /** Size for display / verification: 0 when the source didn't tell us (Ricoh) or the camera reported 0xFFFFFFFF. */
+    val verifiableSize: Long? get() = size.takeIf { it > 0 && it != UNKNOWN_SIZE && it != MtpCamera.SIZE_UNKNOWN_32 }
 
     /** Ranged read: [length] bytes at [offset], fewer at end of file. Never pulls the whole file. */
     suspend fun read(offset: Long, length: Int): ByteArray = withContext(Dispatchers.IO) {
         val len = minOf(length.toLong(), size - offset).toInt()
         if (len <= 0) return@withContext ByteArray(0)
         when (val l = location) {
-            is FileLocation.Mtp -> l.camera.readPartial(l.handle, offset, len)
+            is FileLocation.Mtp -> {
+                // In 1 MB requests: other PTP work (thumbnails, header reads) slips in between, and a
+                // cancelled caller (cell scrolled away) stops after the current chunk.
+                if (len <= MTP_READ_CHUNK) return@withContext l.camera.readPartial(l.handle, offset, len)
+                val out = java.io.ByteArrayOutputStream(len)
+                var off = offset
+                while (out.size() < len) {
+                    coroutineContext.ensureActive()
+                    val n = minOf(MTP_READ_CHUNK, len - out.size())
+                    val b = l.camera.readPartial(l.handle, off, n)
+                    out.write(b)
+                    off += b.size
+                    if (b.size < n) break
+                }
+                out.toByteArray()
+            }
             is FileLocation.Local -> RandomAccessFile(l.file, "r").use { f ->
                 f.seek(offset)
                 val b = ByteArray(len)
@@ -70,21 +92,23 @@ class ShotFile(val name: String, val size: Long, val location: FileLocation) {
                     }
                 }
             }
-            is FileLocation.Http -> Http.get(l, "bytes=$offset-${offset + len - 1}").let { (code, data) ->
+            is FileLocation.Http -> Http.get(l, "bytes=$offset-${offset + len - 1}", maxBytes = if (offset == 0L) len else null).let { (code, data) ->
                 // Servers that ignore Range send the whole file; slice it ourselves.
                 if (code == 200 && data.size > len) data.copyOfRange(minOf(offset.toInt(), data.size), minOf(data.size, offset.toInt() + len)) else data
             }
         }
     }
 
-    /** Streams the whole original into [out], byte for byte. */
+    /** Streams the whole original into [out], byte for byte. Cancellable between chunks. */
     suspend fun copyTo(out: OutputStream, progress: (Double) -> Unit) = withContext(Dispatchers.IO) {
+        val ctx = coroutineContext
+        val check = { ctx.ensureActive() }
         when (val l = location) {
-            is FileLocation.Mtp -> l.camera.copyObject(l.handle, size, out, progress)
-            is FileLocation.Local -> l.file.inputStream().use { pump(it, out, l.file.length(), progress) }
-            is FileLocation.Document -> UnrollApplication.context.contentResolver.openInputStream(l.uri)?.use { pump(it, out, size, progress) }
+            is FileLocation.Mtp -> l.camera.copyObject(l.handle, size, out, progress, check)
+            is FileLocation.Local -> l.file.inputStream().use { pump(it, out, l.file.length(), progress, check) }
+            is FileLocation.Document -> UnrollApplication.context.contentResolver.openInputStream(l.uri)?.use { pump(it, out, size, progress, check) }
                 ?: throw IOException("Card file unavailable")
-            is FileLocation.Http -> Http.stream(l, out, progress)
+            is FileLocation.Http -> Http.stream(l, out, progress, check)
         }
     }
 
@@ -95,47 +119,105 @@ class ShotFile(val name: String, val size: Long, val location: FileLocation) {
     }
 }
 
-internal fun pump(input: java.io.InputStream, out: OutputStream, total: Long, progress: (Double) -> Unit) {
+internal fun pump(input: java.io.InputStream, out: OutputStream, total: Long, progress: (Double) -> Unit, check: () -> Unit = {}): Long {
     val buf = ByteArray(1 shl 20)
     var done = 0L
     while (true) {
+        check()
         val n = input.read(buf)
         if (n < 0) break
         out.write(buf, 0, n)
         done += n
         if (total > 0) progress((done.toDouble() / total).coerceAtMost(1.0))
     }
+    return done
 }
 
-/** Camera Wi-Fi has no internet: requests are bound to the Wi-Fi network so Android doesn't route them to mobile data. */
+/**
+ * Camera Wi-Fi has no internet: requests are bound to the Wi-Fi network so Android doesn't route
+ * them to mobile data. Camera Wi-Fi drops out a lot (the GR sleeps, the phone roams), so every
+ * request retries with backoff and re-resolves the Wi-Fi network; downloads resume with Range.
+ */
 object Http {
-    fun open(l: FileLocation.Http, url: String = l.url): HttpURLConnection {
+    /** Looks up the current camera Wi-Fi network again (it changes after a reconnect). */
+    @Volatile var networkProvider: (() -> Network?)? = null
+    private val backoffMs = longArrayOf(500, 1500, 4000)
+
+    fun open(l: FileLocation.Http, url: String = l.url, network: Network? = l.network): HttpURLConnection {
         val u = URL(url)
-        val c = (l.network?.openConnection(u) ?: u.openConnection()) as HttpURLConnection
+        val c = (network?.openConnection(u) ?: u.openConnection()) as HttpURLConnection
         c.connectTimeout = 8000
         c.readTimeout = 20000
         return c
     }
 
-    fun get(l: FileLocation.Http, range: String?): Pair<Int, ByteArray> {
-        val c = open(l)
+    /** HTTP status errors are final; I/O errors (timeouts, resets, network gone) are worth retrying. */
+    class StatusException(val code: Int) : IOException("Camera answered HTTP $code")
+
+    private fun <T> retrying(l: FileLocation.Http, block: (Network?) -> T): T {
+        var last: IOException? = null
+        for (attempt in 0..backoffMs.size) {
+            if (Thread.currentThread().isInterrupted) throw InterruptedIOException()
+            val net = if (attempt == 0) l.network else (networkProvider?.invoke() ?: l.network)
+            try {
+                return block(net)
+            } catch (e: StatusException) {
+                if (e.code in 400..499) throw e
+                last = e
+            } catch (e: IOException) {
+                last = e
+            }
+            if (attempt < backoffMs.size) Thread.sleep(backoffMs[attempt])
+        }
+        throw last ?: IOException("Camera unreachable")
+    }
+
+    fun get(l: FileLocation.Http, range: String?, maxBytes: Int? = null): Pair<Int, ByteArray> = retrying(l) { net ->
+        val c = open(l, network = net)
         try {
             range?.let { c.setRequestProperty("Range", it) }
             val code = c.responseCode
-            if (code != 200 && code != 206) throw IOException("Camera answered HTTP $code")
-            return code to c.inputStream.use { it.readBytes() }
+            if (code != 200 && code != 206) throw StatusException(code)
+            // A server that ignores Range on a header read: stop after what we asked for.
+            code to c.inputStream.use { if (code == 200 && maxBytes != null) readUpTo(it, maxBytes) else it.readBytes() }
         } finally {
             c.disconnect()
         }
     }
 
-    fun stream(l: FileLocation.Http, out: OutputStream, progress: (Double) -> Unit) {
-        val c = open(l)
-        try {
-            if (c.responseCode != 200) throw IOException("Camera answered HTTP ${c.responseCode}")
-            c.inputStream.use { pump(it, out, c.contentLengthLong, progress) }
-        } finally {
-            c.disconnect()
+    private fun readUpTo(input: java.io.InputStream, max: Int): ByteArray {
+        val b = ByteArray(max)
+        var n = 0
+        while (n < max) { val r = input.read(b, n, max - n); if (r < 0) break; n += r }
+        return if (n == max) b else b.copyOf(n)
+    }
+
+    fun stream(l: FileLocation.Http, out: OutputStream, progress: (Double) -> Unit, check: () -> Unit = {}) {
+        var written = 0L
+        var total = -1L
+        retrying(l) { net ->
+            val c = open(l, network = net)
+            try {
+                if (written > 0) c.setRequestProperty("Range", "bytes=$written-")
+                val code = c.responseCode
+                if (code != 200 && code != 206) throw StatusException(code)
+                if (written > 0 && code != 206) throw IOException("The camera can't resume this download")
+                if (total < 0) total = c.contentLengthLong.takeIf { it > 0 }?.let { it + written } ?: -1
+                c.inputStream.use { input ->
+                    val buf = ByteArray(1 shl 20)
+                    while (true) {
+                        check()
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        written += n
+                        if (total > 0) progress((written.toDouble() / total).coerceAtMost(1.0))
+                    }
+                }
+                if (total > 0 && written < total) throw IOException("Download stopped at $written of $total bytes")
+            } finally {
+                c.disconnect()
+            }
         }
     }
 }
@@ -163,6 +245,11 @@ class Shot(
     var isLocked by mutableStateOf(isLocked)
     var meta by mutableStateOf<ShotMeta?>(null)
     var preview: ByteRange? = null
+    /** Uncompressed RGB thumbnail inside the RAW, for files without any embedded JPEG. */
+    var rgbPreview: RgbPreview? = null
+    /** The header couldn't be read after several tries (meta stays null; shown by file name). */
+    @Volatile var headerFailed = false
+    /** Grid thumbnail. Owned by [app.unroll.media.Previews]' LRU, which clears it on eviction. */
     var thumbnail by mutableStateOf<ImageBitmap?>(null)
     var importState by mutableStateOf<ImportState>(ImportState.None)
     var wasImported by mutableStateOf(false)

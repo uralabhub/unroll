@@ -57,6 +57,8 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.core.ktx)
     implementation(libs.exifinterface)
+    // Installs src/main/baseline-prof.txt on release installs (AOT-compiles the hot paths).
+    implementation(libs.profileinstaller)
     implementation(libs.serialization.json)
     implementation(libs.coroutines.android)
     implementation(libs.zxing.core)

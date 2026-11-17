@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -236,6 +237,7 @@ fun RecipesScreen(app: AppState) {
 @Composable
 fun RecipeDetailScreen(app: AppState, id: String) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val item = app.recipes.items.firstOrNull { it.id == id } ?: run { app.pop(); return }
     var name by remember { mutableStateOf(item.name ?: "") }
     DisposableEffect(Unit) { onDispose { app.recipes.rename(id, name) } }
@@ -256,8 +258,12 @@ fun RecipeDetailScreen(app: AppState, id: String) {
             MonoSection("Settings", rows = item.recipe.rows.map { (k, v) -> { Box(Modifier.padding(horizontal = Mono.gutter)) { DataRow(k, v) } } })
             Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Share recipe card", Modifier.fillMaxWidth()) {
-                    val card = RecipeCard.render(name.ifBlank { item.title }, item.camera, item.recipe, !app.pro.isPro)
-                    shareJpeg(context, card.jpeg(), "unroll-recipe.jpg")
+                    val title = name.ifBlank { item.title }
+                    val watermark = !app.pro.isPro
+                    scope.launch {
+                        val jpeg = withContext(Dispatchers.Default) { RecipeCard.render(title, item.camera, item.recipe, watermark).jpeg() }
+                        shareJpeg(context, jpeg, "unroll-recipe.jpg")
+                    }
                 }
                 SecondaryButton("Copy as text", Modifier.fillMaxWidth()) {
                     val text = (listOf(name.ifBlank { item.title }) + item.recipe.rows.map { "${it.first}: ${it.second}" }).joinToString("\n")
@@ -537,12 +543,17 @@ fun WalksScreen(app: AppState) {
             walks.forEach { w ->
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().card(elevation = 6.dp).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (w.points.size > 1) {
-                        val bmp = remember(w.id, w.points.size) {
-                            val b = Bitmap.createBitmap(936, 280, Bitmap.Config.ARGB_8888)
-                            RecapRenderer.drawRoute(android.graphics.Canvas(b), w.points.map { it.lat to it.lon }, android.graphics.RectF(0f, 0f, 936f, 280f))
-                            b.asImageBitmap()
+                        // Drawn off the main thread; the slot keeps its height while it renders.
+                        val bmp by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, w.id, w.points.size) {
+                            value = withContext(Dispatchers.Default) {
+                                val b = Bitmap.createBitmap(936, 280, Bitmap.Config.ARGB_8888)
+                                RecapRenderer.drawRoute(android.graphics.Canvas(b), w.points.map { it.lat to it.lon }, android.graphics.RectF(0f, 0f, 936f, 280f))
+                                b.asImageBitmap()
+                            }
                         }
-                        Image(bmp, null, Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                        val img = bmp
+                        if (img != null) Image(img, null, Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                        else Spacer(Modifier.fillMaxWidth().height(140.dp))
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(Instant.ofEpochMilli(w.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.getDefault())),

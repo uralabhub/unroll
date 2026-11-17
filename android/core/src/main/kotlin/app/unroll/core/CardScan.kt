@@ -23,13 +23,10 @@ class PairedShot<T>(val primary: CardItem<T>, val raw: CardItem<T>?, val locked:
 }
 
 object Pairing {
-    val mediaExtensions = setOf(
-        "jpg", "jpeg", "heic", "heif", "hif",
-        "raf", "cr3", "arw", "nef", "nrw", "dng", "cr2", "orf", "rw2", "pef", "srw", "3fr", "iiq", "rwl", "x3f",
-        "mov", "mp4", "mts", "m4v",
-    )
+    /** Every extension we list — see [ShotFormat.byExtension]. */
+    val mediaExtensions: Set<String> get() = ShotFormat.byExtension.keys
 
-    fun isMedia(name: String): Boolean = name.substringAfterLast('.', "").lowercase() in mediaExtensions
+    fun isMedia(name: String): Boolean = ShotFormat.isMedia(name)
 
     /**
      * Folder + file stem is how cameras name the halves of a RAW+JPEG pair (DSCF1234.JPG / .RAF).
@@ -42,7 +39,7 @@ object Pairing {
         val all = groups.values.flatten()
         val cardLocked = all.size > 1 && all.all { it.locked }
         return groups.values.mapNotNull { g ->
-            val developed = g.firstOrNull { it.format == ShotFormat.JPEG || it.format == ShotFormat.HEIF || it.format == ShotFormat.VIDEO }
+            val developed = g.firstOrNull { it.format.isDeveloped }
             val raw = g.firstOrNull { it.format.isRAW }
             val main = developed ?: raw ?: return@mapNotNull null
             PairedShot(main, if (developed != null) raw else null, !cardLocked && g.any { it.locked })
@@ -50,18 +47,38 @@ object Pairing {
     }
 }
 
+/** Where cameras put media on a card (DCF photos, Sony XAVC clips, AVCHD streams). */
+object CardLayout {
+    /** Paths relative to the card root, case-insensitive. The first one is the DCF tree. */
+    val mediaRoots: List<List<String>> = listOf(
+        listOf("DCIM"),
+        listOf("PRIVATE", "M4ROOT", "CLIP"),
+        listOf("PRIVATE", "AVCHD", "BDMV", "STREAM"),
+    )
+}
+
 /** SD card in a reader, a copied DCIM folder, or the demo roll — anything with a DCIM tree on a file system. */
 object FolderScanner {
+    private fun child(dir: File, name: String): File? =
+        dir.listFiles()?.firstOrNull { it.isDirectory && it.name.equals(name, ignoreCase = true) }
+
+    /** Existing media roots on the card; the card root itself when it has none (a copied folder). */
+    fun roots(root: File): List<File> {
+        val found = CardLayout.mediaRoots.mapNotNull { path -> path.fold(root as File?) { d, n -> d?.let { child(it, n) } } }
+        return found.ifEmpty { listOf(root) }
+    }
+
     fun scan(root: File): List<PairedShot<File>> {
-        val dcim = listOf("DCIM", "dcim").map { File(root, it) }.firstOrNull { it.isDirectory } ?: root
         val items = mutableListOf<CardItem<File>>()
-        dcim.walkTopDown()
-            .onEnter { it == dcim || !it.name.startsWith(".") }
-            .filter { it.isFile && !it.name.startsWith(".") && Pairing.isMedia(it.name) }
-            .forEach { f ->
-                // Cameras implement "Protect" with the FAT read-only attribute.
-                items += CardItem(f, f.name, f.parentFile?.path ?: "", f.length(), f.lastModified(), !f.canWrite())
-            }
+        for (dir in roots(root)) {
+            dir.walkTopDown()
+                .onEnter { it == dir || !it.name.startsWith(".") }
+                .filter { it.isFile && !it.name.startsWith(".") && Pairing.isMedia(it.name) }
+                .forEach { f ->
+                    // Cameras implement "Protect" with the FAT read-only attribute.
+                    items += CardItem(f, f.name, f.parentFile?.path ?: "", f.length(), f.lastModified(), !f.canWrite())
+                }
+        }
         return Pairing.pair(items)
     }
 }

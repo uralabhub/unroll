@@ -139,6 +139,13 @@ class AndroidAdditionsTests {
         val t = TiffStructure.at(ByteView(out), mpBase)!!
         val mp = t.entries(t.firstIFDOffset!!).tag(0xB002)!!
         assertEquals((firstSize + added).toLong(), ByteView(out).u32(mp.valuePos + 4, false))
+
+        // Streaming form (import never loads the whole JPEG): same bytes from the head alone.
+        for (src in listOf(file, fujiJPEG(gps = false))) {
+            val patch = GpsInjector.injectHead(src.copyOf(minOf(src.size, 4096)), 1.0, 2.0)!!
+            assertArrayEquals(GpsInjector.inject(src, 1.0, 2.0), patch.prefix + src.copyOfRange(patch.replaces, src.size))
+        }
+        assertNull(GpsInjector.injectHead(fujiJPEG(gps = true), 1.0, 2.0))
     }
 
     // Trail lookup (Photo Walk)
