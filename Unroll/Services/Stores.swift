@@ -15,6 +15,14 @@ enum Disk {
         guard let d = try? JSONEncoder().encode(value) else { return }
         try? d.write(to: support.appendingPathComponent(name), options: .atomic)
     }
+
+    private static let writer = DispatchQueue(label: "unroll.disk", qos: .utility)
+    /// Encodes now, writes on a background queue (in order), so the main thread never waits on flash.
+    static func saveInBackground<T: Encodable>(_ value: T, _ name: String) {
+        guard let d = try? JSONEncoder().encode(value) else { return }
+        let url = support.appendingPathComponent(name)
+        writer.async { try? d.write(to: url, options: .atomic) }
+    }
 }
 
 /// Parsed headers keyed by shot id — reconnecting the same card is instant.
@@ -52,9 +60,16 @@ final class ImportLedger {
     private(set) var ids: Set<String>
     init() { ids = Disk.load(Set<String>.self, "imported.json") ?? [] }
     func contains(_ id: String) -> Bool { ids.contains(id) }
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
     func mark(_ id: String) {
         ids.insert(id)
-        Disk.save(ids, "imported.json")
+        // Coalesce: a 500-shot run writes the ledger a handful of times, not 500.
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard let self, !Task.isCancelled else { return }
+            Disk.saveInBackground(self.ids, "imported.json")
+        }
     }
     func reset() { ids = []; Disk.save(ids, "imported.json") }
 }

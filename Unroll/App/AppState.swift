@@ -29,6 +29,7 @@ final class AppState {
         // Plugging in with auto-import on imports what's already on the card, like opening a card folder.
         usb.onCatalogReady = { [unowned self] session in
             guard self.session === session else { return }
+            self.importer.reattach(session)
             self.autoImport(session.shots, live: false)
         }
         usb.start()
@@ -48,7 +49,6 @@ final class AppState {
             if self?.session === s { self?.session = nil }
         }
         session = s
-        Haptics.success()
     }
 
     func openFolder(_ url: URL, kind: SourceKind = .card) async {
@@ -61,6 +61,7 @@ final class AppState {
         let shots = await FolderSource.scan(url)
         s.setShots(shots)
         s.status = .ready
+        importer.reattach(s)
         // Name the session after the camera once the newest header is in.
         if let newest = s.shots.first {
             await s.loadMeta(newest)
@@ -145,5 +146,6 @@ final class AppState {
 
 enum Haptics {
     static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    static func select() { UISelectionFeedbackGenerator().selectionChanged() }
     static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
 }

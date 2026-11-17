@@ -13,6 +13,10 @@ struct RecapBuilderView: View {
     @State private var rendered: UIImage?
     @State private var busy = false
     @State private var shareItem: ShareImage?
+    /// Map and place name depend only on the pool, not on which photos are picked: compute once.
+    @State private var mapCache: UIImage??
+    @State private var placeCache: String??
+    @State private var renderTask: Task<Void, Never>?
 
     private var pool: [Shot] { shots.filter { !$0.isVideo } }
 
@@ -85,7 +89,12 @@ struct RecapBuilderView: View {
     private func toggle(_ s: Shot) {
         if let i = chosen.firstIndex(of: s.id) { chosen.remove(at: i) } else if chosen.count < 6 { chosen.append(s.id) }
         Haptics.tap()
-        Task { await render() }
+        renderTask?.cancel()
+        renderTask = Task {
+            try? await Task.sleep(for: .milliseconds(150))   // coalesce quick taps
+            guard !Task.isCancelled else { return }
+            await render()
+        }
     }
 
     private func defaultTitle() -> String {
@@ -104,15 +113,24 @@ struct RecapBuilderView: View {
         let dates = pool.map { app.correctedDate(for: $0) }
         let walk = app.location.walk(covering: dates)
         let route = walk?.points.map(\.coordinate) ?? []
-        let map = await RecapRenderer.mapSnapshot(route: route, size: CGSize(width: 936, height: 330))
+        let map: UIImage?
+        if let cached = mapCache { map = cached } else {
+            map = await RecapRenderer.mapSnapshot(route: route, size: CGSize(width: 936, height: 330))
+            mapCache = .some(map)
+        }
         var subtitle = (dates.min() ?? Date()).formatted(date: .long, time: .omitted)
-        if let first = route.first,
+        if let cached = placeCache {
+            if let place = cached { subtitle = place + " · " + subtitle }
+        } else if let first = route.first,
            let pm = try? await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: first.latitude, longitude: first.longitude)).first {
             var parts: [String] = []
             for p in [pm.subLocality, pm.locality, pm.administrativeArea].compactMap({ $0 }) where !parts.contains(p) && parts.count < 2 {
                 parts.append(p)
             }
             if !parts.isEmpty { subtitle = parts.joined(separator: ", ") + " · " + subtitle }
+            placeCache = .some(parts.isEmpty ? nil : parts.joined(separator: ", "))
+        } else {
+            placeCache = .some(nil)
         }
         let looks = Array(Set(pool.compactMap { $0.meta?.recipe?.filmSimulation ?? $0.meta?.look })).sorted()
         let cams = Array(Set(pool.compactMap { $0.meta?.cameraName })).sorted()

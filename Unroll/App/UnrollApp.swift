@@ -4,21 +4,15 @@ import SwiftUI
 struct UnrollApp: App {
     @State private var app = AppState()
 
-    init() {
-        // Navigation titles in Nunito, matching the rest of the type.
-        let nav = UINavigationBar.appearance()
-        nav.titleTextAttributes = [.font: Mono.uiSans(17, weight: .semibold)]
-        nav.largeTitleTextAttributes = [.font: Mono.uiSans(32, weight: .bold)]
-        UIBarButtonItem.appearance().setTitleTextAttributes([.font: Mono.uiSans(17)], for: .normal)
-    }
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(app)
-                .font(Mono.sans())
                 .tint(Mono.ink)
+                // A photo tool: dark chrome so the pictures carry the colour (Photos, Lightroom, Halide).
+                .preferredColorScheme(.dark)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { app.importer.resumeIfPaused() }
@@ -32,23 +26,20 @@ struct RootView: View {
     var body: some View {
         @Bindable var app = app
         NavigationStack {
-            Group {
+            ZStack {
                 if let session = app.session {
                     LibraryView(session: session)
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.92, anchor: .top).combined(with: .opacity),
-                            removal: .scale(scale: 1.04).combined(with: .opacity)))
+                        .id(session.id)
+                        .transition(.opacity)
                 } else {
                     HomeView()
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 1.04).combined(with: .opacity),
-                            removal: .scale(scale: 0.94, anchor: .top).combined(with: .opacity)))
+                        .transition(.opacity)
                 }
             }
             .animation(Motion.glide, value: app.session?.id)
         }
         .overlay(alignment: .bottom) { ImportHUD().padding(.bottom, 8) }
-        .overlay(alignment: .top) { ToastView() }
+        .overlay(alignment: .bottom) { ToastView().padding(.bottom, 96) }
         .sheet(isPresented: $app.showPaywall) { PaywallView() }
         .alert("Photos access is off", isPresented: $app.photosDenied) {
             Button("Open Settings") {

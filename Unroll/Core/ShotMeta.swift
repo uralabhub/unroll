@@ -166,19 +166,27 @@ struct FilmRecipe: Codable, Hashable {
 }
 
 enum ShotFormat: String, Codable {
-    case jpeg, heif, raf, cr3, tiffRaw, video, unknown
+    /// `otherRaw`: RAW formats the header parser doesn't read (CRW, MRW, X3F, KDC…). They are
+    /// still listed, paired with their JPEG and imported byte-for-byte.
+    case jpeg, heif, raf, cr3, tiffRaw, otherRaw, video, unknown
 
-    var isRAW: Bool { self == .raf || self == .cr3 || self == .tiffRaw }
+    var isRAW: Bool { self == .raf || self == .cr3 || self == .tiffRaw || self == .otherRaw }
+
+    /// Every extension Unroll lists, from any source. One list for USB, cards and Wi-Fi.
+    static let extensions: [String: ShotFormat] = {
+        var m: [String: ShotFormat] = [:]
+        for e in ["jpg", "jpeg"] { m[e] = .jpeg }
+        for e in ["heic", "heif", "hif"] { m[e] = .heif }
+        m["raf"] = .raf
+        m["cr3"] = .cr3
+        for e in ["arw", "srf", "sr2", "nef", "nrw", "dng", "cr2", "orf", "rw2", "rwl", "raw", "pef", "srw",
+                  "3fr", "fff", "iiq", "mos", "erf", "mef", "kdc", "dcr", "gpr", "tif", "tiff"] { m[e] = .tiffRaw }
+        for e in ["crw", "mrw", "x3f", "mdc"] { m[e] = .otherRaw }
+        for e in ["mov", "mp4", "mts", "m2ts", "m4v", "avi", "mxf"] { m[e] = .video }
+        return m
+    }()
 
     static func from(filename: String) -> ShotFormat {
-        switch (filename as NSString).pathExtension.lowercased() {
-        case "jpg", "jpeg": return .jpeg
-        case "heic", "heif", "hif": return .heif
-        case "raf": return .raf
-        case "cr3": return .cr3
-        case "arw", "nef", "nrw", "dng", "cr2", "orf", "rw2", "pef", "srw", "3fr", "iiq", "rwl", "srf", "sr2", "erf", "x3f": return .tiffRaw
-        case "mov", "mp4", "mts", "m4v", "avi": return .video
-        default: return .unknown
-        }
+        extensions[(filename as NSString).pathExtension.lowercased()] ?? .unknown
     }
 }

@@ -26,6 +26,7 @@ final class USBCameraService: NSObject {
     @ObservationIgnored private var sessions: [ObjectIdentifier: CameraSession] = [:]
     @ObservationIgnored private var devices: [ObjectIdentifier: ICCameraDevice] = [:]
     @ObservationIgnored private var batchTimer: [ObjectIdentifier: Task<Void, Never>] = [:]
+    @ObservationIgnored private var reopenAttempts: [ObjectIdentifier: Int] = [:]
 
     override init() {
         super.init()
@@ -64,6 +65,7 @@ final class USBCameraService: NSObject {
 
     func eject(_ session: CameraSession) {
         guard let (key, _) = sessions.first(where: { $0.value === session }), let dev = devices[key] else { return }
+        sessions[key] = nil      // intentional: don't try to reopen
         dev.requestCloseSession()
         dev.requestEject { _ in }
     }
@@ -74,6 +76,7 @@ final class USBCameraService: NSObject {
         guard let session = sessions[ObjectIdentifier(device)] else { return }
         let all = device.mediaFiles ?? []
         session.setShots(shots(from: all, catalog: all))
+        reopenAttempts[ObjectIdentifier(device)] = 0
         if device.contentCatalogPercentCompleted < 100 {
             session.status = .cataloging(Int(device.contentCatalogPercentCompleted))
         }
@@ -100,8 +103,10 @@ final class USBCameraService: NSObject {
     /// `items` are the files to turn into shots; `catalog` is everything on the camera, used to pair
     /// RAW+JPEG even when the halves arrive in different `didAdd` batches.
     func shots(from items: [ICCameraItem], catalog: [ICCameraItem]) -> [Shot] {
-        let files = items.compactMap { $0 as? ICCameraFile }
-        let all = catalog.compactMap { $0 as? ICCameraFile }
+        // Only media: cameras also list voice memos, sidecars and settings files.
+        let isMedia: (ICCameraFile) -> Bool = { f in f.name.map { ShotFormat.from(filename: $0) != .unknown } ?? false }
+        let files = items.compactMap { $0 as? ICCameraFile }.filter(isMedia)
+        let all = catalog.compactMap { $0 as? ICCameraFile }.filter(isMedia)
         // Per Apple, `isLocked` means the *storage card* is locked. If every file says locked it is
         // the card switch, not per-file Protect — don't turn the whole card into keepers.
         let cardLocked = all.count > 1 && all.allSatisfy(\.isLocked)
@@ -172,15 +177,59 @@ extension USBCameraService: ICCameraDeviceDelegate {
     nonisolated func device(_ device: ICDevice, didOpenSessionWithError error: Error?) {
         Task { @MainActor in
             guard let s = self.sessions[ObjectIdentifier(device)] else { return }
+            let key = ObjectIdentifier(device)
             if let error {
-                s.status = .failed(error.localizedDescription)
+                // Camera busy / asleep / USB mode not accepted: try a few more times before giving up.
+                if (self.reopenAttempts[key] ?? 0) < 4 {
+                    self.scheduleReopen(device)
+                } else {
+                    s.status = .failed(Self.explain(error, device: device))
+                }
             } else {
+                self.reopenAttempts[key] = 0
                 s.status = .cataloging(0)
             }
         }
     }
 
-    nonisolated func device(_ device: ICDevice, didCloseSessionWithError error: Error?) {}
+    /// The session closed under us (camera auto-power-off, iOS suspended the app, USB hiccup)
+    /// while the camera is still attached: reopen it with backoff. A running import is paused
+    /// meanwhile and resumes on `deviceDidBecomeReady` (AppState → ImportEngine.reattach).
+    nonisolated func device(_ device: ICDevice, didCloseSessionWithError error: Error?) {
+        Task { @MainActor in
+            guard let s = self.sessions[ObjectIdentifier(device)], !s.isClosed else { return }
+            s.status = .connecting
+            self.scheduleReopen(device)
+        }
+    }
+
+    fileprivate func scheduleReopen(_ device: ICDevice) {
+        let key = ObjectIdentifier(device)
+        let n = (reopenAttempts[key] ?? 0) + 1
+        reopenAttempts[key] = n
+        guard n <= 5 else {
+            sessions[key]?.status = .failed("The camera stopped responding. Unplug it and plug it back in.")
+            return
+        }
+        Task { [weak self, weak device] in
+            try? await Task.sleep(for: .seconds(min(8, pow(2, Double(n - 1)))))
+            guard let self, let device, let s = self.sessions[key], !s.isClosed else { return }
+            if s.status == .connecting { Self.open(device) }
+        }
+    }
+
+    /// Sync call site, so Swift doesn't pick the async `requestOpenSession` overload.
+    nonisolated static func open(_ device: ICDevice) { device.requestOpenSession() }
+
+    /// Human message for a session that won't open. Sony bodies only talk PTP/MTP when the
+    /// USB connection mode is set to it; "Mass Storage" and "PC Remote" look like a dead camera.
+    static func explain(_ error: Error, device: ICDevice) -> String {
+        let name = (device.name ?? "").lowercased()
+        if name.contains("sony") || name.contains("ilce") || name.contains("dsc-") || name.contains("zv-") {
+            return "Couldn't open the camera. On the camera, set USB Connection to “MTP” (or “Auto”), then plug in again."
+        }
+        return "Couldn't open the camera (\((error as NSError).localizedDescription)). Wake the camera, then unplug and plug it in again."
+    }
 
     nonisolated func didRemove(_ device: ICDevice) {
         Task { @MainActor in self.drop(device) }

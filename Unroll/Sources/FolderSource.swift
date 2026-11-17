@@ -2,11 +2,7 @@ import Foundation
 
 /// SD card in a USB-C reader, a folder in Files, or the demo roll — anything with a DCIM tree.
 enum FolderSource {
-    static let mediaExtensions: Set<String> = [
-        "jpg", "jpeg", "heic", "heif", "hif",
-        "raf", "cr3", "arw", "nef", "nrw", "dng", "cr2", "orf", "rw2", "pef", "srw", "3fr", "iiq", "rwl", "x3f",
-        "mov", "mp4", "mts", "m4v",
-    ]
+    static var mediaExtensions: Set<String> { Set(ShotFormat.extensions.keys) }
 
     /// Scans `root` (prefers its DCIM folder). Runs off the main thread; ~4,000 files in well under a second.
     static func scan(_ root: URL) async -> [Shot] {
@@ -15,12 +11,18 @@ enum FolderSource {
 
     static func scanSync(_ root: URL) -> [Shot] {
         let fm = FileManager.default
-        let dcim = ["DCIM", "dcim"].map { root.appendingPathComponent($0) }.first { fm.fileExists(atPath: $0.path) } ?? root
+        let dcim = ["DCIM", "dcim"].map { root.appendingPathComponent($0) }.first { fm.fileExists(atPath: $0.path) }
+        // Sony XAVC and AVCHD clips live outside DCIM.
+        let videoRoots = ["PRIVATE/M4ROOT/CLIP", "PRIVATE/AVCHD/BDMV/STREAM", "AVF_INFO", "MP_ROOT"]
+            .map { root.appendingPathComponent($0) }.filter { fm.fileExists(atPath: $0.path) }
+        let roots = dcim.map { [$0] + videoRoots } ?? [root]
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey, .creationDateKey, .isWritableKey, .isRegularFileKey]
-        guard let it = fm.enumerator(at: dcim, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
+        let mediaExtensions = Self.mediaExtensions
 
         struct Item { let url: URL; let size: Int64; let date: Date; let locked: Bool; let format: ShotFormat }
         var groups: [String: [Item]] = [:]
+        for r in roots {
+        guard let it = fm.enumerator(at: r, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { continue }
         for case let url as URL in it {
             let ext = url.pathExtension.lowercased()
             guard mediaExtensions.contains(ext),
@@ -35,6 +37,7 @@ enum FolderSource {
             )
             let key = url.deletingPathExtension().path.lowercased()
             groups[key, default: []].append(item)
+        }
         }
 
         // A write-protected card or read-only mount makes *every* file read-only. That's not the
@@ -67,10 +70,20 @@ enum RicohGRSource {
         let dirs: [Dir]
     }
 
+    /// Camera Wi-Fi drops requests while it wakes up: retry a few times before giving up.
+    private static func fetch(_ url: URL) async throws -> (Data, URLResponse) {
+        var last: Error = ShotIOError.noData
+        for attempt in 0..<3 {
+            do { return try await CameraHTTP.session.data(from: url) } catch { last = error }
+            try await Task.sleep(for: .seconds(Double(attempt + 1)))
+        }
+        throw last
+    }
+
     static func connect() async throws -> (model: String, shots: [Shot]) {
-        let (pd, _) = try await CameraHTTP.session.data(from: base.appendingPathComponent("props"))
+        let (pd, _) = try await fetch(base.appendingPathComponent("props"))
         let model = (try? JSONDecoder().decode(Props.self, from: pd))?.model ?? "Ricoh GR"
-        let (ld, lr) = try await CameraHTTP.session.data(from: base.appendingPathComponent("photos"))
+        let (ld, lr) = try await fetch(base.appendingPathComponent("photos"))
         let code = (lr as? HTTPURLResponse)?.statusCode ?? 0
         guard code == 200 else { throw ShotIOError.http(code) }
         let listing = try JSONDecoder().decode(Listing.self, from: ld)

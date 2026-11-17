@@ -74,13 +74,21 @@ final class ImportEngine {
     private(set) var bytesInRun: Int64 = 0
     private(set) var runStarted: Date?
     private(set) var geotaggedInRun = 0
+    private(set) var failedInRun = 0
     var lastError: String?
-    var lastFinishedRun: (count: Int, seconds: Double, geotagged: Int)?
+    var lastFinishedRun: (count: Int, failed: Int, seconds: Double, geotagged: Int)?
+    /// The finished-run summary is on screen (a few seconds after a run ends).
+    private(set) var showingSummary = false
+    @ObservationIgnored private var summaryTask: Task<Void, Never>?
+
+    enum PauseReason { case background, disconnected }
 
     @ObservationIgnored private var worker: Task<Void, Never>?
     @ObservationIgnored private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-    /// iOS took our background time away mid-run. The queue is kept and resumes on return.
-    private(set) var isPaused = false
+    /// The run is on hold with its queue intact: iOS took our background time away, or the
+    /// camera went away (cable, sleep). It resumes on return / when the camera is back.
+    private(set) var pauseReason: PauseReason?
+    var isPaused: Bool { pauseReason != nil }
     @ObservationIgnored unowned let app: AppState
 
     init(app: AppState) { self.app = app }
@@ -103,8 +111,11 @@ final class ImportEngine {
     /// Queues shots. Returns how many were refused by the free daily quota.
     @discardableResult
     func enqueue(_ shots: [Shot]) -> Int {
+        // Dedupe by id: dual-slot "backup" cards list every frame twice.
+        var seen = Set(queue.map(\.id))
+        if let c = current { seen.insert(c.id) }
         let fresh = shots.filter { s in
-            s.importState != .queued && !(current?.id == s.id) && s.importState != .done
+            s.importState != .queued && s.importState != .done && seen.insert(s.id).inserted
         }
         var accepted = fresh
         var refused = 0
@@ -113,8 +124,9 @@ final class ImportEngine {
             if accepted.count > room { refused = accepted.count - room; accepted = Array(accepted.prefix(room)) }
         }
         guard !accepted.isEmpty else { return refused }
+        showingSummary = false
         if !isRunning {
-            completedInRun = 0; totalInRun = 0; bytesInRun = 0; geotaggedInRun = 0; runStarted = Date()
+            completedInRun = 0; totalInRun = 0; bytesInRun = 0; geotaggedInRun = 0; failedInRun = 0; runStarted = Date()
         }
         for s in accepted { s.importState = .queued }
         queue.append(contentsOf: accepted)
@@ -127,14 +139,31 @@ final class ImportEngine {
         for s in queue { s.importState = .none }
         totalInRun -= queue.count
         queue.removeAll()
-        isPaused = false
+        pauseReason = nil
     }
 
     /// Called when the app comes back to the foreground.
     func resumeIfPaused() {
-        guard isPaused else { return }
-        isPaused = false
+        guard pauseReason == .background else { return }
+        pauseReason = nil
         startIfNeeded()
+    }
+
+    /// A camera / card session became ready. If a run was paused because the camera went away,
+    /// swap the queued shots for the same frames in the new session (fresh file handles) and go on.
+    func reattach(_ session: CameraSession) {
+        guard pauseReason == .disconnected else { return }
+        queue = queue.compactMap { old in
+            guard let fresh = session.shot(id: old.id) else {
+                old.importState = .none
+                totalInRun -= 1
+                return nil
+            }
+            fresh.importState = .queued
+            return fresh
+        }
+        pauseReason = nil
+        if queue.isEmpty { finishWorker() } else { startIfNeeded() }
     }
 
     /// Asks iOS for extra time so a run keeps going when the user switches apps or locks the phone.
@@ -144,7 +173,7 @@ final class ImportEngine {
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Unroll import") { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                self.isPaused = true
+                if self.pauseReason == nil { self.pauseReason = .background }
                 self.endBackgroundTime()
             }
         }
@@ -172,10 +201,14 @@ final class ImportEngine {
             while !self.queue.isEmpty && !self.isPaused {
                 let shot = self.queue.removeFirst()
                 self.current = shot
-                if await self.importOne(shot) {
+                switch await self.importOne(shot) {
+                case .saved:
                     self.completedInRun += 1
-                } else {
-                    // Interrupted by backgrounding: retry this shot first when we're back.
+                case .failed:
+                    self.completedInRun += 1
+                    self.failedInRun += 1
+                case .interrupted:
+                    // Backgrounded or unplugged: this shot goes first when we're back.
                     shot.importState = .queued
                     self.queue.insert(shot, at: 0)
                 }
@@ -186,12 +219,25 @@ final class ImportEngine {
                 return
             }
             if let s = self.runStarted {
-                self.lastFinishedRun = (self.completedInRun, Date().timeIntervalSince(s), self.geotaggedInRun)
+                self.lastFinishedRun = (self.completedInRun - self.failedInRun, self.failedInRun,
+                                        Date().timeIntervalSince(s), self.geotaggedInRun)
+                self.showSummary()
             }
             self.finishWorker()
-            if self.app.settings.autoEject, let session = self.app.session, session.kind == .usb {
+            if self.app.settings.autoEject, self.failedInRun == 0, let session = self.app.session, session.kind == .usb {
                 self.app.usb.eject(session)
             }
+        }
+    }
+
+    private func showSummary() {
+        showingSummary = true
+        if failedInRun == 0 { Haptics.success() }
+        summaryTask?.cancel()
+        summaryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            self?.showingSummary = false
         }
     }
 
@@ -201,8 +247,48 @@ final class ImportEngine {
         endBackgroundTime()
     }
 
-    /// Returns false when the shot should be retried (the app lost its background time mid-transfer).
-    private func importOne(_ shot: Shot) async -> Bool {
+    enum Outcome { case saved, failed, interrupted }
+
+    /// True while the shot still belongs to the live session (cable in, same camera).
+    private func isAttached(_ shot: Shot) -> Bool {
+        guard let s = app.session else { return false }
+        return s.shot(id: shot.id) === shot && !s.isClosed && s.status == .ready
+    }
+
+    /// Imports one shot, retrying transient camera errors (timeouts, busy, Wi-Fi blips) twice.
+    private func importOne(_ shot: Shot) async -> Outcome {
+        var attempt = 0
+        while true {
+            let r = await importAttempt(shot)
+            switch r {
+            case .success: return .saved
+            case .failure(let error):
+                if pauseReason != nil || UIApplication.shared.applicationState == .background {
+                    if pauseReason == nil { pauseReason = .background }
+                    return .interrupted
+                }
+                if !isAttached(shot) {
+                    // Unplugged / camera slept: keep the queue, resume when it's back.
+                    pauseReason = .disconnected
+                    return .interrupted
+                }
+                let ns = error as NSError
+                let transient = (error as? ShotIOError)?.isTransient
+                    ?? (ns.domain == "com.apple.ImageCaptureCore" || ns.domain == NSURLErrorDomain)
+                if transient && attempt < 2 {
+                    attempt += 1
+                    shot.importState = .importing(0)
+                    try? await Task.sleep(for: .seconds(attempt == 1 ? 1 : 3))
+                    continue
+                }
+                shot.importState = .failed(error.localizedDescription)
+                lastError = "\(shot.primary.name): \(error.localizedDescription)"
+                return .failed
+            }
+        }
+    }
+
+    private func importAttempt(_ shot: Shot) async -> Result<Void, Error> {
         shot.importState = .importing(0)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("import-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -210,23 +296,26 @@ final class ImportEngine {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let wantsRAW = app.settings.includeRAW && shot.raw != nil
             let mainShare = wantsRAW ? 0.5 : 1.0
-            let mainURL = try await shot.primary.download(to: dir) { [weak shot] f in
+            let mainURL = try await shot.primary.download(to: dir, progress: ProgressThrottle { [weak shot] f in
                 Task { @MainActor in shot?.importState = .importing(f * mainShare) }
-            }
+            }.report)
             var rawURL: URL?
             if wantsRAW, let raw = shot.raw {
-                rawURL = try await raw.download(to: dir) { [weak shot] f in
+                rawURL = try await raw.download(to: dir, progress: ProgressThrottle { [weak shot] f in
                     Task { @MainActor in shot?.importState = .importing(0.5 + f * 0.5) }
-                }
+                }.report)
             }
             // Count what actually arrived (listing sizes can be unknown, e.g. Ricoh Wi-Fi).
             for u in [mainURL, rawURL].compactMap({ $0 }) {
                 bytesInRun += Int64((try? u.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
             }
 
-            if shot.meta == nil, let d = try? Data(contentsOf: mainURL, options: .mappedIfSafe) {
-                let info = HeaderParser.parse(d.prefix(HeaderParser.headerLength))
-                shot.meta = info.meta
+            if shot.meta == nil {
+                let info = await Task.detached(priority: .utility) { () -> HeaderInfo? in
+                    guard let d = try? Data(contentsOf: mainURL, options: .mappedIfSafe) else { return nil }
+                    return HeaderParser.parse(d)
+                }.value
+                if let info { shot.meta = info.meta }
             }
             let meta = shot.meta ?? ShotMeta()
             let date = app.correctedDate(for: shot)
@@ -255,16 +344,26 @@ final class ImportEngine {
             if let r = meta.recipe { app.recipes.record(r, camera: meta.cameraName, date: date) }
             shot.wasImported = true
             shot.importState = .done
-            return true
+            app.session?.catalogChanged()
+            return .success(())
         } catch {
-            // A camera transfer that dies because iOS suspended us isn't the file's fault.
-            if isPaused || UIApplication.shared.applicationState == .background {
-                isPaused = true
-                return false
-            }
-            shot.importState = .failed(error.localizedDescription)
-            lastError = "\(shot.primary.name): \(error.localizedDescription)"
-            return true
+            return .failure(error)
         }
+    }
+}
+
+/// Forwards transfer progress at most every 2% (and always at 100%), so a 60 MB RAW makes
+/// ~50 UI updates instead of thousands. Called from ImageCaptureCore's KVO thread.
+final class ProgressThrottle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last = -1.0
+    private let forward: (Double) -> Void
+    init(_ forward: @escaping (Double) -> Void) { self.forward = forward }
+    func report(_ f: Double) {
+        lock.lock()
+        let emit = f >= 1 || f - last >= 0.02
+        if emit { last = f }
+        lock.unlock()
+        if emit { forward(f) }
     }
 }

@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Unroll's visual language: black, white and greys only. Type and hairlines do the work —
-/// no gradients, glows, tinted icon bubbles or decorative colour. Data (EXIF, counts, times)
-/// uses tabular digits so values line up and don't jitter as they change.
+/// Unroll's visual language: a dark, neutral photo tool (think Photos, Lightroom, Halide).
+/// The photos carry the colour; the chrome is black, white and greys. System type (SF Pro) for
+/// words, tabular digits for data. No shadows, no bounce, no decoration that moves on its own.
 enum Mono {
     static let bg = Color(uiColor: .systemBackground)
     static let raised = Color(uiColor: .secondarySystemBackground)
@@ -10,70 +10,42 @@ enum Mono {
     static let dim = Color.secondary
     static let faint = Color(uiColor: .tertiaryLabel)
     static let line = Color(uiColor: .separator)
-    /// Neutral grey surface for tiles (systemGray6 has a blue cast; this does not).
-    static let tile = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.1, alpha: 1) : UIColor(white: 0.955, alpha: 1) })
-    /// Page canvas behind raised cards (Home, tools). A touch darker than `surface` so cards lift off it.
-    static let canvas = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.0, alpha: 1) : UIColor(white: 0.955, alpha: 1) })
-    /// Raised card on the canvas.
-    static let surface = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.11, alpha: 1) : UIColor(white: 1, alpha: 1) })
-    /// Near-black feature surface, same in both modes.
-    static let hero = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.14, alpha: 1) : UIColor(white: 0.07, alpha: 1) })
+    /// Neutral grey surface for controls and placeholders (no blue cast).
+    static let tile = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.12, alpha: 1) : UIColor(white: 0.94, alpha: 1) })
+    /// Page canvas.
+    static let canvas = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.0, alpha: 1) : UIColor(white: 0.97, alpha: 1) })
+    /// Grouped surface on the canvas (list sections).
+    static let surface = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.09, alpha: 1) : UIColor(white: 1, alpha: 1) })
+    /// Kept for older call sites: same as `surface`.
+    static let hero = surface
+    /// The one accent: used for progress and the live state only.
+    static let accent = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 1.0, green: 0.78, blue: 0.27, alpha: 1) : UIColor(red: 0.85, green: 0.55, blue: 0.0, alpha: 1) })
 
-    static let gutter: CGFloat = 20
-    static let radius: CGFloat = 10
+    static let gutter: CGFloat = 16
+    static let radius: CGFloat = 12
 
-    // MARK: Type — Nunito for words, monospace for data (same split as the Android app).
+    // MARK: Type: SF Pro for words, tabular digits for data.
 
-    /// PostScript names of the bundled Nunito faces (UIAppFonts in Info.plist).
-    static func fontName(_ w: Font.Weight) -> String {
-        switch w {
-        case .heavy, .black: return "Nunito-ExtraBold"
-        case .bold: return "Nunito-Bold"
-        case .semibold: return "Nunito-SemiBold"
-        case .medium: return "Nunito-Medium"
-        default: return "Nunito-Regular"
-        }
-    }
-
-    /// Default point size of each text style at the standard Dynamic Type setting.
-    private static func pointSize(_ style: Font.TextStyle) -> CGFloat {
-        switch style {
-        case .largeTitle: return 34
-        case .title: return 28
-        case .title2: return 22
-        case .title3: return 20
-        case .headline, .body: return 17
-        case .callout: return 16
-        case .subheadline: return 15
-        case .footnote: return 13
-        case .caption: return 12
-        case .caption2: return 11
-        @unknown default: return 17
-        }
-    }
-
-    /// Nunito sized like a system text style and scaling with Dynamic Type.
-    /// `.headline` defaults to semibold, as the system style does.
+    /// System text style, scaling with Dynamic Type. `.headline` is semibold, as the system style is.
     static func sans(_ style: Font.TextStyle = .body, weight: Font.Weight? = nil) -> Font {
-        let w = weight ?? (style == .headline ? .semibold : .regular)
-        return .custom(fontName(w), size: pointSize(style), relativeTo: style)
+        let f = Font.system(style)
+        return weight.map { f.weight($0) } ?? f
     }
 
-    /// Nunito at a fixed size (display numbers and titles).
+    /// System font at a fixed size (display numbers in renderers and badges).
     static func sans(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .custom(fontName(weight), fixedSize: size)
+        .system(size: size, weight: weight)
     }
 
-    /// UIKit counterpart for renderers and navigation bars. Falls back to the system font.
+    /// UIKit counterpart for renderers and navigation bars.
     static func uiSans(_ size: CGFloat, weight: UIFont.Weight = .regular) -> UIFont {
-        let w: Font.Weight = weight >= .heavy ? .heavy : weight >= .bold ? .bold : weight >= .semibold ? .semibold : weight >= .medium ? .medium : .regular
-        return UIFont(name: fontName(w), size: size) ?? .systemFont(ofSize: size, weight: weight)
+        .systemFont(ofSize: size, weight: weight)
     }
 
-    /// Small uppercase label for section headers and data captions (Nunito ExtraBold, tracked).
-    static func caps(_ size: CGFloat = 11) -> Font { .custom(fontName(.heavy), fixedSize: size) }
-    /// EXIF values, counts and times: Nunito with tabular digits so numbers don't jitter.
-    static func data(_ style: Font.TextStyle = .body, weight: Font.Weight = .semibold) -> Font {
+    /// Small section label. Sentence case at footnote size: quiet, not shouty.
+    static func caps(_ size: CGFloat = 11) -> Font { .system(size: max(size, 12), weight: .semibold) }
+    /// EXIF values, counts and times: tabular digits so numbers don't jitter.
+    static func data(_ style: Font.TextStyle = .body, weight: Font.Weight = .regular) -> Font {
         sans(style, weight: weight).monospacedDigit()
     }
 }
@@ -108,7 +80,7 @@ struct CapsLabel: View {
     var color: Color = Mono.dim
     init(_ text: String, color: Color = Mono.dim) { self.text = text; self.color = color }
     var body: some View {
-        Text(text.uppercased()).font(Mono.caps()).tracking(1.2).foregroundStyle(color)
+        Text(text).font(Mono.sans(.footnote, weight: .semibold)).foregroundStyle(color)
     }
 }
 
@@ -201,7 +173,7 @@ struct DataRow: View {
     let value: String
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(key.uppercased()).font(Mono.caps(10)).tracking(1).foregroundStyle(Mono.dim)
+            Text(key).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
             Spacer(minLength: 12)
             Text(value).font(Mono.data(.footnote, weight: .medium)).foregroundStyle(Mono.ink).multilineTextAlignment(.trailing)
         }
@@ -211,66 +183,63 @@ struct DataRow: View {
 
 // MARK: - Buttons
 
-/// Solid ink button (black on light, white on dark).
+/// Solid ink button (white on dark, black on light). Press = quick dim, no bounce.
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Mono.sans(.body, weight: .semibold))
+            .lineLimit(1).minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity, minHeight: 50)
-            .foregroundStyle(enabled ? Mono.bg : Mono.ink.opacity(0.45))
+            .padding(.horizontal, 12)
+            .foregroundStyle(enabled ? Mono.bg : Mono.ink.opacity(0.4))
             .background(Mono.ink.opacity(enabled ? 1 : 0.1),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.85 : 1)
+                        in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
+            .opacity(configuration.isPressed ? 0.75 : 1)
             .animation(Motion.press, value: configuration.isPressed)
             .animation(Motion.snap, value: enabled)
-            .sensoryFeedback(.impact(weight: .medium, intensity: 0.7), trigger: configuration.isPressed) { _, new in new }
+            .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: configuration.isPressed) { _, new in new }
     }
 }
 
-/// Outlined button, same footprint as primary.
+/// Grey filled button, same footprint as primary.
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Mono.sans(.body, weight: .medium))
+            .lineLimit(1).minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity, minHeight: 50)
+            .padding(.horizontal, 12)
             .foregroundStyle(Mono.ink.opacity(enabled ? 1 : 0.3))
-            .background(Mono.ink.opacity(configuration.isPressed ? 0.08 : 0),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Mono.ink.opacity(enabled ? 0.35 : 0.12), lineWidth: 1))
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .background(Mono.tile, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
+            .opacity(configuration.isPressed ? 0.7 : 1)
             .animation(Motion.press, value: configuration.isPressed)
-            .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: configuration.isPressed) { _, new in new }
     }
 }
 
-/// Small text button used inline (Start / Stop, Select day…).
+/// Small inline button (Start / Stop, Select day…).
 struct OutlineChipStyle: ButtonStyle {
     var filled = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Mono.sans(.footnote, weight: .semibold))
-            .padding(.horizontal, 14).frame(minHeight: 32)
+            .padding(.horizontal, 12).frame(minHeight: 30)
             .foregroundStyle(filled ? Mono.bg : Mono.ink)
-            .background(filled ? Mono.ink : Color.clear, in: Capsule())
-            .overlay(Capsule().strokeBorder(Mono.ink.opacity(filled ? 0 : 0.35), lineWidth: 1))
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .opacity(configuration.isPressed ? 0.75 : 1)
+            .background(filled ? Mono.ink : Mono.tile, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .opacity(configuration.isPressed ? 0.7 : 1)
             .animation(Motion.press, value: configuration.isPressed)
     }
 }
 
-/// Text tabs with an underline for the selected one. Used for filters and pickers.
+/// Segmented text tabs with a sliding pill under the selected one.
 struct TabStrip<T: Hashable>: View {
     let items: [T]
     @Binding var selection: T
     let label: (T) -> String
     var count: ((T) -> Int?)? = nil
     var scrolls = true
-    @Namespace private var underline
+    @Namespace private var pill
 
     var body: some View {
         Group {
@@ -284,34 +253,32 @@ struct TabStrip<T: Hashable>: View {
     }
 
     private var row: some View {
-        HStack(spacing: 22) {
+        HStack(spacing: 4) {
             ForEach(items, id: \.self) { item in
                 let on = item == selection
                 Button {
                     withAnimation(Motion.snap) { selection = item }
-                    Haptics.tap()
+                    Haptics.select()
                 } label: {
-                    VStack(spacing: 7) {
-                        HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Text(label(item)).font(Mono.sans(.subheadline, weight: on ? .semibold : .regular))
-                            if let n = count?(item) {
-                                Text("\(n)").font(Mono.data(.caption2)).rollingNumber(n)
-                            }
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text(label(item)).font(Mono.sans(.subheadline, weight: .semibold))
+                        if let n = count?(item) {
+                            Text("\(n)").font(Mono.data(.caption)).foregroundStyle(on ? Mono.ink.opacity(0.6) : Mono.faint)
                         }
-                        .foregroundStyle(on ? Mono.ink : Mono.dim)
-                        ZStack {
-                            Rectangle().fill(.clear)
-                            if on {
-                                Capsule().fill(Mono.ink)
-                                    .matchedGeometryEffect(id: "underline", in: underline)
-                            }
+                    }
+                    .foregroundStyle(on ? Mono.ink : Mono.dim)
+                    .padding(.horizontal, 12).frame(minHeight: 32)
+                    .background {
+                        if on {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Mono.tile)
+                                .matchedGeometryEffect(id: "pill", in: pill)
                         }
-                        .frame(height: 2)
                     }
                     .fixedSize()
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
     }
@@ -320,14 +287,13 @@ struct TabStrip<T: Hashable>: View {
 /// On/off chip for option toggles.
 struct ChipToggle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
-        Button { withAnimation(Motion.snap) { configuration.isOn.toggle() }; Haptics.tap() } label: {
+        Button { withAnimation(Motion.snap) { configuration.isOn.toggle() }; Haptics.select() } label: {
             configuration.label
                 .font(Mono.sans(.footnote, weight: .medium))
                 .lineLimit(1)
                 .padding(.horizontal, 12).frame(minHeight: 32)
-                .foregroundStyle(configuration.isOn ? Mono.bg : Mono.dim)
-                .background(configuration.isOn ? Mono.ink : .clear, in: Capsule())
-                .overlay(Capsule().strokeBorder(Mono.ink.opacity(configuration.isOn ? 0 : 0.3), lineWidth: 1))
+                .foregroundStyle(configuration.isOn ? Mono.bg : Mono.ink)
+                .background(configuration.isOn ? Mono.ink : Mono.tile, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
     }

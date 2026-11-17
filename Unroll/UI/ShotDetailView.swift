@@ -8,11 +8,13 @@ struct ShotPagerView: View {
     let session: CameraSession
 
     @State private var currentID: String?
-    @State private var showInfo = true
+    @State private var showInfo = false
+    @State private var chrome = true
     @State private var framing: FrameSubject?
     @State private var loadingFrame = false
 
     var current: Shot? { shots.first { $0.id == (currentID ?? startID) } }
+    private var index: Int? { shots.firstIndex { $0.id == (currentID ?? startID) } }
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -28,20 +30,89 @@ struct ShotPagerView: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $currentID)
         .scrollIndicators(.hidden)
-        .background(Color.black)
+        .background(Color.black.ignoresSafeArea())
         .onAppear { currentID = startID }
-        .onTapGesture { withAnimation(Motion.glide) { showInfo.toggle() } }
-        .safeAreaInset(edge: .bottom) {
-            if showInfo, let s = current {
-                ShotInfoPanel(shot: s, framing: { await openFrame(s) }, loadingFrame: loadingFrame)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onTapGesture { withAnimation(Motion.glide) { chrome.toggle(); if !chrome { showInfo = false } } }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if chrome, let s = current {
+                VStack(spacing: 0) {
+                    if showInfo {
+                        ShotInfoPanel(shot: s)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    actions(s)
+                }
+                .background(.ultraThinMaterial)
+                .transition(.opacity)
             }
         }
-        .navigationTitle(current?.primary.name ?? "")
+        .toolbar(chrome ? .visible : .hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 1) {
+                    Text(current?.captureDate.formatted(date: .abbreviated, time: .shortened) ?? "")
+                        .font(Mono.sans(.subheadline, weight: .semibold))
+                    if let i = index {
+                        Text("\(i + 1) of \(shots.count)").font(Mono.data(.caption)).foregroundStyle(Mono.dim)
+                    }
+                }
+            }
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .statusBarHidden(!chrome)
         .environment(\.colorScheme, .dark)
         .fullScreenCover(item: $framing) { f in FrameStudioView(image: f.image, meta: f.meta, location: f.location) }
+    }
+
+    private func actions(_ s: Shot) -> some View {
+        HStack(spacing: 0) {
+            barButton(loadingFrame ? nil : "square.dashed", "Frame") { Task { await openFrame(s) } }
+                .disabled(s.isVideo || loadingFrame)
+            Spacer()
+            barButton(showInfo ? "info.circle.fill" : "info.circle", "Info") {
+                withAnimation(Motion.glide) { showInfo.toggle() }
+            }
+            Spacer()
+            importButton(s)
+        }
+        .padding(.horizontal, 28)
+        .frame(height: 52)
+    }
+
+    private func barButton(_ symbol: String?, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Group {
+                if let symbol { Image(systemName: symbol) } else { ProgressView() }
+            }
+            .font(.system(size: 21))
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel(label)
+    }
+
+    @ViewBuilder private func importButton(_ s: Shot) -> some View {
+        switch s.importState {
+        case .importing(let f):
+            ZStack {
+                Circle().stroke(Mono.tile, lineWidth: 3)
+                Circle().trim(from: 0, to: f).stroke(Mono.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90)).animation(Motion.progress, value: f)
+            }
+            .frame(width: 24, height: 24).frame(width: 44, height: 44)
+            .accessibilityLabel("Importing")
+        case .queued:
+            Image(systemName: "clock").font(.system(size: 21)).foregroundStyle(Mono.dim).frame(width: 44, height: 44)
+        default:
+            if s.wasImported {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 21)).foregroundStyle(Mono.dim)
+                    .frame(width: 44, height: 44).accessibilityLabel("In Photos")
+            } else {
+                barButton(s.importState.isFailed ? "arrow.clockwise" : "square.and.arrow.down", "Import") { app.importShots([s]) }
+            }
+        }
     }
 
     private func openFrame(_ s: Shot) async {
@@ -55,53 +126,57 @@ struct ShotPagerView: View {
     }
 }
 
+extension ImportState {
+    var isFailed: Bool { if case .failed = self { return true }; return false }
+}
+
 struct ShotPreview: View {
     let shot: Shot
     let session: CameraSession
     @State private var image: UIImage?
-    @State private var loadMs: Int?
+    @State private var thumb: UIImage?
+    @State private var loading = false
 
     var body: some View {
         ZStack {
-            if let img = image ?? shot.thumbnail {
+            if let img = image ?? thumb {
                 Image(uiImage: img).resizable().scaledToFit()
+                    .transition(.opacity)
             }
-            if image == nil { ProgressView().tint(.white) }
+            if image == nil && loading {
+                ProgressView().tint(.white).transition(.opacity)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay(alignment: .topTrailing) {
-            if let ms = loadMs, shot.primary.isRemote {
-                Text("\(ms) ms").font(Mono.data(.caption2)).padding(.horizontal, 6).padding(.vertical, 3)
-                    .background(.black.opacity(0.6)).padding(10).foregroundStyle(.white.opacity(0.7))
-            }
-        }
         .task(id: shot.id) {
-            let t0 = Date()
-            image = await Previews.large(shot, session: session)
-            loadMs = Int(Date().timeIntervalSince(t0) * 1000)
+            thumb = shot.thumbnail
+            // Only show a spinner if the preview is actually slow.
+            let spinner = Task { try? await Task.sleep(for: .milliseconds(350)); if !Task.isCancelled { withAnimation { loading = true } } }
+            let img = await Previews.large(shot, session: session)
+            spinner.cancel()
+            withAnimation(.easeOut(duration: 0.2)) { image = img; loading = false }
         }
     }
 }
 
+/// EXIF, recipe, location and file facts. Shown under the photo when Info is on.
 struct ShotInfoPanel: View {
     @Environment(AppState.self) private var app
     let shot: Shot
-    let framing: () async -> Void
-    let loadingFrame: Bool
     @State private var showRecipe = false
 
     var body: some View {
         let m = shot.meta
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(m?.cameraName ?? "Unknown camera").font(Mono.sans(.headline))
                     if let lens = m?.lens { Text(lens).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
                 }
                 Spacer()
                 HStack(spacing: 8) {
                     if shot.rating > 0 { StarRow(rating: shot.rating) }
-                    if shot.isLocked { Icon("lock-simple-fill", size: 12) }
+                    if shot.isLocked { Image(systemName: "lock.fill").font(.system(size: 12)) }
                 }
             }
 
@@ -113,7 +188,7 @@ struct ShotInfoPanel: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
                 .overlay(alignment: .top) { Hairline() }
                 .overlay(alignment: .bottom) { Hairline() }
             }
@@ -127,46 +202,19 @@ struct ShotInfoPanel: View {
             HStack(spacing: 8) {
                 Text(locationText)
                 Spacer()
-                Text("\(shot.formatBadge)  \(sizeText)")
+                Text("\(shot.primary.name) · \(shot.formatBadge) · \(sizeText)")
             }
-            .font(Mono.data(.caption2))
+            .font(Mono.data(.caption))
             .foregroundStyle(Mono.dim)
-
-            HStack(spacing: 10) {
-                Button {
-                    app.importShots([shot])
-                } label: {
-                    Text(shot.wasImported ? "In Photos" : importLabel)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(shot.wasImported || shot.importState == .queued)
-
-                Button { Task { await framing() } } label: {
-                    if loadingFrame { ProgressView() } else { Text("Frame") }
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .frame(width: 110)
-                .disabled(shot.isVideo)
-            }
+            .lineLimit(1)
         }
         .padding(.horizontal, Mono.gutter)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
-        .background(Color.black.opacity(0.92).ignoresSafeArea(edges: .bottom))
-        .overlay(alignment: .top) { Hairline() }
-    }
-
-    private var importLabel: String {
-        switch shot.importState {
-        case .queued: return "Queued"
-        case .importing: return "Importing…"
-        case .failed: return "Retry import"
-        default: return shot.raw != nil && app.settings.includeRAW ? "Import JPG + RAW" : "Import"
-        }
+        .padding(.top, 14)
+        .padding(.bottom, 4)
     }
 
     private var sizeText: String {
-        if case .http = shot.primary.location { return "Wi-Fi" }
+        if case .http = shot.primary.location { return "Wi‑Fi" }
         return ByteCountFormatter.string(fromByteCount: shot.totalBytes, countStyle: .file)
     }
 
@@ -204,7 +252,7 @@ struct RecipeSummary: View {
             if expanded {
                 VStack(spacing: 0) {
                     ForEach(Array(recipe.rows.dropFirst().enumerated()), id: \.element.0) { i, row in
-                        DataRow(key: row.0, value: row.1).rise(i, step: 0.03, distance: 8)
+                        DataRow(key: row.0, value: row.1)
                     }
                 }
                 .padding(.top, 6)

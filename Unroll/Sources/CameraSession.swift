@@ -41,6 +41,13 @@ final class CameraSession: Identifiable {
     private(set) var shots: [Shot] = []
     /// How many shots have had their header parsed (drives the ★ filter progress).
     private(set) var scanned = 0
+    /// How many shots have a header to read (videos don't).
+    private(set) var scannable = 0
+    /// Bumped (at most ~4×/s) whenever shots, metadata or import results change. The library
+    /// rebuilds its filtered/grouped snapshot from this instead of observing every shot.
+    private(set) var revision = 0
+    private(set) var isClosed = false
+    @ObservationIgnored private var revisionScheduled = false
     var batteryLevel: Int?
     let connectedAt = Date()
 
@@ -66,7 +73,19 @@ final class CameraSession: Identifiable {
         self.readConcurrency = (kind == .usb || kind == .wifi) ? 2 : 6
     }
 
-    var scanComplete: Bool { scanned >= shots.filter { !$0.isVideo }.count }
+    var scanComplete: Bool { scanned >= scannable }
+
+    /// Coalesces catalog changes into one `revision` bump per 250 ms.
+    func catalogChanged() {
+        guard !revisionScheduled else { return }
+        revisionScheduled = true
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard let self else { return }
+            self.revisionScheduled = false
+            self.revision &+= 1
+        }
+    }
 
     // MARK: Shots
 
@@ -75,27 +94,41 @@ final class CameraSession: Identifiable {
         // Keep existing Shot objects (and their thumbnails / in-flight loads) across catalog refreshes.
         let previous = byID
         byID = [:]
-        let merged = list.map { s -> Shot in
-            if let old = previous[s.id] { byID[s.id] = old; return old }
-            return adopt(s)
+        var merged: [Shot] = []
+        merged.reserveCapacity(list.count)
+        for s in list where byID[s.id] == nil {          // dual-slot backup cards list each frame twice
+            if let old = previous[s.id] {
+                if old !== s { old.rebind(to: s) }
+                byID[s.id] = old; merged.append(old)
+            } else { merged.append(adopt(s)) }
         }
         shots = merged.sorted { $0.fileDate > $1.fileDate }
-        scanned = shots.filter { $0.meta != nil }.count
+        recount()
         restartScan()
+        revision &+= 1
     }
 
     /// Shots that appeared while connected (user kept shooting). Triggers auto-import.
     func add(_ list: [Shot]) {
-        let fresh = list.map(adopt).filter { s in !shots.contains { $0.id == s.id } }
+        let fresh = list.filter { byID[$0.id] == nil }.map(adopt)
         guard !fresh.isEmpty else { return }
         shots = (fresh + shots).sorted { $0.fileDate > $1.fileDate }
+        recount()
         restartScan()
+        catalogChanged()
         if status == .ready { onNewShots?(fresh) }
     }
 
     func remove(where predicate: (Shot) -> Bool) {
         shots.removeAll(where: predicate)
-        byID = Dictionary(uniqueKeysWithValues: shots.map { ($0.id, $0) })
+        byID = Dictionary(shots.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        recount()
+        catalogChanged()
+    }
+
+    private func recount() {
+        scannable = shots.reduce(0) { $0 + ($1.isVideo ? 0 : 1) }
+        scanned = shots.reduce(0) { $0 + ($1.meta != nil && !$1.isVideo ? 1 : 0) }
     }
 
     private func adopt(_ s: Shot) -> Shot {
@@ -164,16 +197,30 @@ final class CameraSession: Identifiable {
             for c in waiters.removeValue(forKey: shot.id) ?? [] { c.resume() }
         }
         // RAW twin carries the same EXIF; the JPEG header is cheaper to parse.
-        guard let data = try? await shot.primary.read(offset: 0, length: HeaderParser.headerLength) else {
+        let file = shot.primary
+        guard let data = try? await file.read(offset: 0, length: HeaderParser.headerLength) else {
             readFailures[shot.id, default: 0] += 1
-            // One retry on the next scan pass; after that, don't hammer a broken file.
-            if readFailures[shot.id, default: 0] >= 2 {
+            if readFailures[shot.id, default: 0] >= 3 || isClosed {
+                // Give up on a file that keeps failing; it can still be imported.
                 shot.meta = ShotMeta()
                 scanned += 1
+                catalogChanged()
+            } else {
+                // Retry later (camera busy / woke up) rather than silently losing its ★ rating.
+                let n = readFailures[shot.id, default: 0]
+                Task { [weak self, weak shot] in
+                    try? await Task.sleep(for: .seconds(Double(n) * 3))
+                    guard let self, let shot, !self.isClosed, shot.meta == nil else { return }
+                    self.pending.append(shot)
+                    if self.scanTask == nil || self.scanTask?.isCancelled == true || self.inFlight.isEmpty { self.restartScan() }
+                }
             }
             return
         }
-        var info = await Task.detached(priority: .utility) { HeaderParser.parse(data) }.value
+        let size = file.size == ShotFile.unknownSize ? nil : Int(file.size)
+        var info = await HeaderParser.parseAdaptive(data, fileSize: size) { o, n in
+            try await file.read(offset: Int64(o), length: n)
+        }
         // RAW+HEIF: if the HEIF's EXIF didn't fit in the header, the RAW twin carries the same EXIF.
         // Its preview range points into the RAW file, so it's not used for the HEIF primary.
         if info.format == .heif, info.meta.dateTimeOriginal == nil, let raw = shot.raw,
@@ -182,12 +229,14 @@ final class CameraSession: Identifiable {
             info.meta = rawInfo.meta
         }
         shot.meta = info.meta
-        shot.preview = info.format == .heif ? nil : info.preview
+        shot.preview = info.format == .heif ? nil : (info.preview ?? info.makerNotePreview)
         scanned += 1
-        metaCache[shot.id] = MetaCache.Entry(meta: info.meta, preview: info.preview)
+        catalogChanged()
+        metaCache[shot.id] = MetaCache.Entry(meta: info.meta, preview: shot.preview)
     }
 
     func close() {
+        isClosed = true
         scanTask?.cancel()
         onClose?()
     }

@@ -39,7 +39,8 @@ enum ImportState: Equatable {
 @Observable
 final class Shot: Identifiable, Hashable {
     let id: String
-    let primary: ShotFile
+    /// Replaced (same file, new handle) when the camera session is reopened.
+    private(set) var primary: ShotFile
     /// Set later when the RAW half of a pair shows up in a separate camera event.
     var raw: ShotFile?
     /// File date from the card — available instantly, used for newest-first ordering.
@@ -47,7 +48,9 @@ final class Shot: Identifiable, Hashable {
     var isLocked: Bool
     var meta: ShotMeta?
     var preview: ByteRange?
-    var thumbnail: UIImage?
+    /// Grid thumbnail, if it is still in the bounded thumbnail cache. Not stored on the shot,
+    /// so a 2,000-shot card doesn't keep 700 MB of bitmaps alive.
+    var thumbnail: UIImage? { ThumbnailCache.shared.image(for: id) }
     var importState: ImportState = .none
     var wasImported = false
 
@@ -57,6 +60,13 @@ final class Shot: Identifiable, Hashable {
         self.fileDate = fileDate
         self.isLocked = isLocked
         self.id = Shot.key(name: primary.name, size: primary.size, date: fileDate)
+    }
+
+    /// Same frame seen again after a reconnect: take the new session's file handles.
+    func rebind(to fresh: Shot) {
+        primary = fresh.primary
+        if let r = fresh.raw { raw = r }
+        if fresh.isLocked { isLocked = true }
     }
 
     static func key(name: String, size: Int64, date: Date) -> String {
@@ -85,9 +95,19 @@ final class Shot: Identifiable, Hashable {
 // MARK: - Byte access (the same API whatever the transport)
 
 enum ShotIOError: LocalizedError {
-    case noData, unsupported, http(Int)
+    case noData, unsupported, http(Int), timeout, disconnected
+    /// Worth retrying (cable wiggle, camera busy, Wi-Fi blip) rather than failing the shot.
+    var isTransient: Bool {
+        switch self {
+        case .timeout, .disconnected, .noData: return true
+        case .http(let c): return c == 0 || c >= 500
+        case .unsupported: return false
+        }
+    }
     var errorDescription: String? {
         switch self {
+        case .timeout: return "The camera stopped responding."
+        case .disconnected: return "The camera was disconnected."
         case .noData: return "The camera returned no data."
         case .unsupported: return "Not supported for this connection."
         case .http(let c): return "Camera answered HTTP \(c)."
@@ -101,9 +121,11 @@ extension ShotFile {
         guard len > 0 else { return Data() }
         switch location {
         case .usb(let f):
-            return try await withCheckedThrowingContinuation { cont in
+            // ImageCaptureCore never times out on its own: a stalled PTP transfer would hang forever.
+            let seconds = 15 + Double(len) / 1_000_000   // ≥1 MB/s is a very slow camera
+            return try await withDeadline(seconds) { finish in
                 f.requestReadData(atOffset: off_t(offset), length: off_t(len)) { data, error in
-                    if let data { cont.resume(returning: data) } else { cont.resume(throwing: error ?? ShotIOError.noData) }
+                    if let data { finish(.success(data)) } else { finish(.failure(error ?? ShotIOError.noData)) }
                 }
             }
         case .file(let url):
@@ -131,12 +153,13 @@ extension ShotFile {
     func thumbnail(maxPixel: Int) async -> UIImage? {
         switch location {
         case .usb(let f):
-            let data: Data? = await withCheckedContinuation { cont in
-                f.requestThumbnailData(options: [.imageSourceThumbnailMaxPixelSize: maxPixel]) { data, _ in
-                    cont.resume(returning: data)
+            let data: Data? = try? await withDeadline(10) { finish in
+                f.requestThumbnailData(options: [.imageSourceThumbnailMaxPixelSize: maxPixel]) { data, error in
+                    if let data { finish(.success(data)) } else { finish(.failure(error ?? ShotIOError.noData)) }
                 }
             }
-            return data.flatMap { ImageDecode.downsample($0, maxPixel: maxPixel) }
+            guard let data else { return nil }
+            return await Task.detached(priority: .userInitiated) { ImageDecode.downsample(data, maxPixel: maxPixel) }.value
         case .file(let url):
             let raw = format.isRAW
             return await Task.detached(priority: .userInitiated) {
@@ -146,7 +169,7 @@ extension ShotFile {
             guard var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
             c.queryItems = [URLQueryItem(name: "size", value: maxPixel > 400 ? "view" : "thumb")]
             guard let u = c.url, let (data, _) = try? await CameraHTTP.session.data(from: u) else { return nil }
-            return ImageDecode.downsample(data, maxPixel: maxPixel)
+            return await Task.detached(priority: .userInitiated) { ImageDecode.downsample(data, maxPixel: maxPixel) }.value
         }
     }
 
@@ -163,18 +186,40 @@ extension ShotFile {
         try? FileManager.default.removeItem(at: dest)
         switch location {
         case .usb(let f):
+            // Watchdog on *stalls*, not total time: a 4 GB clip may take minutes, but a transfer
+            // that makes no progress for 30 s is dead (cable, camera asleep) and is cancelled.
             let observation = ObservationBox()
+            let name = self.name
             return try await withCheckedThrowingContinuation { cont in
+                let once = Once()
+                let finish: (Result<URL, Error>) -> Void = { r in
+                    guard once.claim() else { return }
+                    observation.token?.invalidate()
+                    observation.watchdog?.cancel()
+                    cont.resume(with: r)
+                }
                 let p = f.requestDownload(options: [
                     .downloadsDirectoryURL: dir,
                     .saveAsFilename: name,
                 ]) { filename, error in
-                    observation.token?.invalidate()
-                    if let error { cont.resume(throwing: error); return }
-                    cont.resume(returning: dir.appendingPathComponent(filename ?? self.name))
+                    if let error { finish(.failure(error)); return }
+                    finish(.success(dir.appendingPathComponent(filename ?? name)))
                 }
-                if let p, let progress {
-                    observation.token = p.observe(\.fractionCompleted) { pr, _ in progress(pr.fractionCompleted) }
+                guard let p else { finish(.failure(ShotIOError.noData)); return }
+                observation.touch()
+                observation.token = p.observe(\.fractionCompleted) { pr, _ in
+                    observation.touch()
+                    progress?(pr.fractionCompleted)
+                }
+                observation.watchdog = Task.detached {
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .seconds(5))
+                        if observation.idleSeconds > 30 {
+                            p.cancel()
+                            finish(.failure(ShotIOError.timeout))
+                            return
+                        }
+                    }
                 }
             }
         case .file(let url):
@@ -192,8 +237,39 @@ extension ShotFile {
     }
 }
 
-/// Keeps a KVO token alive for the duration of a download.
-final class ObservationBox: @unchecked Sendable { var token: NSKeyValueObservation? }
+/// Keeps a KVO token alive for the duration of a download, and tracks when it last moved.
+final class ObservationBox: @unchecked Sendable {
+    var token: NSKeyValueObservation?
+    var watchdog: Task<Void, Never>?
+    private let lock = NSLock()
+    private var last = Date()
+    func touch() { lock.lock(); last = Date(); lock.unlock() }
+    var idleSeconds: Double { lock.lock(); defer { lock.unlock() }; return Date().timeIntervalSince(last) }
+}
+
+/// Thread-safe "first caller wins" flag for callbacks that may fire late or twice.
+final class Once: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func claim() -> Bool { lock.lock(); defer { lock.unlock() }; if done { return false }; done = true; return true }
+}
+
+/// Runs a callback-based request with a deadline. ImageCaptureCore requests can't be cancelled,
+/// so on timeout we stop waiting (the late callback is ignored) and throw `.timeout`.
+func withDeadline<T: Sendable>(_ seconds: Double, _ start: @escaping (@escaping (Result<T, Error>) -> Void) -> Void) async throws -> T {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<T, Error>) in
+        let once = Once()
+        let timer = Task.detached {
+            try? await Task.sleep(for: .seconds(seconds))
+            if !Task.isCancelled, once.claim() { cont.resume(throwing: ShotIOError.timeout) }
+        }
+        start { r in
+            guard once.claim() else { return }
+            timer.cancel()
+            cont.resume(with: r)
+        }
+    }
+}
 
 enum CameraHTTP {
     /// Camera Wi-Fi has no internet: forbid cellular so iOS never routes our requests away from it.

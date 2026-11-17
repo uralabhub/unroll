@@ -9,6 +9,7 @@ struct FrameStudioView: View {
     var location: CLLocation? = nil
 
     @State private var options = FrameStudioView.savedOptions
+    @State private var renderTask: Task<Void, Never>?
     @State private var preview: UIImage?
     @State private var proxy: UIImage?
     @State private var saving = false
@@ -146,8 +147,12 @@ struct FrameStudioView: View {
         guard let proxy else { return }
         let o = current(options)
         let m = meta
-        Task {
-            preview = await Task.detached(priority: .userInitiated) { FrameRenderer.render(proxy, meta: m, options: o) }.value
+        // Latest option wins: cancel the render in flight so results never land out of order.
+        renderTask?.cancel()
+        renderTask = Task {
+            let img = await Task.detached(priority: .userInitiated) { FrameRenderer.render(proxy, meta: m, options: o) }.value
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.15)) { preview = img }
         }
     }
 

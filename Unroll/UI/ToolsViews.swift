@@ -232,7 +232,7 @@ struct SettingsView: View {
                 if app.pro.isPro {
                     Text("Pro is unlocked. Thank you.")
                 } else {
-                    Button("See Pro") { dismiss(); app.showPaywall = true }
+                    Button("See Pro") { app.showPaywall = true }
                     LabeledContent("Free imports left today", value: "\(app.quota.remaining)")
                 }
                 Button("Restore purchases") { Task { await app.pro.restore() } }
@@ -258,7 +258,6 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
     }
 }
 
@@ -373,69 +372,91 @@ struct PaywallView: View {
     }
 }
 
-// MARK: - Import HUD + toast
+// MARK: - Import status + toast
 
-struct ImportHUD: View {
+/// Progress of the running import, or the summary of the one that just finished.
+/// Lives in the library's bottom bar (and floats on Home only if a paused run outlives the session).
+struct ImportStatusBar: View {
     @Environment(AppState.self) private var app
-    @State private var showDone = false
 
     var body: some View {
         let imp = app.importer
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(Mono.sans(.subheadline, weight: .semibold)).monospacedDigit()
+                        .contentTransition(.numericText())
+                        .animation(Motion.snap, value: title)
+                    Text(subtitle).font(Mono.data(.caption)).foregroundStyle(Mono.dim).lineLimit(1)
+                }
+                Spacer()
                 if imp.isRunning {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(imp.isPaused ? "Paused · \(imp.completedInRun) of \(imp.totalInRun)"
-                                          : "Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)")
-                            .font(Mono.sans(.subheadline, weight: .semibold))
-                            .rollingNumber(imp.completedInRun)
-                        Text(imp.isPaused ? "Resumes when Unroll is open" : imp.throughputMBps.map { String(format: "%.0f MB/s", $0) } ?? (imp.current?.primary.name ?? ""))
-                            .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
-                    }
-                    Spacer()
-                    Button("Cancel") { imp.cancelAll() }
-                        .buttonStyle(OutlineChipStyle())
-                } else if showDone, let run = imp.lastFinishedRun {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(run.count) saved to Photos").font(Mono.sans(.subheadline, weight: .semibold))
-                        Text("\(String(format: "%.1f", run.seconds)) s" + (run.geotagged > 0 ? "  ·  \(run.geotagged) with location" : "  ·  originals untouched"))
-                            .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
-                    }
-                    Spacer()
+                    Button("Cancel") { imp.cancelAll() }.buttonStyle(OutlineChipStyle())
+                } else {
                     Button("Open Photos") {
                         if let u = URL(string: "photos-redirect://") { UIApplication.shared.open(u) }
                     }
                     .buttonStyle(OutlineChipStyle(filled: true))
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
             if imp.isRunning {
-                GeometryReader { g in
-                    Rectangle().fill(Mono.ink).frame(width: g.size.width * imp.progress)
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Mono.tile)
+                    Capsule().fill(imp.isPaused ? Mono.dim : Mono.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .scaleEffect(x: max(0.02, imp.progress), anchor: .leading)
+                        .animation(Motion.progress, value: imp.progress)
                 }
-                .frame(height: 2)
-                .animation(Motion.snap, value: imp.progress)
+                .frame(height: 4)
+                .clipShape(Capsule())
             }
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Mono.line.opacity(0.6), lineWidth: 1))
-        .depth(1.4)
-        .padding(.horizontal, 12)
-        .opacity(imp.isRunning || showDone ? 1 : 0)
-        .scaleEffect(imp.isRunning || showDone ? 1 : 0.9, anchor: .bottom)
-        .offset(y: imp.isRunning || showDone ? -78 : 140)
-        .animation(Motion.glide, value: imp.isRunning)
-        .animation(Motion.glide, value: showDone)
-        .onChange(of: imp.isRunning) { _, running in
-            if !running, imp.lastFinishedRun != nil {
-                showDone = true
-                Haptics.success()
-                Task { try? await Task.sleep(for: .seconds(5)); showDone = false }
+        .frame(minHeight: 50)
+    }
+
+    private var title: String {
+        let imp = app.importer
+        if imp.isRunning {
+            if imp.isPaused { return "Paused · \(imp.completedInRun) of \(imp.totalInRun)" }
+            return "Importing \(min(imp.completedInRun + 1, imp.totalInRun)) of \(imp.totalInRun)"
+        }
+        guard let run = imp.lastFinishedRun else { return "" }
+        return "\(run.count) saved to Photos"
+    }
+
+    private var subtitle: String {
+        let imp = app.importer
+        if imp.isRunning {
+            switch imp.pauseReason {
+            case .disconnected: return "Camera disconnected. Plug it back in to continue."
+            case .background: return "Continues when Unroll is open."
+            case nil: return imp.throughputMBps.map { String(format: "%.0f MB/s", $0) } ?? (imp.current?.primary.name ?? "Starting…")
             }
         }
-        .allowsHitTesting(imp.isRunning || showDone)
+        guard let run = imp.lastFinishedRun else { return "" }
+        var parts = [String(format: "%.1f s", run.seconds)]
+        if run.failed > 0 { parts.append("\(run.failed) failed") }
+        if run.geotagged > 0 { parts.append("\(run.geotagged) with location") }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// Floating import status, shown only when no session screen is there to host it.
+struct ImportHUD: View {
+    @Environment(AppState.self) private var app
+    var body: some View {
+        let show = app.session == nil && (app.importer.isRunning || app.importer.showingSummary)
+        Group {
+            if show {
+                ImportStatusBar()
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    .background(Mono.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Mono.line, lineWidth: 0.5))
+                    .padding(.horizontal, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(Motion.glide, value: show)
     }
 }
 
@@ -446,19 +467,21 @@ struct ToastView: View {
             if let t = app.toast ?? app.importer.lastError {
                 Text(t)
                     .font(Mono.sans(.subheadline, weight: .medium))
-                    .foregroundStyle(Mono.bg)
-                    .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(Mono.ink, in: Capsule())
-                    .depth(1.2)
-                    .padding(.top, 6)
-                    .transition(.move(edge: .top).combined(with: .scale(scale: 0.8, anchor: .top)).combined(with: .opacity))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Mono.ink)
+                    .padding(.horizontal, 16).padding(.vertical, 11)
+                    .background(Mono.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Mono.line, lineWidth: 0.5))
+                    .padding(.horizontal, 20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                     .task(id: t) {
-                        try? await Task.sleep(for: .seconds(3))
+                        try? await Task.sleep(for: .seconds(3.5))
                         app.toast = nil
                         app.importer.lastError = nil
                     }
             }
         }
         .animation(Motion.glide, value: app.toast)
+        .animation(Motion.glide, value: app.importer.lastError)
     }
 }
