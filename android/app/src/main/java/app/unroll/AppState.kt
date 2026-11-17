@@ -65,6 +65,8 @@ class AppState(private val context: Context) {
         private set
     var showPaywall by mutableStateOf(false)
     var toast by mutableStateOf<String?>(null)
+    /** True for a few seconds after an import run ends, while its summary is on screen. */
+    var showingSummary by mutableStateOf(false)
     val stack = mutableStateListOf<Screen>()
 
     init {

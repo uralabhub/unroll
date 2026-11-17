@@ -7,7 +7,9 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Color
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import app.unroll.ui.Root
@@ -33,7 +35,11 @@ class MainActivity : ComponentActivity() {
     private val state get() = (application as UnrollApplication).state
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // Dark-only app: light status / navigation bar icons everywhere.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         handle(intent)
         setContent { UnrollTheme { Root(state) } }

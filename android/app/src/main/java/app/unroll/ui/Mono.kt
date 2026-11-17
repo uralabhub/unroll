@@ -1,30 +1,26 @@
 package app.unroll.ui
 
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -36,103 +32,99 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.unroll.R
-import kotlin.math.roundToInt
 
 /**
- * Unroll's visual language: black, white and warm greys. Depth comes from layered surfaces and
- * soft shadows, not colour; motion is physical (springs), never decorative. Type is Nunito
- * throughout — data uses its tabular figures so numbers line up like a camera's top-plate display.
+ * Unroll's visual language: a dark, neutral photo tool (think Photos, Lightroom, Halide).
+ * The photos carry the colour; the chrome is black, white and greys, with one amber accent
+ * reserved for progress and live states. System type (Roboto) for words, tabular digits for data.
+ * No shadows, no bounce, no decoration that moves on its own.
  */
 @Immutable
 data class MonoPalette(
+    /** Page canvas. */
     val bg: Color,
-    /** Cards and sheets sit on this, one step above [bg]. */
+    /** Grouped surface on the canvas (panels, list sections, bars). */
     val surface: Color,
-    val raised: Color,
+    /** Neutral grey for controls and placeholders. */
+    val tile: Color,
     val ink: Color,
     val dim: Color,
     val faint: Color,
     val line: Color,
-    val tile: Color,
-    /** Near-black feature surface, same in both modes. */
-    val hero: Color,
-    val shadow: Color,
-    val dark: Boolean,
-)
+    /** The one accent: progress and the live state only. */
+    val accent: Color,
+) {
+    /** Older call sites: same as [tile]. */
+    val raised: Color get() = tile
+    val hero: Color get() = surface
+}
 
-private val Light = MonoPalette(
-    bg = Color(0xFFF4F4F2), surface = Color.White, raised = Color(0xFFEBEBE8), ink = Color(0xFF0E0E0F),
-    dim = Color(0xFF6C6C70), faint = Color(0xFFB5B5B8), line = Color(0xFFE3E3E0), tile = Color.White,
-    hero = Color(0xFF111112), shadow = Color(0x40000000), dark = false,
-)
 private val Dark = MonoPalette(
-    bg = Color(0xFF0A0A0B), surface = Color(0xFF151517), raised = Color(0xFF212124), ink = Color(0xFFF4F4F5),
-    dim = Color(0xFF9A9AA0), faint = Color(0xFF55555B), line = Color(0xFF26262A), tile = Color(0xFF161618),
-    hero = Color(0xFF1B1B1E), shadow = Color(0x99000000), dark = true,
+    bg = Color(0xFF000000), surface = Color(0xFF171717), tile = Color(0xFF1F1F1F),
+    ink = Color(0xFFFFFFFF), dim = Color(0x99FFFFFF), faint = Color(0x4DFFFFFF), line = Color(0x29FFFFFF),
+    accent = Color(0xFFFFC745),
 )
 
-val LocalMono = staticCompositionLocalOf { Light }
+val LocalMono = staticCompositionLocalOf { Dark }
 
 object Mono {
     val c: MonoPalette @Composable get() = LocalMono.current
-    val gutter = 20.dp
-    val radius = 16.dp
-    val cardRadius = 24.dp
+    val gutter = 16.dp
+    val radius = 12.dp
+    val shape = RoundedCornerShape(12.dp)
+    val badgeShape = RoundedCornerShape(4.dp)
 
-    val sans = FontFamily(
-        Font(R.font.nunito_regular, FontWeight.Normal),
-        Font(R.font.nunito_medium, FontWeight.Medium),
-        Font(R.font.nunito_semibold, FontWeight.SemiBold),
-        Font(R.font.nunito_bold, FontWeight.Bold),
-        Font(R.font.nunito_extrabold, FontWeight.ExtraBold),
-    )
+    /** System font (Roboto). Kept as a name so renderers and text fields can refer to it. */
+    val sans: FontFamily = FontFamily.Default
 
-    /** Small uppercase label for section headers and data captions. */
-    fun caps(size: TextUnit = 11.sp) = TextStyle(fontFamily = sans, fontWeight = FontWeight.ExtraBold, fontSize = size, letterSpacing = 1.1.sp)
+    // Type scale (sp), modelled on the iOS text styles the reference uses.
+    val largeTitle = TextStyle(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
+    val title = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+    val headline = TextStyle(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
+    val body = TextStyle(fontSize = 16.sp, lineHeight = 22.sp)
+    val subhead = TextStyle(fontSize = 15.sp, lineHeight = 20.sp)
+    val footnote = TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
+    val caption = TextStyle(fontSize = 12.sp, lineHeight = 16.sp)
 
-    /** Numbers and EXIF: Nunito with tabular figures so columns don't jitter while counting. */
-    fun data(size: TextUnit = 15.sp, weight: FontWeight = FontWeight.SemiBold) =
-        TextStyle(fontFamily = sans, fontWeight = weight, fontSize = size, fontFeatureSettings = "tnum")
+    /** Small section label. Sentence case at footnote size: quiet, not shouty. */
+    fun caps(size: TextUnit = 13.sp) = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = size)
 
-    /** One physical feel for every touch: quick, slightly springy, never bouncy. */
-    fun <T> press() = spring<T>(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow)
-    fun <T> settle() = spring<T>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+    /** EXIF values, counts and times: tabular digits so numbers don't jitter. */
+    fun data(size: TextUnit = 15.sp, weight: FontWeight = FontWeight.Normal) =
+        TextStyle(fontWeight = weight, fontSize = size, fontFeatureSettings = "tnum")
 }
 
-/** Phosphor icons (MIT), shipped as vector drawables. */
+/** Phosphor icons (MIT), shipped as vector drawables, plus a few Material paths. */
 object Ph {
     val camera = R.drawable.ph_camera
     val sd = R.drawable.ph_sim_card
@@ -167,6 +159,15 @@ object Ph {
     val copy = R.drawable.ph_copy
     val crown = R.drawable.ph_crown_simple
     val qr = R.drawable.ph_qr_code
+    val download = R.drawable.ic_download
+    val info = R.drawable.ic_info
+    val infoFill = R.drawable.ic_info_fill
+    val warning = R.drawable.ic_warning
+    val eject = R.drawable.ic_eject
+    val filter = R.drawable.ic_filter
+    val moreVert = R.drawable.ic_more_vert
+    val retry = R.drawable.ic_retry
+    val walk = R.drawable.ic_walk
 }
 
 @Composable
@@ -177,60 +178,58 @@ fun PhIcon(@DrawableRes res: Int, contentDescription: String? = null, modifier: 
     Icon(painterResource(res), contentDescription, modifier.size(size), tint = tint)
 
 @Composable
-fun UnrollTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val p = if (dark) Dark else Light
-    // Material pieces (text fields, switches, menus, progress) resolve to the same greys.
-    val scheme = (if (dark) darkColorScheme() else lightColorScheme()).copy(
-        primary = p.ink, onPrimary = p.bg, secondary = p.dim, onSecondary = p.bg, tertiary = p.dim,
-        background = p.bg, onBackground = p.ink, surface = p.surface, onSurface = p.ink, surfaceVariant = p.raised,
-        onSurfaceVariant = p.dim, outline = p.faint, outlineVariant = p.line, primaryContainer = p.raised,
-        onPrimaryContainer = p.ink, secondaryContainer = p.raised, onSecondaryContainer = p.ink,
-        surfaceContainer = p.surface, surfaceContainerHigh = p.surface, surfaceContainerLow = p.bg,
-        surfaceContainerHighest = p.raised, surfaceContainerLowest = p.bg, error = p.ink, onError = p.bg,
-    )
-    val b = Typography()
-    fun TextStyle.n() = copy(fontFamily = Mono.sans)
-    val type = Typography(
-        b.displayLarge.n(), b.displayMedium.n(), b.displaySmall.n(), b.headlineLarge.n(), b.headlineMedium.n(),
-        b.headlineSmall.n(), b.titleLarge.n(), b.titleMedium.n(), b.titleSmall.n(), b.bodyLarge.n(), b.bodyMedium.n(),
-        b.bodySmall.n(), b.labelLarge.n(), b.labelMedium.n(), b.labelSmall.n(),
+fun VecIcon(icon: ImageVector, contentDescription: String? = null, modifier: Modifier = Modifier, size: Dp = 22.dp, tint: Color = Mono.c.ink) =
+    Icon(icon, contentDescription, modifier.size(size), tint = tint)
+
+/** Dark-only theme: a photo tool's chrome stays out of the way of the pictures. */
+@Composable
+fun UnrollTheme(content: @Composable () -> Unit) {
+    val p = Dark
+    // Material pieces (menus, switches, progress, text fields) resolve to the same greys.
+    val scheme = darkColorScheme(
+        primary = p.ink, onPrimary = p.bg, secondary = p.dim, onSecondary = p.bg, tertiary = p.accent, onTertiary = p.bg,
+        background = p.bg, onBackground = p.ink, surface = p.surface, onSurface = p.ink, surfaceVariant = p.tile,
+        onSurfaceVariant = p.dim, outline = p.faint, outlineVariant = p.line, primaryContainer = p.tile,
+        onPrimaryContainer = p.ink, secondaryContainer = p.tile, onSecondaryContainer = p.ink,
+        surfaceContainer = p.surface, surfaceContainerHigh = Color(0xFF242424), surfaceContainerLow = p.surface,
+        surfaceContainerHighest = Color(0xFF2A2A2A), surfaceContainerLowest = p.bg, surfaceTint = Color.Transparent,
+        error = Color(0xFFFF6B5E), onError = p.bg, inverseSurface = p.ink, inverseOnSurface = p.bg,
     )
     CompositionLocalProvider(LocalMono provides p) {
-        MaterialTheme(colorScheme = scheme, typography = type, content = content)
+        MaterialTheme(colorScheme = scheme, typography = Typography(), content = content)
     }
 }
 
-/** Forces the dark palette for a subtree (shot pager, frame studio). */
+/** Everything is dark now; kept so screens that force dark (pager, frame studio) read naturally. */
 @Composable
-fun DarkSurface(content: @Composable () -> Unit) = UnrollTheme(dark = true, content = content)
+fun DarkSurface(content: @Composable () -> Unit) = content()
 
 // Surfaces
 
-/** A card one step above the background: white on a soft, wide shadow in light mode; a lifted grey in dark. */
+/** A flat panel on the canvas: surface fill, 12 dp corners, no shadow. */
 @Composable
-fun Modifier.card(shape: Shape = RoundedCornerShape(Mono.cardRadius), elevation: Dp = 10.dp): Modifier {
-    val c = Mono.c
-    return this
-        .shadow(if (c.dark) 0.dp else elevation, shape, clip = false, ambientColor = c.shadow, spotColor = c.shadow)
-        .background(c.surface, shape)
-        .then(if (c.dark) Modifier.border(1.dp, c.line, shape) else Modifier)
-        .clip(shape)
+fun Modifier.card(shape: Shape = Mono.shape, @Suppress("UNUSED_PARAMETER") elevation: Dp = 0.dp): Modifier =
+    this.clip(shape).background(Mono.c.surface, shape)
+
+/** Press feedback: a quick dim (120 ms), no scale, no ripple. */
+@Composable
+fun Modifier.pressDim(enabled: Boolean = true, role: Role? = Role.Button, onClickLabel: String? = null, onClick: () -> Unit): Modifier {
+    val src = remember { MutableInteractionSource() }
+    val pressed by src.collectIsPressedAsState()
+    val a by animateFloatAsState(if (pressed) 0.6f else 1f, tween(120), label = "press")
+    return this.clickable(src, null, enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = onClick).graphicsLayer { alpha = a }
 }
 
-/** Spring "press" feedback: a slight sink, no ripple, no colour. */
+/** Older name for [pressDim]; the scale argument is ignored (no scaling). */
 @Composable
-fun Modifier.tilePress(scaleTo: Float = 0.96f, enabled: Boolean = true, onClick: () -> Unit): Modifier {
-    val src = remember { MutableInteractionSource() }
-    val p by src.collectIsPressedAsState()
-    val s by animateFloatAsState(if (p) scaleTo else 1f, Mono.press(), label = "press")
-    return this.graphicsLayer { scaleX = s; scaleY = s }.clickable(src, null, enabled = enabled, onClick = onClick)
-}
+fun Modifier.tilePress(@Suppress("UNUSED_PARAMETER") scaleTo: Float = 1f, enabled: Boolean = true, onClick: () -> Unit): Modifier =
+    pressDim(enabled, onClick = onClick)
 
 // Text
 
 @Composable
-fun CapsLabel(text: String, modifier: Modifier = Modifier, color: Color = Mono.c.dim, size: TextUnit = 11.sp) {
-    Text(text.uppercase(), modifier, style = Mono.caps(size), color = color, maxLines = 1)
+fun CapsLabel(text: String, modifier: Modifier = Modifier, color: Color = Mono.c.dim, size: TextUnit = 13.sp) {
+    Text(text, modifier, style = Mono.caps(size), color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -241,23 +240,23 @@ fun Hairline(modifier: Modifier = Modifier) {
 
 // Sections and rows
 
-/** A titled group of rows on one card, separated by inset hairlines. */
+/** A titled group of rows on one flat panel, separated by inset hairlines. */
 @Composable
-fun MonoSection(title: String? = null, trailing: String? = null, rows: List<@Composable () -> Unit>) {
-    Column(Modifier.padding(horizontal = 16.dp)) {
+fun MonoSection(title: String? = null, trailing: String? = null, footer: String? = null, rows: List<@Composable () -> Unit>) {
+    Column(Modifier.padding(horizontal = Mono.gutter)) {
         if (title != null) {
-            Row(Modifier.padding(horizontal = 6.dp).padding(bottom = 10.dp)) {
-                CapsLabel(title)
-                Spacer(Modifier.weight(1f))
+            Row(Modifier.padding(horizontal = Mono.gutter).padding(bottom = 8.dp)) {
+                CapsLabel(title, Modifier.weight(1f))
                 trailing?.let { CapsLabel(it) }
             }
         }
-        Column(Modifier.fillMaxWidth().card(elevation = 6.dp)) {
+        Column(Modifier.fillMaxWidth().card()) {
             rows.forEachIndexed { i, row ->
                 row()
                 if (i != rows.lastIndex) Hairline(Modifier.padding(start = Mono.gutter))
             }
         }
+        footer?.let { Text(it, Modifier.padding(horizontal = Mono.gutter).padding(top = 8.dp), style = Mono.footnote, color = Mono.c.dim) }
     }
 }
 
@@ -272,16 +271,16 @@ fun MonoRow(
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
-        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .heightIn(min = 56.dp).padding(horizontal = Mono.gutter, vertical = 14.dp),
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.pressDim(onClick = onClick) else Modifier)
+            .heightIn(min = 56.dp).padding(horizontal = Mono.gutter, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.ink)
-            detail?.let { Text(it, fontSize = 13.sp, color = Mono.c.dim, maxLines = 3) }
+            Text(title, style = Mono.body, color = Mono.c.ink)
+            detail?.let { Text(it, style = Mono.footnote, color = Mono.c.dim, maxLines = 3) }
         }
-        value?.let { Text(it, style = Mono.data(14.sp), color = Mono.c.dim) }
+        value?.let { Text(it, style = Mono.data(15.sp), color = Mono.c.dim, textAlign = TextAlign.End) }
         trailing()
         if (chevron) PhIcon(Ph.chevron, size = 14.dp, tint = Mono.c.faint)
     }
@@ -290,131 +289,133 @@ fun MonoRow(
 /** Key / value line for EXIF and recipe data. */
 @Composable
 fun DataRow(key: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(key, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.dim)
+    Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(key, style = Mono.footnote, color = Mono.c.dim)
         Spacer(Modifier.width(12.dp).weight(1f))
-        Text(value, style = Mono.data(14.sp, FontWeight.Bold), color = Mono.c.ink, textAlign = TextAlign.End)
+        Text(value, style = Mono.data(13.sp, FontWeight.Medium), color = Mono.c.ink, textAlign = TextAlign.End)
     }
 }
 
 // Buttons
 
-/** Solid ink button (black on light, white on dark). */
+/** Solid white button. Press = quick dim, no bounce. */
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (enabled) Mono.c.ink else Mono.c.ink.copy(alpha = 0.1f), label = "bg")
     Box(
-        modifier.defaultMinSize(minHeight = 54.dp)
-            .tilePress(0.97f, enabled && !busy, onClick)
-            .shadow(if (enabled && !Mono.c.dark) 8.dp else 0.dp, RoundedCornerShape(Mono.radius), ambientColor = Mono.c.shadow, spotColor = Mono.c.shadow)
-            .background(bg, RoundedCornerShape(Mono.radius))
-            .padding(horizontal = 16.dp),
+        modifier.pressDim(enabled && !busy, onClick = onClick)
+            .heightIn(min = 50.dp)
+            .clip(Mono.shape)
+            .background(if (enabled) Mono.c.ink else Mono.c.ink.copy(alpha = 0.1f), Mono.shape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = Mono.c.bg, strokeWidth = 2.dp)
-        else Text(text, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = if (enabled) Mono.c.bg else Mono.c.ink.copy(alpha = 0.4f), maxLines = 1)
+        else Text(
+            text, style = Mono.body.copy(fontWeight = FontWeight.SemiBold), textAlign = TextAlign.Center,
+            color = if (enabled) Mono.c.bg else Mono.c.ink.copy(alpha = 0.4f), maxLines = 2, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
-/** Quiet button on a raised surface, same footprint as primary. */
+/** Grey filled button, same footprint as primary. */
 @Composable
-fun SecondaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
+fun SecondaryButton(
+    text: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false,
+    @DrawableRes icon: Int? = null, onClick: () -> Unit,
+) {
+    Row(
+        modifier.pressDim(enabled && !busy, onClick = onClick)
+            .heightIn(min = 50.dp)
+            .clip(Mono.shape)
+            .background(Mono.c.tile, Mono.shape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
+    ) {
+        val fg = Mono.c.ink.copy(alpha = if (enabled) 1f else 0.3f)
+        if (busy) { CircularProgressIndicator(Modifier.size(18.dp), color = Mono.c.ink, strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
+        else if (icon != null) { PhIcon(icon, null, size = 18.dp, tint = fg); Spacer(Modifier.width(8.dp)) }
+        Text(text, style = Mono.body.copy(fontWeight = FontWeight.Medium), color = fg, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+    }
+}
+
+/** Icon button with a 48 dp touch target (back, share, more…). */
+@Composable
+fun IconButton(@DrawableRes icon: Int, contentDescription: String?, modifier: Modifier = Modifier, filled: Boolean = false, tint: Color = Mono.c.ink, size: Dp = 22.dp, onClick: () -> Unit) {
     Box(
-        modifier.defaultMinSize(minHeight = 54.dp)
-            .tilePress(0.97f, enabled && !busy, onClick)
-            .background(Mono.c.raised, RoundedCornerShape(Mono.radius))
-            .padding(horizontal = 16.dp),
+        modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).clip(CircleShape).pressDim(onClickLabel = contentDescription, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = Mono.c.ink, strokeWidth = 2.dp)
-        else Text(text, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Mono.c.ink.copy(alpha = if (enabled) 1f else 0.3f), maxLines = 1)
+        Box(Modifier.size(40.dp).background(if (filled) Mono.c.tile else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
+            PhIcon(icon, contentDescription, size = size, tint = tint)
+        }
     }
 }
 
-/** Round icon button (back, share, more…). */
-@Composable
-fun IconButton(@DrawableRes icon: Int, contentDescription: String?, modifier: Modifier = Modifier, filled: Boolean = false, onClick: () -> Unit) {
-    Box(
-        modifier.size(42.dp).tilePress(0.9f, onClick = onClick)
-            .background(if (filled) Mono.c.raised else Color.Transparent, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) { PhIcon(icon, contentDescription, size = 21.dp) }
-}
-
-/** Small capsule button used inline (Cancel, Open Photos…). */
+/** Small inline button (Start / Stop, Cancel, Open Photos…). */
 @Composable
 fun OutlineChip(text: String, filled: Boolean = false, onClick: () -> Unit) {
     Box(
-        Modifier.heightIn(min = 34.dp).tilePress(0.94f, onClick = onClick)
-            .background(if (filled) Mono.c.ink else Mono.c.raised, CircleShape).padding(horizontal = 14.dp),
+        Modifier.heightIn(min = 48.dp).pressDim(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (filled) Mono.c.bg else Mono.c.ink) }
+    ) {
+        Text(
+            text, Modifier.heightIn(min = 32.dp).background(if (filled) Mono.c.ink else Mono.c.tile, RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            style = Mono.footnote.copy(fontWeight = FontWeight.SemiBold), color = if (filled) Mono.c.bg else Mono.c.ink, maxLines = 1,
+        )
+    }
 }
 
-/** On/off chip for option toggles; fills with ink when on. */
+/** On/off chip for option toggles. */
 @Composable
 fun ChipToggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
     val view = androidx.compose.ui.platform.LocalView.current
-    val bg by animateColorAsState(if (on) Mono.c.ink else Mono.c.raised, Mono.settle(), label = "chip")
-    val fg by animateColorAsState(if (on) Mono.c.bg else Mono.c.dim, Mono.settle(), label = "chipText")
     Box(
-        Modifier.heightIn(min = 36.dp).tilePress(0.94f) { Haptics.tick(view); onChange(!on) }.background(bg, CircleShape).padding(horizontal = 14.dp),
+        Modifier.heightIn(min = 48.dp).semantics { selected = on }.pressDim(role = Role.Checkbox) { Haptics.tick(view); onChange(!on) },
         contentAlignment = Alignment.Center,
-    ) { Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = fg, maxLines = 1) }
+    ) {
+        Text(
+            label, Modifier.heightIn(min = 34.dp).background(if (on) Mono.c.ink else Mono.c.tile, RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = if (on) Mono.c.bg else Mono.c.ink, maxLines = 1,
+        )
+    }
 }
 
-/**
- * Segmented filter strip: an ink pill slides (with a spring) to the selected item and the text
- * inverts under it. Scrolls horizontally when it doesn't fit.
- */
+/** Segmented text tabs; the selected one sits on a grey pill. Scrolls horizontally when it doesn't fit. */
 @Composable
-fun <T> TabStrip(items: List<T>, selection: T, label: (T) -> String, count: ((T) -> Int?)? = null, onSelect: (T) -> Unit) {
-    val density = LocalDensity.current
+fun <T> TabStrip(items: List<T>, selection: T, label: (T) -> String, count: ((T) -> Int?)? = null, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
     val view = androidx.compose.ui.platform.LocalView.current
-    val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
-    val idx = items.indexOf(selection).coerceAtLeast(0)
-    val target = bounds[idx]
-    val x by animateFloatAsState(target?.first ?: 0f, Mono.press(), label = "pillX")
-    val w by animateFloatAsState(target?.second ?: 0f, Mono.press(), label = "pillW")
-    Box(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp)) {
-        if (target != null) {
-            Box(
-                Modifier.offset { IntOffset(x.roundToInt(), 0) }.width(with(density) { w.toDp() }).height(38.dp)
-                    .background(Mono.c.ink, CircleShape),
-            )
-        }
-        Row {
-            items.forEachIndexed { i, item ->
-                val on = i == idx
-                val fg by animateColorAsState(if (on) Mono.c.bg else Mono.c.dim, Mono.settle(), label = "tab")
+    Row(modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        items.forEach { item ->
+            val on = item == selection
+            val bg by animateFloatAsState(if (on) 1f else 0f, tween(220), label = "tab")
+            Row(
+                Modifier.heightIn(min = 48.dp).semantics { selected = on }
+                    .pressDim(role = Role.Tab) { if (!on) Haptics.tick(view); onSelect(item) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Row(
-                    Modifier.height(38.dp)
-                        .onGloballyPositioned { c ->
-                            val x0 = c.parentLayoutCoordinates?.localPositionOf(c, Offset.Zero)?.x ?: 0f
-                            bounds[i] = x0 to c.size.width.toFloat()
-                        }
-                        .clip(CircleShape).clickable { if (!on) Haptics.tick(view); onSelect(item) }.padding(horizontal = 14.dp),
+                    Modifier.heightIn(min = 34.dp).background(Mono.c.tile.copy(alpha = bg), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Text(label(item), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = fg)
-                    count?.invoke(item)?.let { Text("$it", style = Mono.data(12.sp, FontWeight.Bold), color = fg.copy(alpha = 0.7f)) }
+                    Text(label(item), style = Mono.subhead.copy(fontWeight = FontWeight.SemiBold), color = if (on) Mono.c.ink else Mono.c.dim, maxLines = 1)
+                    count?.invoke(item)?.let { Text("$it", style = Mono.data(12.sp), color = if (on) Mono.c.dim else Mono.c.faint, maxLines = 1) }
                 }
             }
         }
     }
 }
 
-/** Five stars. Filled = ink, empty = faint; a change pops with a spring. */
+/** Five stars drawn as plain glyphs. Filled = ink, empty = faint. */
 @Composable
 fun StarRow(rating: Int, size: Dp = 12.dp, onTap: ((Int) -> Unit)? = null) {
-    Row(horizontalArrangement = Arrangement.spacedBy(if (onTap != null) 2.dp else 2.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (n in 1..5) {
             val on = n <= rating
-            val s by animateFloatAsState(if (on) 1f else 0.82f, Mono.press(), label = "star")
             PhIcon(
                 if (on) Ph.star else Ph.starOutline, null, size = size, tint = if (on) Mono.c.ink else Mono.c.faint,
-                modifier = (if (onTap != null) Modifier.clip(CircleShape).clickable { onTap(n) }.padding(6.dp) else Modifier)
-                    .graphicsLayer { scaleX = s; scaleY = s },
+                modifier = if (onTap != null) Modifier.clip(CircleShape).clickable { onTap(n) }.padding(6.dp) else Modifier,
             )
         }
     }
@@ -423,79 +424,64 @@ fun StarRow(rating: Int, size: Dp = 12.dp, onTap: ((Int) -> Unit)? = null) {
 /** Empty / status message: plain type, no illustration. */
 @Composable
 fun QuietMessage(title: String, message: String? = null) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter + 6.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-        message?.let { Text(it, fontSize = 15.sp, color = Mono.c.dim, lineHeight = 21.sp) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, style = Mono.headline, color = Mono.c.ink)
+        message?.let { Text(it, style = Mono.subhead, color = Mono.c.dim) }
     }
 }
 
-/** Top bar: round back button, title, actions. */
+/** Top bar: back button, title (with optional subtitle), actions. Grows with the text, never clips it. */
 @Composable
-fun TopBar(title: String, onBack: (() -> Unit)?, @DrawableRes backIcon: Int = Ph.back, actions: @Composable RowScope.() -> Unit = {}) {
+fun TopBar(
+    title: String, onBack: (() -> Unit)?, @DrawableRes backIcon: Int = Ph.back, subtitle: String? = null,
+    background: Color = Mono.c.bg, actions: @Composable RowScope.() -> Unit = {},
+) {
     Row(
-        Modifier.background(Mono.c.bg).statusBarsPadding().fillMaxWidth().height(58.dp).padding(horizontal = 8.dp),
+        Modifier.background(background).statusBarsPadding().fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (onBack != null) IconButton(backIcon, "Back", filled = true, onClick = onBack) else Spacer(Modifier.width(12.dp))
-        Text(
-            title, Modifier.weight(1f).padding(horizontal = 12.dp), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, color = Mono.c.ink,
-        )
+        if (onBack != null) IconButton(backIcon, if (backIcon == Ph.close) "Close" else "Back", onClick = onBack) else Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 6.dp)) {
+            Text(title, style = Mono.headline, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Mono.c.ink)
+            subtitle?.let { Text(it, style = Mono.data(12.sp), color = Mono.c.dim, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
         actions()
     }
 }
 
 @Composable
 fun TextAction(text: String, bold: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
-    Text(
-        text, Modifier.clip(CircleShape).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
-        fontSize = 16.sp, fontWeight = if (bold) FontWeight.ExtraBold else FontWeight.Bold,
-        color = if (enabled) Mono.c.ink else Mono.c.faint,
-    )
-}
-
-// Icons by role (kept as an enum so screens read naturally).
-
-enum class GlyphKind(@DrawableRes val res: Int) {
-    USB(R.drawable.ph_usb), CARD(R.drawable.ph_sim_card), WIFI(R.drawable.ph_wifi_high), RECIPES(R.drawable.ph_aperture),
-    CLOCK(R.drawable.ph_timer), FRAME(R.drawable.ph_frame_corners), MAP(R.drawable.ph_path), GEAR(R.drawable.ph_gear_six),
-    VIDEO(R.drawable.ph_video_camera)
-}
-
-@Composable
-fun Glyph(kind: GlyphKind, modifier: Modifier = Modifier, color: Color = Mono.c.ink, size: Dp = 24.dp) =
-    PhIcon(kind.res, null, modifier, size, color)
-
-/** Tile: icon top-left, count or tag top-right, title and caption at the bottom. Lifts on a soft shadow. */
-@Composable
-fun Tile(glyph: GlyphKind, title: String, caption: String? = null, count: Int = 0, tag: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(
-        modifier.tilePress(onClick = onClick).heightIn(min = 124.dp).card().padding(16.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Glyph(glyph, size = 26.dp)
-            Spacer(Modifier.weight(1f))
-            if (tag != null) {
-                Text(tag.uppercase(), style = Mono.caps(9.sp), color = Mono.c.ink,
-                    modifier = Modifier.background(Mono.c.raised, CircleShape).padding(horizontal = 8.dp, vertical = 4.dp))
-            } else if (count > 0) {
-                AnimatedCount(count, Mono.data(14.sp, FontWeight.Bold), Mono.c.dim)
-            }
-        }
-        Column(Modifier.padding(top = 20.dp)) {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-            caption?.let { Text(it, fontSize = 13.sp, color = Mono.c.dim, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp)) }
-        }
+    Box(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(8.dp)).pressDim(enabled, onClick = onClick).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+        Text(
+            text, style = Mono.body.copy(fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal),
+            color = if (enabled) Mono.c.ink else Mono.c.faint, maxLines = 1,
+        )
     }
 }
 
 @Composable
 fun Spinner(color: Color = Mono.c.dim, size: Dp = 22.dp) = CircularProgressIndicator(Modifier.size(size), color = color, strokeWidth = 2.dp)
 
-/** A chevron that rotates with a spring when [open] changes. */
+/** A chevron that turns when [open] changes. */
 @Composable
 fun Disclosure(open: Boolean, tint: Color = Mono.c.dim) {
-    val r by animateFloatAsState(if (open) 180f else 0f, Mono.press(), label = "disclosure")
+    val r by animateFloatAsState(if (open) 180f else 0f, tween(220), label = "disclosure")
     PhIcon(Ph.caretDown, null, Modifier.rotate(r), size = 13.dp, tint = tint)
 }
+
+/** Thin amber progress bar on a grey track (import progress). */
+@Composable
+fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 4.dp, color: Color = Mono.c.accent, track: Color = Mono.c.tile) {
+    val f by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(250), label = "progress")
+    Box(modifier.fillMaxWidth().height(height).clip(CircleShape).background(track)) {
+        Box(Modifier.fillMaxWidth().height(height).graphicsLayer {
+            val k = f.coerceAtLeast(0.02f)
+            scaleX = k; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)
+        }.background(color, CircleShape))
+    }
+}
+
+/** A small panel border for overlays (toast, HUD). */
+@Composable
+fun Modifier.overlayPanel(shape: Shape = RoundedCornerShape(14.dp)): Modifier =
+    this.clip(shape).background(Mono.c.surface, shape).border(0.5.dp, Mono.c.line, shape)

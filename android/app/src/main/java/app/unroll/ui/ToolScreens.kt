@@ -160,7 +160,7 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Box(Modifier.fillMaxWidth().height(460.dp), contentAlignment = Alignment.Center) {
                 rendered?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
-                    ?: Box(Modifier.fillMaxWidth().height(300.dp).background(Mono.c.raised), contentAlignment = Alignment.Center) {
+                    ?: Box(Modifier.fillMaxWidth().height(300.dp).clip(Mono.shape).background(Mono.c.tile), contentAlignment = Alignment.Center) {
                         if (busy) Spinner() else Text("Pick up to 6 photos", color = Mono.c.dim)
                     }
             }
@@ -168,7 +168,7 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
                 CapsLabel("Title")
                 BasicTextField(
                     title, { title = it }, singleLine = true,
-                    textStyle = TextStyle(fontFamily = Mono.sans, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Mono.c.ink),
+                    textStyle = Mono.title.copy(fontWeight = FontWeight.SemiBold, color = Mono.c.ink),
                     cursorBrush = SolidColor(Mono.c.ink), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 )
                 Hairline()
@@ -179,7 +179,7 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
                 Text("${chosen.size} / 6", style = Mono.data(12.sp), color = Mono.c.dim)
             }
             pool.chunked(4).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     row.forEach { s ->
                         LaunchedEffect(s.id) { Previews.thumbnail(s, app.session) }
                         val i = chosen.indexOf(s.id)
@@ -207,29 +207,36 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
 @Composable
 fun RecipesScreen(app: AppState) {
     Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
-        TopBar("Film recipes", onBack = { app.pop() })
+        TopBar("Recipes", onBack = { app.pop() })
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding()) {
             val items = app.recipes.sorted
             if (items.isEmpty()) {
                 QuietMessage("No recipes yet", "Import Fujifilm shots and every recipe you used is collected here, ready to share or dial back in.")
             }
-            items.forEachIndexed { i, item ->
-                Row(
-                    Modifier.riseIn(i).padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth()
-                        .tilePress(0.98f) { app.push(Screen.RecipeDetail(item.id)) }.card(elevation = 6.dp).padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(44.dp).background(Mono.c.raised, CircleShape), contentAlignment = Alignment.Center) { PhIcon(Ph.film, null, size = 22.dp) }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(item.title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-                        Text(item.recipe.shortLine.removePrefix(item.recipe.filmSimulation + " · "), style = Mono.data(13.sp), color = Mono.c.dim)
-                        item.camera?.let { CapsLabel(it, color = Mono.c.faint, size = 10.sp) }
+            if (items.isNotEmpty()) Column(Modifier.padding(top = 8.dp)) {
+                MonoSection(rows = items.map { item ->
+                    {
+                        Row(
+                            Modifier.fillMaxWidth().pressDim { app.push(Screen.RecipeDetail(item.id)) }.heightIn(min = 64.dp)
+                                .padding(horizontal = Mono.gutter, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            PhIcon(Ph.film, null, size = 20.dp, tint = Mono.c.dim)
+                            Spacer(Modifier.width(16.dp))
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(item.title, style = Mono.body, color = Mono.c.ink)
+                                Text(item.recipe.shortLine.removePrefix(item.recipe.filmSimulation + " · "), style = Mono.data(13.sp), color = Mono.c.dim)
+                                item.camera?.let { Text(it, style = Mono.footnote, color = Mono.c.faint) }
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (item.count == 1) "1 shot" else "${item.count} shots", style = Mono.data(13.sp), color = Mono.c.dim)
+                            Spacer(Modifier.width(8.dp))
+                            PhIcon(Ph.chevron, null, size = 13.dp, tint = Mono.c.faint)
+                        }
                     }
-                    Text(if (item.count == 1) "1 shot" else "${item.count} shots", style = Mono.data(13.sp, FontWeight.Bold), color = Mono.c.dim)
-                }
+                })
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -298,16 +305,16 @@ fun ClockSyncScreen(app: AppState) {
         TopBar("Clock sync", onBack = { app.pop() })
         Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
             Text("Camera clocks drift and ignore time zones, which puts photos in the wrong place on the map. Fix it once per camera.",
-                Modifier.padding(horizontal = Mono.gutter), fontSize = 15.sp, color = Mono.c.dim)
+                Modifier.padding(horizontal = Mono.gutter), style = Mono.subhead, color = Mono.c.dim)
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(Modifier.background(Color.White).padding(14.dp)) {
+                Box(Modifier.clip(RoundedCornerShape(12.dp)).background(Color.White).padding(14.dp)) {
                     Canvas(Modifier.size(240.dp)) {
                         val n = matrix.width
                         val cell = size.width / n
                         for (y in 0 until n) for (x in 0 until n) if (matrix.get(x, y)) drawRect(Color.Black, Offset(x * cell, y * cell), Size(cell + 0.5f, cell + 0.5f))
                     }
                 }
-                Text(Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm:ss")), style = Mono.data(40.sp, FontWeight.Medium), color = Mono.c.ink)
+                Text(Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm:ss")), style = Mono.data(28.sp, FontWeight.Medium), color = Mono.c.ink)
             }
             MonoSection("How", rows = listOf(
                 "Turn the screen brightness up and photograph this code with the camera.",
@@ -317,7 +324,7 @@ fun ClockSyncScreen(app: AppState) {
                 {
                     Row(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Text(String.format(Locale.US, "%02d", i + 1), style = Mono.data(13.sp, FontWeight.Medium), color = Mono.c.dim)
-                        Text(t, fontSize = 15.sp, color = Mono.c.ink)
+                        Text(t, style = Mono.subhead, color = Mono.c.ink)
                     }
                 }
             })
@@ -325,8 +332,8 @@ fun ClockSyncScreen(app: AppState) {
                 PrimaryButton("Read from camera", Modifier.fillMaxWidth(), enabled = app.session != null && !reading, busy = reading) {
                     scope.launch { reading = true; result = readClock(app); reading = false }
                 }
-                if (app.session == null) Text("Connect a camera first.", fontSize = 13.sp, color = Mono.c.dim)
-                result?.let { Text(it, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Mono.c.ink) }
+                if (app.session == null) Text("Connect a camera first.", style = Mono.footnote, color = Mono.c.dim)
+                result?.let { Text(it, style = Mono.subhead.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink) }
             }
             if (app.settings.clockOffsets.isNotEmpty()) {
                 MonoSection("Corrections in use", rows = app.settings.clockOffsets.toSortedMap().map { (model, off) ->
@@ -334,7 +341,7 @@ fun ClockSyncScreen(app: AppState) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(model, Modifier.weight(1f), color = Mono.c.ink)
                             Text(ClockSync.describe(off), style = Mono.data(14.sp), color = Mono.c.dim)
-                            Box(Modifier.padding(start = 8.dp).size(32.dp).clickable { app.settings.setClockOffset(model, null) }, contentAlignment = Alignment.Center) {
+                            Box(Modifier.padding(start = 4.dp).size(48.dp).clickable { app.settings.setClockOffset(model, null) }, contentAlignment = Alignment.Center) {
                                 PhIcon(Ph.close, "Remove correction", size = 16.dp, tint = Mono.c.dim)
                             }
                         }
@@ -375,7 +382,7 @@ fun SettingsScreen(app: AppState) {
     var pickAlbum by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
         TopBar("Settings", onBack = { app.pop() })
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 20.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(30.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
             Column {
                 MonoSection("Import", rows = listOf(
                     { MonoRow("When a camera connects", value = s.autoImport.label, onClick = { pickAuto = !pickAuto }) },
@@ -423,7 +430,7 @@ fun SettingsScreen(app: AppState) {
 }
 
 @Composable
-private fun Footer(text: String) = Text(text, Modifier.padding(horizontal = Mono.gutter, vertical = 8.dp), fontSize = 13.sp, color = Mono.c.dim)
+private fun Footer(text: String) = Text(text, Modifier.padding(horizontal = Mono.gutter * 2, vertical = 8.dp), style = Mono.footnote, color = Mono.c.dim)
 
 @Composable
 private fun ToggleRow(title: String, on: Boolean, onChange: (Boolean) -> Unit) {
@@ -432,7 +439,7 @@ private fun ToggleRow(title: String, on: Boolean, onChange: (Boolean) -> Unit) {
             on, onChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Mono.c.bg, checkedTrackColor = Mono.c.ink, checkedBorderColor = Mono.c.ink,
-                uncheckedThumbColor = Mono.c.dim, uncheckedTrackColor = Mono.c.bg, uncheckedBorderColor = Mono.c.faint,
+                uncheckedThumbColor = Mono.c.dim, uncheckedTrackColor = Mono.c.tile, uncheckedBorderColor = Mono.c.faint,
             ),
         )
     }
@@ -440,11 +447,11 @@ private fun ToggleRow(title: String, on: Boolean, onChange: (Boolean) -> Unit) {
 
 @Composable
 private fun <T> Choices(items: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
-    Column(Modifier.padding(start = Mono.gutter)) {
+    Column(Modifier.padding(start = Mono.gutter * 2, end = Mono.gutter)) {
         items.forEach { item ->
-            Row(Modifier.fillMaxWidth().clickable { onPick(item) }.padding(horizontal = Mono.gutter, vertical = 12.dp)) {
-                Text(label(item), Modifier.weight(1f), color = if (item == selected) Mono.c.ink else Mono.c.dim, fontWeight = if (item == selected) FontWeight.SemiBold else FontWeight.Normal)
-                if (item == selected) Text("✓", color = Mono.c.ink)
+            Row(Modifier.fillMaxWidth().clickable { onPick(item) }.heightIn(min = 48.dp).padding(horizontal = Mono.gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(label(item), Modifier.weight(1f), style = Mono.body, color = if (item == selected) Mono.c.ink else Mono.c.dim)
+                if (item == selected) PhIcon(Ph.check, "Selected", size = 16.dp)
             }
         }
         Hairline()
@@ -466,21 +473,21 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
         "Every frame style" to "Recipe card, Instant and Film strip at full resolution",
         "No watermark" to "On frames, recaps and recipe cards",
     )
-    Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
+    Column(Modifier.fillMaxSize().background(Mono.c.surface)) {
         Box(Modifier.fillMaxWidth().padding(top = 10.dp)) {
-            Box(Modifier.align(Alignment.TopCenter).size(40.dp, 5.dp).background(Mono.c.faint, CircleShape))
-            IconButton(Ph.close, "Close", Modifier.align(Alignment.TopEnd).padding(end = 10.dp, top = 6.dp), filled = true, onClick = onClose)
+            Box(Modifier.align(Alignment.TopCenter).size(36.dp, 4.dp).background(Mono.c.faint, CircleShape))
+            Box(Modifier.align(Alignment.TopEnd).padding(end = 4.dp, top = 4.dp)) { TextAction("Not now", onClick = onClose) }
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(30.dp)) {
             Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CapsLabel("Unroll Pro")
-                Text("Camera to posted, without the busywork.", fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp, color = Mono.c.ink)
+                Text("Camera to posted, without the busywork.", style = Mono.largeTitle, color = Mono.c.ink)
             }
             MonoSection(rows = perks.map { (t, d) ->
                 {
                     Column(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(t, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Mono.c.ink)
-                        Text(d, fontSize = 13.sp, color = Mono.c.dim)
+                        Text(t, style = Mono.body.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink)
+                        Text(d, style = Mono.footnote, color = Mono.c.dim)
                     }
                 }
             })
@@ -489,7 +496,7 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
                 PlanRow(!lifetime, "Yearly", pro.yearlyPrice + " / yr", "7-day free trial") { lifetime = false }
             }
         }
-        Column(Modifier.background(Mono.c.bg).navigationBarsPadding()) {
+        Column(Modifier.background(Mono.c.surface).navigationBarsPadding()) {
             Hairline()
             Column(Modifier.padding(horizontal = Mono.gutter, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 PrimaryButton(if (lifetime) "Buy lifetime" else "Start free trial", Modifier.fillMaxWidth(), busy = pro.purchasing) {
@@ -513,21 +520,21 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
 
 @Composable
 private fun PlanRow(on: Boolean, title: String, price: String, note: String, onClick: () -> Unit) {
-    val border by androidx.compose.animation.animateColorAsState(if (on) Mono.c.ink else Mono.c.line, Mono.settle(), label = "plan")
-    val dot by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0f, Mono.press(), label = "dot")
+    val border = if (on) Mono.c.ink else Mono.c.line
+    val dot by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0f, Motion.snap(), label = "dot")
     Row(
-        Modifier.fillMaxWidth().tilePress(0.98f, onClick = onClick).card(RoundedCornerShape(20.dp), if (on) 12.dp else 4.dp)
-            .border(2.dp, border, RoundedCornerShape(20.dp)).padding(18.dp),
+        Modifier.fillMaxWidth().pressDim(onClick = onClick).clip(Mono.shape)
+            .border(if (on) 1.5.dp else 1.dp, border, Mono.shape).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(Modifier.size(22.dp).border(2.dp, border, CircleShape), contentAlignment = Alignment.Center) {
             Box(Modifier.size(11.dp).graphicsLayer { scaleX = dot; scaleY = dot }.background(Mono.c.ink, CircleShape))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-            Text(note, fontSize = 13.sp, color = Mono.c.dim)
+            Text(title, style = Mono.body.copy(fontWeight = FontWeight.SemiBold), color = Mono.c.ink)
+            Text(note, style = Mono.footnote, color = Mono.c.dim)
         }
-        Text(price, style = Mono.data(16.sp, FontWeight.ExtraBold), color = Mono.c.ink)
+        Text(price, style = Mono.data(15.sp, FontWeight.Medium), color = Mono.c.ink)
     }
 }
 
@@ -536,12 +543,12 @@ private fun PlanRow(on: Boolean, title: String, price: String, note: String, onC
 @Composable
 fun WalksScreen(app: AppState) {
     Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
-        TopBar("Walks", onBack = { app.pop() })
+        TopBar("Photo walks", onBack = { app.pop() })
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding()) {
             val walks = app.walks.walks.reversed()
             if (walks.isEmpty()) QuietMessage("No walks yet", "Start a photo walk before you head out. Imports get their location from it automatically.")
             walks.forEach { w ->
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().card(elevation = 6.dp).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.padding(horizontal = Mono.gutter, vertical = 6.dp).fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (w.points.size > 1) {
                         // Drawn off the main thread; the slot keeps its height while it renders.
                         val bmp by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, w.id, w.points.size) {
@@ -552,12 +559,12 @@ fun WalksScreen(app: AppState) {
                             }
                         }
                         val img = bmp
-                        if (img != null) Image(img, null, Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                        if (img != null) Image(img, null, Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                         else Spacer(Modifier.fillMaxWidth().height(140.dp))
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(Instant.ofEpochMilli(w.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.getDefault())),
-                            fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Mono.c.ink)
+                            style = Mono.body.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink)
                         if (w.isDemo) { Spacer(Modifier.width(8.dp)); CapsLabel("Demo") }
                         Spacer(Modifier.weight(1f))
                         Text(if (w.end == null) "Recording" else String.format(Locale.US, "%.2f km", w.distanceMeters / 1000), style = Mono.data(14.sp), color = Mono.c.dim)
@@ -565,11 +572,13 @@ fun WalksScreen(app: AppState) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val mins = w.durationMillis() / 60_000
                         Text("${mins / 60}h ${mins % 60}m  ·  ${w.points.size} GPS fixes", Modifier.weight(1f), style = Mono.data(12.sp), color = Mono.c.dim)
-                        Text("Delete", Modifier.clickable { app.walks.delete(w) }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
+                        Box(Modifier.heightIn(min = 48.dp).pressDim { app.walks.delete(w) }.padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                            Text("Delete", style = Mono.footnote, color = Mono.c.dim)
+                        }
                     }
                 }
-                Hairline(Modifier.padding(start = Mono.gutter))
             }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

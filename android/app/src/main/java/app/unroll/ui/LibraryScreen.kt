@@ -4,28 +4,27 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.text.format.Formatter
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,19 +32,24 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,17 +58,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -75,43 +84,102 @@ import app.unroll.source.CameraSession
 import app.unroll.source.ImportState
 import app.unroll.source.SessionStatus
 import app.unroll.source.Shot
+import app.unroll.source.SourceKind
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/** The three filters that cover almost every visit. Everything else lives in [FilterOptions]. */
 enum class ShotFilter(val label: String) {
-    ALL("All"), KEEPERS("Picks"), RATED("Rated"), LOCKED("Protected"), NEW("New"), RAW("RAW"), TODAY("Today");
+    ALL("All"), NEW("Not imported"), PICKS("Picks");
 
     fun matches(s: Shot): Boolean = when (this) {
         ALL -> true
-        KEEPERS -> s.isKeeper
-        RATED -> s.isRated
-        LOCKED -> s.isLocked
         NEW -> !s.wasImported
-        RAW -> s.hasRAW
-        TODAY -> s.captureDate.atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now()
+        PICKS -> s.isKeeper
     }
 }
 
+/** Secondary filters, in the filter menu. */
+data class FilterOptions(val minStars: Int = 0, val protectedOnly: Boolean = false, val rawOnly: Boolean = false, val todayOnly: Boolean = false) {
+    val isActive: Boolean get() = minStars > 0 || protectedOnly || rawOnly || todayOnly
+    fun matches(s: Shot, today: LocalDate): Boolean {
+        if (minStars > 0 && s.rating < minStars) return false
+        if (protectedOnly && !s.isLocked) return false
+        if (rawOnly && !s.hasRAW) return false
+        if (todayOnly && s.captureDate.atZone(ZoneId.systemDefault()).toLocalDate() != today) return false
+        return true
+    }
+
+    companion object {
+        val Saver = listSaver<FilterOptions, Int>(
+            save = { listOf(it.minStars, if (it.protectedOnly) 1 else 0, if (it.rawOnly) 1 else 0, if (it.todayOnly) 1 else 0) },
+            restore = { FilterOptions(it[0], it[1] == 1, it[2] == 1, it[3] == 1) },
+        )
+    }
+}
+
+private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
+
+/**
+ * Everything the library shows, computed once per catalog change / filter change, outside the
+ * cells, so header reads and import ticks don't re-render the whole grid.
+ */
+private class LibrarySnapshot(
+    val days: List<Pair<LocalDate, List<Shot>>>,
+    val visible: List<Shot>,
+    val counts: IntArray,
+    val picksToImport: List<Shot>,
+    val newToImport: List<Shot>,
+    val total: Int,
+)
+
+private fun buildSnapshot(all: List<Shot>, filter: ShotFilter, options: FilterOptions): LibrarySnapshot {
+    val today = LocalDate.now()
+    var nNew = 0; var nPicks = 0
+    val picks = ArrayList<Shot>(); val fresh = ArrayList<Shot>(); val vis = ArrayList<Shot>()
+    for (s in all) {
+        val isNew = !s.wasImported
+        val isPick = s.isKeeper
+        if (isNew) nNew++
+        if (isPick) nPicks++
+        if (isNew && !s.isVideo) { fresh += s; if (isPick) picks += s }
+        if (filter.matches(s) && options.matches(s, today)) vis += s
+    }
+    val groups = LinkedHashMap<LocalDate, MutableList<Shot>>()
+    for (s in vis) groups.getOrPut(day(s.fileDate)) { ArrayList() }.add(s)
+    val days = groups.entries.sortedByDescending { it.key }.map { it.key to it.value as List<Shot> }
+    return LibrarySnapshot(days, vis, intArrayOf(all.size, nNew, nPicks), picks, fresh, all.size)
+}
+
 private fun day(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+
+/** Grid sizes in the overflow menu: large / medium / small tiles. Columns follow the screen width. */
+private fun columnsFor(width: Dp, size: Int): Int = when (size) {
+    0 -> maxOf(3, (width / 132.dp).toInt())
+    1 -> maxOf(4, (width / 96.dp).toInt())
+    else -> maxOf(6, (width / 64.dp).toInt())
+}
 
 @Composable
 fun LibraryScreen(app: AppState, session: CameraSession) {
     val context = LocalContext.current
     var filter by rememberSaveable { mutableStateOf(ShotFilter.ALL) }
-    var minStars by rememberSaveable { mutableIntStateOf(1) }
-    var selecting by remember { mutableStateOf(false) }
-    var selection by remember { mutableStateOf(setOf<String>()) }
-    var columns by rememberSaveable { mutableIntStateOf(3) }
-    var menu by remember { mutableStateOf(false) }
+    var options by rememberSaveable(stateSaver = FilterOptions.Saver) { mutableStateOf(FilterOptions()) }
+    var selecting by rememberSaveable { mutableStateOf(false) }
+    var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(setOf<String>()) }
+    var gridSize by rememberSaveable { mutableIntStateOf(1) }
     val grid = rememberLazyGridState()
     val view = androidx.compose.ui.platform.LocalView.current
 
-    // Location sources and the import notification, asked once, where they start to matter.
+    // The import notification and the photo-location source are asked for when the first import
+    // starts (that's when they matter), never just for opening a card.
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
-    LaunchedEffect(session.id) {
+    val importing = app.importer.isRunning
+    LaunchedEffect(importing) {
+        if (!importing) return@LaunchedEffect
         val want = buildList {
             if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
             if (app.settings.borrowPhoneLocations) {
@@ -123,128 +191,75 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
         if (want.isNotEmpty()) perms.launch(want.toTypedArray())
     }
 
+    // Select mode is a temporary state: back leaves it. Back never disconnects.
+    BackHandler(enabled = selecting) { selecting = false; selection = emptySet() }
+
     val shots = session.shots
-    // Derived lists only recompute when what they read changes (the shot list, a filter, a header
-    // landing), not on every recomposition — e.g. each import progress tick.
-    val visible by remember(shots, filter, minStars) {
-        derivedStateOf { shots.filter { filter.matches(it) && (filter != ShotFilter.RATED || it.rating >= minStars) } }
-    }
-    val days by remember(shots, filter, minStars) {
-        derivedStateOf { visible.groupBy { day(it.fileDate) }.toSortedMap(compareByDescending { it }) }
-    }
-    val keepersNotImported by remember(shots) { derivedStateOf { shots.filter { it.isKeeper && !it.wasImported && !it.isVideo } } }
-    val newShots by remember(shots) { derivedStateOf { shots.filter { !it.wasImported && !it.isVideo } } }
-    val filterCounts by remember(shots) {
-        derivedStateOf {
-            val counts = IntArray(ShotFilter.entries.size)
-            for (sh in shots) for (f in ShotFilter.entries) if (f.matches(sh)) counts[f.ordinal]++
-            counts
-        }
-    }
+    // Recomputes only when what it reads changes (the shot list, a filter, a header landing,
+    // an import finishing), not on each progress tick.
+    val snap by remember(shots, filter, options) { derivedStateOf { buildSnapshot(shots, filter, options) } }
 
     fun recapCandidates(): List<Shot> {
-        val picked = shots.filter { it.id in selection }
+        val picked = snap.visible.filter { it.id in selection }
         if (picked.isNotEmpty()) return picked
         val keepers = shots.filter { it.isKeeper }
         return keepers.ifEmpty { shots.take(12) }
     }
 
-    Box(Modifier.fillMaxSize().background(Mono.c.bg)) {
-        Column(Modifier.fillMaxSize()) {
-            TopBar(session.name, onBack = { app.disconnect() }) {
-                TextAction(if (selecting) "Done" else "Select") { selecting = !selecting; if (!selecting) selection = emptySet() }
-                Box {
-                    IconButton(Ph.more, "More", filled = true) { menu = true }
-                    DropdownMenu(menu, { menu = false }, shape = RoundedCornerShape(18.dp)) {
-                        for ((n, label) in listOf(2 to "Large grid", 3 to "Medium grid", 5 to "Small grid")) {
-                            DropdownMenuItem({ Text(label, fontWeight = if (columns == n) FontWeight.ExtraBold else FontWeight.SemiBold) }, { columns = n; menu = false },
-                                trailingIcon = { if (columns == n) PhIcon(Ph.check, null, size = 16.dp) })
-                        }
-                        DropdownMenuItem({ Text("Make a recap card", fontWeight = FontWeight.SemiBold) }, { menu = false; app.push(Screen.Recap(recapCandidates())) },
-                            leadingIcon = { PhIcon(Ph.images, null, size = 18.dp) })
-                        DropdownMenuItem({ Text("Disconnect", fontWeight = FontWeight.SemiBold) }, { menu = false; app.disconnect() },
-                            leadingIcon = { PhIcon(Ph.plug, null, size = 18.dp) })
-                    }
-                }
+    Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
+        LibraryTopBar(
+            app, session, snap, selecting, gridSize,
+            onSelectToggle = { selecting = !selecting; if (!selecting) selection = emptySet() },
+            onGridSize = { gridSize = it },
+            onRecap = { app.push(Screen.Recap(recapCandidates())) },
+        )
+        // Pinned filter bar.
+        Column(Modifier.background(Mono.c.bg)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                TabStrip(ShotFilter.entries, filter, { it.label }, { snap.counts[it.ordinal] }, Modifier.weight(1f)) { filter = it }
+                FilterMenu(options) { options = it }
+                Spacer(Modifier.width(4.dp))
             }
+            ScanProgressLine(session)
+        }
 
-            LazyVerticalGrid(
-                GridCells.Fixed(columns), Modifier.weight(1f), state = grid,
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 120.dp),
-                horizontalArrangement = Arrangement.spacedBy(if (columns >= 5) 3.dp else 5.dp),
-                verticalArrangement = Arrangement.spacedBy(if (columns >= 5) 3.dp else 5.dp),
-            ) {
-                item(span = { GridItemSpan(maxLineSpan) }, key = "header") { SessionHeader(session) }
-                item(span = { GridItemSpan(maxLineSpan) }, key = "filters") {
-                    Column(Modifier.padding(horizontal = 0.dp)) {
-                        Box(Modifier.padding(horizontal = 0.dp)) {
-                            TabStrip(ShotFilter.entries, filter, { it.label }, { f -> filterCounts[f.ordinal] }) { filter = it }
-                        }
-                        AnimatedVisibility(filter == ShotFilter.RATED, enter = expandVertically(Mono.press()) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                            Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                CapsLabel("At least")
-                                Spacer(Modifier.width(8.dp))
-                                StarRow(minStars, 18.dp) { minStars = it }
-                                Spacer(Modifier.weight(1f))
-                                if (!session.scanComplete) Text("Reading ${session.scanned}/${shots.size}", style = Mono.data(12.sp), color = Mono.c.dim)
-                            }
-                        }
-                    }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val columns = columnsFor(maxWidth, gridSize)
+            val status = session.status
+            when {
+                status is SessionStatus.Failed -> QuietMessage("Connection lost", status.message)
+                shots.isEmpty() -> LoadingState(status)
+                snap.visible.isEmpty() -> {
+                    val plain = !options.isActive
+                    QuietMessage(
+                        if (filter == ShotFilter.NEW && plain) "All caught up" else "Nothing here",
+                        when {
+                            filter == ShotFilter.NEW && plain -> "Everything on this card is already in Photos."
+                            filter == ShotFilter.PICKS && plain -> "Rate or protect shots on the camera and they show up here."
+                            else -> "No shots match these filters."
+                        },
+                    )
                 }
-                val status = session.status
-                when {
-                    status is SessionStatus.Failed -> item(span = { GridItemSpan(maxLineSpan) }) { QuietMessage("Connection lost", status.message) }
-                    shots.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
-                        Column(Modifier.fillMaxWidth().padding(top = 80.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Spinner()
-                            Spacer(Modifier.height(14.dp))
-                            Text(
-                                when (status) {
-                                    SessionStatus.Connecting -> "Opening session…"
-                                    is SessionStatus.Cataloging -> if (status.percent > 0) "Reading card  ${status.percent}%" else "Reading card…"
-                                    else -> "No photos on this card"
-                                },
-                                style = Mono.data(14.sp), color = Mono.c.dim,
-                            )
+                else -> LazyVerticalGrid(
+                    GridCells.Fixed(columns), Modifier.fillMaxSize(), state = grid,
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    for ((d, list) in snap.days) {
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "day-$d", contentType = "day") {
+                            DayHeader(d, list, selecting, selection) { selection = it }
                         }
-                    }
-                    visible.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }, key = "empty-$filter") {
-                        Box(Modifier.riseIn(0, filter)) {
-                            QuietMessage(
-                                if (filter == ShotFilter.NEW) "All caught up" else "Nothing here",
-                                when (filter) {
-                                    ShotFilter.KEEPERS, ShotFilter.RATED, ShotFilter.LOCKED -> "Rate or protect shots on the camera body and they show up here. Picks are shots that are rated or protected."
-                                    ShotFilter.NEW -> "Everything on this card is already in your photo library."
-                                    else -> "No shots match this filter."
-                                },
-                            )
-                        }
-                    }
-                    else -> for ((d, list) in days) {
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "day-$d") {
-                            Row(Modifier.animateItem().padding(start = 6.dp, end = 2.dp, top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(dayTitle(d), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-                                Spacer(Modifier.width(8.dp))
-                                AnimatedCount(list.size, Mono.data(14.sp, FontWeight.Bold), Mono.c.dim)
-                                Spacer(Modifier.weight(1f))
-                                AnimatedVisibility(selecting, enter = fadeIn() + scaleIn(initialScale = 0.9f), exit = fadeOut()) {
-                                    val allIn = list.all { it.id in selection }
-                                    TextAction(if (allIn) "Deselect day" else "Select day") {
-                                        selection = if (allIn) selection - list.map { it.id }.toSet() else selection + list.map { it.id }
-                                    }
-                                }
-                            }
-                        }
-                        itemsIndexed(list, key = { _, it -> it.id }) { index, shot ->
-                            LaunchedEffect(shot.id) { session.prioritize(shot) }
+                        items(list, key = { it.id }, contentType = { "shot" }) { shot ->
                             ShotCell(
-                                session, shot, index, columns, selecting, shot.id in selection,
-                                Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = Mono.press()),
+                                session, shot, selecting, shot.id in selection,
                                 onTap = {
                                     if (selecting) { Haptics.tick(view); selection = if (shot.id in selection) selection - shot.id else selection + shot.id }
-                                    else app.push(Screen.Detail(visible, shot.id))
+                                    else app.push(Screen.Detail(snap.visible, shot.id))
                                 },
-                                onLong = { Haptics.press(view); selecting = true; selection = selection + shot.id },
+                                onOpen = { app.push(Screen.Detail(snap.visible, shot.id)) },
+                                onImport = { app.importShots(listOf(shot)) },
+                                onSelect = { selecting = true; selection = selection + shot.id },
                             )
                         }
                     }
@@ -252,37 +267,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
             }
         }
 
-        // Floating action bar: switches between import and selection modes.
-        val selected = remember(shots, selection) { if (selection.isEmpty()) emptyList() else shots.filter { it.id in selection } }
-        val mode = when { selecting -> 1; !app.importer.isRunning -> 0; else -> 2 }
-        AnimatedContent(
-            mode, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
-            transitionSpec = { (slideInVertically(Mono.press()) { it / 2 } + fadeIn()).togetherWith(slideOutVertically { it / 2 } + fadeOut(tween(120))) },
-            label = "actions",
-        ) { m ->
-            when (m) {
-                1 -> Row(Modifier.fillMaxWidth().card(RoundedCornerShape(22.dp), 16.dp).padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (selected.isEmpty()) Text("Tap to select", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink)
-                            else { AnimatedCount(selected.size, TextStyle(fontFamily = Mono.sans, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold), Mono.c.ink); Text(" selected", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Mono.c.ink) }
-                        }
-                        if (selected.isNotEmpty()) Text(Formatter.formatShortFileSize(context, selected.sumOf { it.totalBytes }), style = Mono.data(12.sp), color = Mono.c.dim)
-                    }
-                    SecondaryButton("Recap", Modifier.width(92.dp), enabled = selected.isNotEmpty()) { app.push(Screen.Recap(selected)) }
-                    PrimaryButton("Import", Modifier.width(104.dp), enabled = selected.isNotEmpty()) {
-                        app.importShots(selected); selecting = false; selection = emptySet()
-                    }
-                }
-                0 -> Row(Modifier.fillMaxWidth().card(RoundedCornerShape(22.dp), 16.dp).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PrimaryButton("Import picks  ${keepersNotImported.size}${if (session.scanComplete) "" else "+"}", Modifier.weight(1f), enabled = keepersNotImported.isNotEmpty()) {
-                        app.importShots(keepersNotImported)
-                    }
-                    SecondaryButton("All new  ${newShots.size}", Modifier.weight(1f), enabled = newShots.isNotEmpty()) { app.importShots(newShots) }
-                }
-                else -> Spacer(Modifier.height(1.dp))
-            }
-        }
+        LibraryBottomBar(app, session, snap, selecting, selection) { selecting = false; selection = emptySet() }
     }
 }
 
@@ -293,117 +278,333 @@ private fun dayTitle(d: LocalDate): String = when (d) {
 }
 
 @Composable
-private fun SessionHeader(session: CameraSession) {
-    val shots = session.shots
-    Column(Modifier.padding(top = 4.dp, bottom = 8.dp).card(RoundedCornerShape(22.dp), 8.dp)) {
-        Row(Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
-            Stat(shots.size, "shots", Modifier.weight(1f))
-            Stat(shots.count { it.isKeeper }, "picks", Modifier.weight(1f))
-            Stat(shots.count { it.wasImported }, "imported", Modifier.weight(1f))
-            Column(Modifier.weight(1f)) {
-                Text(session.kind.label, style = Mono.data(22.sp, FontWeight.ExtraBold), color = Mono.c.ink, maxLines = 1)
-                CapsLabel("source", size = 10.sp)
-            }
-        }
-        val status = session.status
-        val progress: Float? = when {
-            status is SessionStatus.Cataloging -> status.percent / 100f
-            status == SessionStatus.Ready && !session.scanComplete && shots.isNotEmpty() -> session.scanned.toFloat() / shots.size
-            else -> null
-        }
-        val p by animateFloatAsState(progress ?: 1f, Mono.settle(), label = "progress")
-        AnimatedVisibility(progress != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically(Mono.settle()) + fadeOut()) {
-            Column(Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp)) {
-                Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(Mono.c.raised)) {
-                    Box(Modifier.fillMaxWidth(p.coerceIn(0f, 1f)).height(4.dp).background(Mono.c.ink, CircleShape))
-                }
-                val line = when (status) {
-                    SessionStatus.Connecting -> "Connecting over ${session.kind.label}…"
-                    is SessionStatus.Cataloging -> "Cataloging card  ${status.percent}%"
-                    is SessionStatus.Failed -> ""
-                    SessionStatus.Ready -> "Reading ratings  ${session.scanned}/${shots.size}"
-                }
-                Text(line, style = Mono.data(12.sp), color = Mono.c.dim, modifier = Modifier.padding(top = 8.dp))
+private fun DayHeader(d: LocalDate, list: List<Shot>, selecting: Boolean, selection: Set<String>, onSelection: (Set<String>) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(start = Mono.gutter, end = 4.dp, top = 14.dp, bottom = 4.dp).heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(dayTitle(d), style = Mono.subhead.copy(fontWeight = FontWeight.SemiBold), color = Mono.c.ink)
+        Spacer(Modifier.width(8.dp))
+        Text("${list.size}", Modifier.weight(1f), style = Mono.data(13.sp), color = Mono.c.dim)
+        if (selecting) {
+            val allIn = list.all { it.id in selection }
+            Box(Modifier.heightIn(min = 48.dp).pressDim {
+                onSelection(if (allIn) selection - list.map { it.id }.toSet() else selection + list.map { it.id })
+            }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                Text(if (allIn) "Deselect" else "Select all", style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink)
             }
         }
     }
 }
 
 @Composable
-private fun Stat(value: Int, label: String, modifier: Modifier) {
-    Column(modifier) {
-        AnimatedCount(value, Mono.data(22.sp, FontWeight.ExtraBold), Mono.c.ink)
-        CapsLabel(label, size = 10.sp)
+private fun LoadingState(status: SessionStatus) {
+    Column(Modifier.fillMaxWidth().padding(top = 120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spinner()
+        Spacer(Modifier.height(12.dp))
+        Text(
+            when (status) {
+                SessionStatus.Connecting -> "Opening the camera…"
+                is SessionStatus.Cataloging -> if (status.percent > 0) "Reading card · ${status.percent}%" else "Reading card…"
+                else -> "No photos on this card"
+            },
+            style = Mono.data(13.sp), color = Mono.c.dim,
+        )
     }
 }
 
-private val badgeStyle = TextStyle(fontWeight = FontWeight.ExtraBold, fontSize = 10.sp, color = Color.White, fontFeatureSettings = "tnum")
+// Top bar
 
-/** Small frosted pill over a photo. */
+private val SourceKind.icon: Int get() = when (this) {
+    SourceKind.USB -> Ph.usb
+    SourceKind.CARD -> Ph.sd
+    SourceKind.WIFI -> Ph.wifi
+    SourceKind.DEMO -> Ph.film
+}
+
 @Composable
-private fun Badge(modifier: Modifier, content: @Composable () -> Unit) {
+private fun LibraryTopBar(
+    app: AppState, session: CameraSession, snap: LibrarySnapshot, selecting: Boolean, gridSize: Int,
+    onSelectToggle: () -> Unit, onGridSize: (Int) -> Unit, onRecap: () -> Unit,
+) {
+    var connMenu by remember { mutableStateOf(false) }
+    var more by remember { mutableStateOf(false) }
     Row(
-        modifier.padding(5.dp).background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) { content() }
+        Modifier.background(Mono.c.bg).statusBarsPadding().fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box {
+            IconButton(session.kind.icon, "Connection: ${session.kind.label}") { connMenu = true }
+            MonoMenu(connMenu, { connMenu = false }) {
+                MenuLabel(session.kind.label)
+                MenuItem("Disconnect", Ph.eject) { connMenu = false; app.disconnect() }
+            }
+        }
+        Column(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 6.dp)) {
+            Text(session.name, style = Mono.headline, color = Mono.c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle(session, snap), style = Mono.data(12.sp), color = Mono.c.dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        TextAction(if (selecting) "Done" else "Select", bold = selecting, onClick = onSelectToggle)
+        Box {
+            IconButton(Ph.moreVert, "More options") { more = true }
+            MonoMenu(more, { more = false }) {
+                for ((n, label) in listOf(0 to "Large tiles", 1 to "Medium tiles", 2 to "Small tiles")) {
+                    MenuItem(label, checked = gridSize == n) { onGridSize(n); more = false }
+                }
+                MenuDivider()
+                MenuItem("Make a recap card", Ph.images) { more = false; onRecap() }
+                MenuDivider()
+                MenuLabel("Tools")
+                MenuItem("Photo walks", Ph.path) { more = false; app.push(Screen.Walks) }
+                MenuItem("Recipes", Ph.film) { more = false; app.push(Screen.Recipes) }
+                MenuItem("Clock sync", Ph.timer) { more = false; app.push(Screen.ClockSync) }
+                MenuItem("Settings", Ph.gear) { more = false; app.push(Screen.Settings) }
+                MenuDivider()
+                MenuItem("Disconnect", Ph.eject) { more = false; app.disconnect() }
+            }
+        }
+    }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+/** "342 photos · 128 not imported", or what the connection is doing. */
+private fun subtitle(session: CameraSession, snap: LibrarySnapshot): String = when (val st = session.status) {
+    SessionStatus.Connecting -> "Connecting…"
+    is SessionStatus.Cataloging -> if (st.percent > 0) "Reading card · ${st.percent}%" else "Reading card…"
+    is SessionStatus.Failed -> "Disconnected"
+    SessionStatus.Ready -> {
+        val new = snap.counts[ShotFilter.NEW.ordinal]
+        val total = snap.total
+        "$total ${if (total == 1) "photo" else "photos"}" + if (new in 1 until total) " · $new not imported" else ""
+    }
+}
+
+@Composable
+private fun FilterMenu(options: FilterOptions, onChange: (FilterOptions) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(Ph.filter, if (options.isActive) "More filters, on" else "More filters", tint = if (options.isActive) Mono.c.accent else Mono.c.dim) { open = true }
+        MonoMenu(open, { open = false }) {
+            MenuLabel("Stars")
+            MenuItem("Any rating", checked = options.minStars == 0) { onChange(options.copy(minStars = 0)); open = false }
+            for (n in 1..5) {
+                MenuItem("★".repeat(n) + if (n < 5) " or more" else "", checked = options.minStars == n) { onChange(options.copy(minStars = n)); open = false }
+            }
+            MenuDivider()
+            MenuItem("Protected only", checked = options.protectedOnly) { onChange(options.copy(protectedOnly = !options.protectedOnly)); open = false }
+            MenuItem("RAW only", checked = options.rawOnly) { onChange(options.copy(rawOnly = !options.rawOnly)); open = false }
+            MenuItem("Shot today", checked = options.todayOnly) { onChange(options.copy(todayOnly = !options.todayOnly)); open = false }
+            if (options.isActive) {
+                MenuDivider()
+                MenuItem("Clear filters") { onChange(FilterOptions()); open = false }
+            }
+        }
+    }
+}
+
+// Menus: flat surface, hairline border, no shadow.
+
+@Composable
+fun MonoMenu(expanded: Boolean, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    DropdownMenu(
+        expanded, onDismiss, shape = RoundedCornerShape(12.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 0.dp, shadowElevation = 0.dp, border = BorderStroke(0.5.dp, Mono.c.line), content = content,
+    )
+}
+
+@Composable
+fun MenuItem(text: String, icon: Int? = null, checked: Boolean? = null, onClick: () -> Unit) {
+    val lead: (@Composable () -> Unit)? = icon?.let { res -> { PhIcon(res, null, size = 20.dp, tint = Mono.c.dim) } }
+    val trail: (@Composable () -> Unit)? = if (checked == true) { { PhIcon(Ph.check, "Selected", size = 16.dp) } } else null
+    DropdownMenuItem(
+        text = { Text(text, style = Mono.body, color = Mono.c.ink) },
+        onClick = onClick,
+        leadingIcon = lead,
+        trailingIcon = trail,
+        modifier = Modifier.widthIn(min = 200.dp).then(if (checked != null) Modifier.semantics { selected = checked } else Modifier),
+    )
+}
+
+@Composable
+private fun MenuLabel(text: String) {
+    Text(text, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = Mono.footnote.copy(fontWeight = FontWeight.SemiBold), color = Mono.c.dim)
+}
+
+@Composable
+private fun MenuDivider() = HorizontalDivider(Modifier.padding(vertical = 4.dp), thickness = 0.5.dp, color = Mono.c.line)
+
+/** A 2 dp amber line under the filters while the card is cataloged or ratings are being read. */
+@Composable
+private fun ScanProgressLine(session: CameraSession) {
+    val status = session.status
+    val shots = session.shots
+    val progress: Float? = when {
+        status is SessionStatus.Cataloging -> status.percent / 100f
+        status == SessionStatus.Ready && shots.isNotEmpty() && !session.scanComplete ->
+            session.scanned.toFloat() / maxOf(1, shots.count { !it.isVideo })
+        else -> null
+    }
+    if (progress == null) { Hairline(); return }
+    val p by animateFloatAsState(progress.coerceIn(0f, 1f), tween(250), label = "scan")
+    Box(Modifier.fillMaxWidth().height(2.dp).background(Mono.c.line).semantics { contentDescription = "Reading ratings" }) {
+        Box(Modifier.fillMaxSize().graphicsLayer {
+            scaleX = p.coerceAtLeast(0.02f); transformOrigin = TransformOrigin(0f, 0.5f)
+        }.background(Mono.c.accent))
+    }
+}
+
+// Bottom bar: one smart import button, the selection, or the running import.
+
+@Composable
+private fun LibraryBottomBar(app: AppState, session: CameraSession, snap: LibrarySnapshot, selecting: Boolean, selection: Set<String>, endSelection: () -> Unit) {
+    val context = LocalContext.current
+    val mode = when {
+        selecting -> 1
+        app.importVisible -> 2
+        session.shots.isNotEmpty() -> 0
+        else -> -1
+    }
+    if (mode == -1) { Spacer(Modifier.navigationBarsPadding()); return }
+    Column(Modifier.fillMaxWidth().background(Mono.c.surface)) {
+        Hairline()
+        AnimatedContent(
+            mode, Modifier.fillMaxWidth().navigationBarsPadding(), label = "bar",
+            transitionSpec = { fadeIn(tween(220)).togetherWith(fadeOut(tween(150))) },
+        ) { m ->
+            Box(Modifier.fillMaxWidth().padding(start = Mono.gutter, end = Mono.gutter, top = 10.dp, bottom = 8.dp)) {
+                when (m) {
+                    1 -> {
+                        val selected = remember(snap, selection) { snap.visible.filter { it.id in selection } }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                Text(if (selected.isEmpty()) "Select photos" else "${selected.size} selected", style = Mono.data(15.sp, FontWeight.SemiBold), color = Mono.c.ink)
+                                if (selected.isNotEmpty()) Text(Formatter.formatShortFileSize(context, selected.sumOf { it.totalBytes }), style = Mono.data(12.sp), color = Mono.c.dim)
+                            }
+                            SecondaryButton("Recap", Modifier.widthIn(min = 88.dp), enabled = selected.isNotEmpty()) { app.push(Screen.Recap(selected)) }
+                            PrimaryButton("Import", Modifier.widthIn(min = 100.dp), enabled = selected.isNotEmpty()) { app.importShots(selected); endSelection() }
+                        }
+                    }
+                    2 -> ImportStatusBar(app)
+                    else -> {
+                        val picks = snap.picksToImport
+                        val fresh = snap.newToImport
+                        when {
+                            picks.isNotEmpty() -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                PrimaryButton("Import ${picks.size} ${if (picks.size == 1) "pick" else "picks"}", Modifier.weight(1f)) { app.importShots(picks) }
+                                if (fresh.size > picks.size) SecondaryButton("All ${fresh.size}", Modifier.widthIn(min = 112.dp)) { app.importShots(fresh) }
+                            }
+                            fresh.isNotEmpty() -> PrimaryButton("Import ${fresh.size} new ${if (fresh.size == 1) "photo" else "photos"}", Modifier.fillMaxWidth()) { app.importShots(fresh) }
+                            else -> Row(Modifier.fillMaxWidth().heightIn(min = 50.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                                PhIcon(Ph.checkCircle, null, size = 18.dp, tint = Mono.c.dim)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Everything here is in Photos", style = Mono.subhead, color = Mono.c.dim)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Cell
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ShotCell(
-    session: CameraSession, shot: Shot, index: Int, columns: Int, selecting: Boolean, selected: Boolean,
-    modifier: Modifier, onTap: () -> Unit, onLong: () -> Unit,
+    session: CameraSession, shot: Shot, selecting: Boolean, selected: Boolean,
+    onTap: () -> Unit, onOpen: () -> Unit, onImport: () -> Unit, onSelect: () -> Unit,
 ) {
     // Re-runs when the thumbnail cache evicted this cell's image while it was still on screen.
-    val missing = shot.thumbnail == null
-    LaunchedEffect(shot.id, missing) { Previews.thumbnail(shot, session) }
-    val shape = RoundedCornerShape(if (columns >= 5) 6.dp else 12.dp)
-    val inset by animateFloatAsState(if (selecting && selected) 0.88f else if (selecting) 0.95f else 1f, Mono.press(), label = "inset")
-    val imageAlpha by animateFloatAsState(if (shot.thumbnail != null) 1f else 0f, tween(260), label = "thumb")
+    val thumb = shot.thumbnail
+    LaunchedEffect(shot.id, thumb == null) { if (thumb == null) Previews.thumbnail(shot, session) }
+    LaunchedEffect(shot.id) { session.prioritize(shot) }
+    // A cached thumbnail shows at once; one that arrives later fades in over 200 ms.
+    val fade = remember(shot.id) { Animatable(if (thumb != null) 1f else 0f) }
+    LaunchedEffect(thumb != null) { if (thumb != null) fade.animateTo(1f, tween(200)) }
+    var menu by remember { mutableStateOf(false) }
+    val view = androidx.compose.ui.platform.LocalView.current
+
     Box(
-        modifier.aspectRatio(1f).popIn(index, shot.id)
-            .combinedClickable(onClick = onTap, onLongClick = onLong),
+        Modifier.aspectRatio(1f).background(Mono.c.tile)
+            .semantics(mergeDescendants = true) {
+                contentDescription = buildList {
+                    add(shot.primary.name)
+                    if (shot.rating > 0) add("${shot.rating} stars")
+                    if (shot.isLocked) add("protected")
+                    if (shot.wasImported) add("in Photos")
+                }.joinToString(", ")
+                if (selecting) this.selected = selected
+            }
+            .combinedClickable(
+                onClickLabel = if (selecting) "Select" else "Open", onLongClickLabel = "More options",
+                onClick = onTap, onLongClick = { Haptics.press(view); menu = true },
+            ),
     ) {
-        Box(
-            Modifier.fillMaxSize().graphicsLayer { scaleX = inset; scaleY = inset }
-                .sharedPhoto(shot.id).clip(shape).background(Mono.c.raised),
-        ) {
-            shot.thumbnail?.let { Image(it, null, Modifier.fillMaxSize().graphicsLayer { alpha = imageAlpha }, contentScale = ContentScale.Crop) }
-                ?: if (shot.isVideo) Glyph(GlyphKind.VIDEO, Modifier.align(Alignment.Center), Mono.c.dim) else Unit
-            if (shot.isKeeper) {
-                Badge(Modifier.align(Alignment.TopStart)) {
-                    if (shot.rating > 0) {
-                        PhIcon(Ph.star, null, size = 10.dp, tint = Color.White)
-                        Text("${shot.rating}", style = badgeStyle)
-                    }
-                    if (shot.isLocked) PhIcon(Ph.lock, "Protected", size = 10.dp, tint = Color.White)
-                }
-            }
-            if (shot.hasRAW || shot.isVideo) {
-                Badge(Modifier.align(Alignment.BottomStart)) { Text(if (shot.isVideo) "VID" else if (shot.raw != null) "J+R" else "RAW", style = badgeStyle) }
-            }
-            // Keyed by the kind of state, so a progress tick updates the % text instead of starting a transition.
-            AnimatedContent(shot.importState to shot.wasImported, Modifier.align(Alignment.BottomEnd), label = "state",
-                transitionSpec = { scaleIn(Mono.press(), initialScale = 0.6f) + fadeIn() togetherWith fadeOut() },
-                contentKey = { (st, done) -> (if (st is ImportState.Importing) "importing" else st.toString()) to done }) { (st, done) ->
-                when (st) {
-                    ImportState.Queued -> Badge(Modifier) { Text("···", style = badgeStyle) }
-                    is ImportState.Importing -> Badge(Modifier) { Text("${(st.fraction * 100).toInt()}%", style = badgeStyle) }
-                    is ImportState.Failed -> Badge(Modifier) { Text("!", style = badgeStyle) }
-                    else -> if (done) Badge(Modifier) { PhIcon(Ph.check, "Imported", size = 10.dp, tint = Color.White) } else Spacer(Modifier.size(1.dp))
-                }
-            }
+        Box(Modifier.fillMaxSize().sharedPhoto(shot.id)) {
+            if (thumb != null) Image(thumb, null, Modifier.fillMaxSize().graphicsLayer { alpha = fade.value }, contentScale = ContentScale.Crop)
+            else if (shot.isVideo) PhIcon(Ph.video, null, Modifier.align(Alignment.Center), size = 20.dp, tint = Mono.c.dim)
         }
-        AnimatedVisibility(selecting, Modifier.align(Alignment.TopEnd).padding(8.dp), enter = scaleIn(Mono.press()) + fadeIn(), exit = scaleOut() + fadeOut()) {
-            Box(
-                Modifier.size(22.dp).background(if (selected) Mono.c.ink else Color.Black.copy(alpha = 0.25f), CircleShape)
-                    .border(1.5.dp, if (selected) Mono.c.bg else Color.White, CircleShape),
-                contentAlignment = Alignment.Center,
+        if (shot.isKeeper) {
+            Row(
+                Modifier.align(Alignment.TopStart).padding(4.dp).background(Color.Black.copy(alpha = 0.55f), Mono.badgeShape).padding(horizontal = 5.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                AnimatedVisibility(selected, enter = scaleIn(Mono.press(), initialScale = 0.3f), exit = scaleOut()) {
-                    PhIcon(Ph.check, null, size = 12.dp, tint = Mono.c.bg)
+                if (shot.rating > 0) {
+                    PhIcon(Ph.star, null, size = 10.dp, tint = Color.White)
+                    Text("${shot.rating}", style = Mono.data(10.sp, FontWeight.Bold), color = Color.White)
+                }
+                if (shot.isLocked) PhIcon(Ph.lock, null, size = 10.dp, tint = Color.White)
+            }
+        }
+        if (shot.isVideo && thumb != null) {
+            PhIcon(Ph.video, null, Modifier.align(Alignment.BottomStart).padding(5.dp), size = 12.dp, tint = Color.White)
+        }
+        ImportOverlay(shot, selecting)
+        if (selecting) SelectionMark(selected, Modifier.align(Alignment.TopEnd))
+
+        MonoMenu(menu, { menu = false }) {
+            MenuItem("Open", Ph.images) { menu = false; onOpen() }
+            if (!shot.wasImported && shot.importState == ImportState.None || shot.importState is ImportState.Failed) {
+                MenuItem("Import", Ph.download) { menu = false; if (shot.importState is ImportState.Failed) shot.importState = ImportState.None; onImport() }
+            }
+            if (!selecting) MenuItem("Select", Ph.checkCircle) { menu = false; onSelect() }
+        }
+    }
+}
+
+/** Queued: dimmed. Importing: a thin amber fill along the bottom. Failed: a warning. Done: a small check. */
+@Composable
+private fun ImportOverlay(shot: Shot, selecting: Boolean) {
+    when (val st = shot.importState) {
+        ImportState.Queued -> Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+        is ImportState.Importing -> {
+            val f by animateFloatAsState(st.fraction.toFloat().coerceIn(0f, 1f), tween(250), label = "cell")
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f))) {
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).graphicsLayer {
+                    scaleX = f.coerceAtLeast(0.03f); transformOrigin = TransformOrigin(0f, 0.5f)
+                }.background(Mono.c.accent))
+            }
+        }
+        is ImportState.Failed -> Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+            PhIcon(Ph.warning, "Import failed", size = 18.dp, tint = Color.White)
+        }
+        else -> if (shot.wasImported && !selecting) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+                Box(Modifier.padding(4.dp).size(16.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(11.dp).background(Color.Black, CircleShape))
+                    PhIcon(Ph.checkCircle, null, size = 16.dp, tint = Color.White)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SelectionMark(selected: Boolean, modifier: Modifier) {
+    if (selected) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
+    Box(
+        modifier.padding(6.dp).size(22.dp)
+            .background(if (selected) Color.White else Color.Black.copy(alpha = 0.2f), CircleShape)
+            .border(1.5.dp, Color.White, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) PhIcon(Ph.check, null, size = 12.dp, tint = Color.Black)
     }
 }
