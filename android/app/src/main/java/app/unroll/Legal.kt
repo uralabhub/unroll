@@ -1,7 +1,8 @@
 package app.unroll
 
-/** Store-required links; pages live in docs/ and are served by GitHub Pages. */
+/** Store-required links served at https://unroll.uranashel.com (sources in site/). */
 object Legal {
-    const val PRIVACY = "https://tannguyenwatt.github.io/unroll/privacy.html"
-    const val SUPPORT = "https://tannguyenwatt.github.io/unroll/support.html"
+    const val PRIVACY = "https://unroll.uranashel.com/en/privacy"
+    const val TERMS = "https://unroll.uranashel.com/en/terms"
+    const val SUPPORT = "https://unroll.uranashel.com/en/support"
 }

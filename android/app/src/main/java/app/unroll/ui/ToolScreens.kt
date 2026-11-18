@@ -454,6 +454,7 @@ fun SettingsScreen(app: AppState) {
             val uri = androidx.compose.ui.platform.LocalUriHandler.current
             MonoSection(index = 7, rows = listOf(
                 { MonoRow("Privacy policy", onClick = { uri.openUri(Legal.PRIVACY) }) },
+                { MonoRow("Terms of use", onClick = { uri.openUri(Legal.TERMS) }) },
                 { MonoRow("Support", onClick = { uri.openUri(Legal.SUPPORT) }) },
             ))
             if (BuildConfig.DEBUG) MonoSection("Developer", index = 8, rows = listOf(
@@ -573,6 +574,7 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
                 val uri = androidx.compose.ui.platform.LocalUriHandler.current
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Restore", Modifier.clickable { pro.restore() }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
+                    Text("Terms", Modifier.clickable { uri.openUri(Legal.TERMS) }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
                     Text("Privacy", Modifier.clickable { uri.openUri(Legal.PRIVACY) }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
                 }
             }
