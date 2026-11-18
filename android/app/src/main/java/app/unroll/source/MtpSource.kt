@@ -92,8 +92,8 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
     private val partial64Supported: Boolean by lazy { supports(OP_GET_PARTIAL_OBJECT_64) ?: false }
     /** Set when a camera claimed GetPartialObject64 but refused it: retries use GetObject instead. */
     @Volatile private var partial64Broken = false
-    /** Partial reads that hung. After two, imports use whole-object GetObject (some responders
-     *  stall on GetPartialObject for certain files while GetObject works). */
+    /** Partial reads that hung. After one, imports use whole-object GetObject (some responders,
+     *  the iPhone among them, stall on GetPartialObject for certain files while GetObject works). */
     private val cameraKey = "${device.vendorId}:${device.productId}:${runCatching { device.serialNumber }.getOrNull()}"
     private val partialHangs: Int get() = partialHangsByCamera[cameraKey] ?: 0
 
@@ -138,6 +138,7 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
         if (hungObjects[cameraKey]?.contains(handle) == true) throw IOException("The camera stalled reading this file before.")
         // ~4 MB in 30 s is < 140 KB/s: slower than any working USB 2 link.
         return try { op("GetPartialObject(handle=$handle, offset=$offset, length=$length)", 30_000) {
+            val t0 = System.nanoTime()
             val buf = ByteArray(length)
             // GetPartialObject (PTP 0x101B) takes a 32-bit offset; the 64-bit variant is an Android
             // extension most cameras don't implement, so only use it past 4 GB (long videos).
@@ -147,6 +148,7 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
                 mtp.getPartialObject64(handle, offset, length.toLong(), buf)
             }
             if (n <= 0) throw IOException("The camera returned no data.")
+            Log.d(TAG, "GetPartialObject handle=$handle offset=$offset length=$length -> $n in ${(System.nanoTime() - t0) / 1_000_000} ms")
             if (n.toInt() == length) buf else buf.copyOf(n.toInt())
         } } catch (e: CameraTimeoutException) {
             partialHangsByCamera.merge(cameraKey, 1, Int::plus)
@@ -163,7 +165,7 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
      */
     suspend fun copyObject(handle: Int, size: Long, out: OutputStream, progress: (Double) -> Unit, check: () -> Unit) {
         val known = size > 0 && size != SIZE_UNKNOWN_32
-        if (!partialSupported || !known || partialHangs >= 2 ||
+        if (!partialSupported || !known || partialHangs >= 1 ||
             (size > SIZE_UNKNOWN_32 && (!partial64Supported || partial64Broken))) {
             importWhole(handle, if (known) size else null, out, progress, check)
             return
@@ -195,7 +197,9 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
         try {
             // No progress while the camera sends the object; allow ≥ 1 MB/s plus a minute.
             val timeout = 60_000L + (size ?: (4L shl 30)) / 1000
-            val ok = op("GetObject", timeout) { mtp.importFile(handle, tmp.path) }
+            val t0 = System.nanoTime()
+            val ok = op("GetObject(handle=$handle, size=$size)", timeout) { mtp.importFile(handle, tmp.path) }
+            Log.d(TAG, "GetObject handle=$handle -> ${tmp.length()} bytes in ${(System.nanoTime() - t0) / 1_000_000} ms")
             if (!ok) throw IOException("The camera didn't send the file.")
             if (size != null && tmp.length() != size) throw IOException("The camera sent ${tmp.length()} of $size bytes.")
             tmp.inputStream().use { pump(it, out, tmp.length(), progress, check) }
@@ -449,7 +453,15 @@ class UsbCameraService(private val context: Context) {
     private suspend fun catalog(cam: MtpCamera, s: CameraSession) {
         items.clear(); folders.clear()
         s.status = SessionStatus.Cataloging(0)
-        val handles = withContext(Dispatchers.IO) { runCatching { allHandles(cam) }.getOrNull() }
+        // Right after a reopen (above all after a PTP reset) some devices, the iPhone among them,
+        // report no storage for a moment: ask again before calling it a failure.
+        var handles: IntArray? = null
+        for (attempt in 0 until 6) {
+            handles = withContext(Dispatchers.IO) { runCatching { allHandles(cam) }.getOrNull() }
+            if (handles != null || cam.closed) break
+            Log.i(TAG, "No storage listed yet (attempt ${attempt + 1}); asking again")
+            delay(1500)
+        }
         if (handles == null) {
             if (!cam.closed) s.status = SessionStatus.Failed("The camera didn't list its files. Unplug, set USB to PTP/MTP, and try again.")
             return
