@@ -61,7 +61,7 @@ Unroll/
 ## 4. Kiếm tiền và lan truyền
 
 - **Free:** xem toàn bộ thẻ, EXIF và recipe; import 10 ảnh/ngày; 3 kiểu khung; có watermark nhỏ "Unroll".
-- **Pro:** Yearly $14.99 (dùng thử 7 ngày) · **Founder Lifetime $29.99**. Mở khoá import không giới hạn, tự import ảnh ★/🔒, geotag tự động, mọi kiểu khung, bỏ watermark.
+- **Pro:** Weekly $1.99 · Monthly $3.99 · Yearly $14.99 (dùng thử 7 ngày) · **Founder Lifetime $29.99**. Mở khoá import không giới hạn, tự import ảnh ★/🔒, geotag tự động, mọi kiểu khung, bỏ watermark.
 - **Paywall hiện đúng lúc người dùng thấy giá trị:** khi họ chọn import nhiều hơn số còn lại trong ngày.
 - **Vòng lặp lan truyền:** recap card 9:16, khung EXIF và thẻ recipe đều có dòng "made with Unroll" (bản free).
 

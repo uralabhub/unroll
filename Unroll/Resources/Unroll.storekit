@@ -34,6 +34,36 @@
           "subscriptionGroupID" : "21500001",
           "type" : "RecurringSubscription",
           "winbackOffers" : []
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "3.99",
+          "familyShareable" : true,
+          "groupNumber" : 2,
+          "internalID" : "6740000004",
+          "localizations" : [ { "description" : "All Pro features, billed monthly.", "displayName" : "Pro Monthly", "locale" : "en_US" } ],
+          "productID" : "com.uranashel.unroll.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "1.99",
+          "familyShareable" : true,
+          "groupNumber" : 3,
+          "internalID" : "6740000005",
+          "localizations" : [ { "description" : "All Pro features, billed weekly.", "displayName" : "Pro Weekly", "locale" : "en_US" } ],
+          "productID" : "com.uranashel.unroll.pro.weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Pro Weekly",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
         }
       ]
     }

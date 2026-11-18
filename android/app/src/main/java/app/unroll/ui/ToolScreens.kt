@@ -30,7 +30,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -158,13 +175,18 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
             }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(Modifier.fillMaxWidth().height(460.dp), contentAlignment = Alignment.Center) {
-                rendered?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
-                    ?: Box(Modifier.fillMaxWidth().height(300.dp).clip(Mono.shape).background(Mono.c.tile), contentAlignment = Alignment.Center) {
-                        if (busy) Spinner() else Text("Pick up to 6 photos", color = Mono.c.dim)
+            Box(Modifier.fillMaxWidth().height(460.dp).riseIn(0), contentAlignment = Alignment.Center) {
+                // Each re-render cross-fades over the last one instead of blinking.
+                Crossfade(rendered, Modifier.fillMaxSize(), animationSpec = tween(260), label = "recap") { r ->
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        r?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
+                            ?: Box(Modifier.fillMaxWidth().height(300.dp).clip(Mono.shape).background(Mono.c.tile).sheen(busy, 0.12f), contentAlignment = Alignment.Center) {
+                                if (!busy) Text("Pick up to 6 photos", color = Mono.c.dim)
+                            }
                     }
+                }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.riseIn(1), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 CapsLabel("Title")
                 BasicTextField(
                     title, { title = it }, singleLine = true,
@@ -173,30 +195,41 @@ fun RecapScreen(app: AppState, shots: List<Shot>) {
                 )
                 Hairline()
             }
-            Row {
+            Row(Modifier.riseIn(2)) {
                 CapsLabel("Photos")
                 Spacer(Modifier.weight(1f))
-                Text("${chosen.size} / 6", style = Mono.data(12.sp), color = Mono.c.dim)
+                AnimatedCount(chosen.size, Mono.data(12.sp), Mono.c.dim, suffix = " / 6")
             }
-            pool.chunked(4).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            pool.chunked(4).forEachIndexed { ri, row ->
+                Row(Modifier.riseIn(3 + ri), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     row.forEach { s ->
                         LaunchedEffect(s.id) { Previews.thumbnail(s, app.session) }
                         val i = chosen.indexOf(s.id)
-                        Box(Modifier.weight(1f).aspectRatio(1f).background(Mono.c.raised).clickable {
+                        val inset by animateFloatAsState(if (i >= 0) 0.92f else 1f, Motion.bouncy(), label = "pick")
+                        Box(Modifier.weight(1f).aspectRatio(1f).background(Mono.c.raised).pressDim(role = Role.Checkbox) {
                             chosen = if (i >= 0) chosen - s.id else if (chosen.size < 6) chosen + s.id else chosen
                         }) {
-                            s.thumbnail?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-                            if (i >= 0) {
-                                Box(Modifier.fillMaxSize().border(2.dp, Color.White))
-                                Box(Modifier.align(Alignment.TopEnd).size(22.dp).background(Color.White), contentAlignment = Alignment.Center) {
-                                    Text("${i + 1}", style = Mono.data(12.sp, FontWeight.SemiBold), color = Color.Black)
-                                }
-                            }
+                            s.thumbnail?.let { Image(it, null, Modifier.fillMaxSize().graphicsLayer { scaleX = inset; scaleY = inset }, contentScale = ContentScale.Crop) }
+                            PickMark(i)
                         }
                     }
                     repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
+            }
+        }
+    }
+}
+
+/** White frame and order number on a chosen recap photo; both pop in. */
+@Composable
+private fun PickMark(i: Int) {
+    Box(Modifier.fillMaxSize()) {
+        AnimatedVisibility(i >= 0, enter = fadeIn(tween(150)) + scaleIn(Motion.bouncy(), initialScale = 1.15f), exit = fadeOut(tween(120))) {
+            Box(Modifier.fillMaxSize().border(2.dp, Color.White))
+        }
+        AnimatedVisibility(i >= 0, Modifier.align(Alignment.TopEnd), enter = scaleIn(spring(dampingRatio = 0.45f, stiffness = 600f)), exit = scaleOut(tween(120))) {
+            Box(Modifier.size(22.dp).background(Color.White), contentAlignment = Alignment.Center) {
+                AnimatedCount(maxOf(i, 0) + 1, Mono.data(12.sp, FontWeight.SemiBold), Color.Black)
             }
         }
     }
@@ -217,7 +250,7 @@ fun RecipesScreen(app: AppState) {
                 MonoSection(rows = items.map { item ->
                     {
                         Row(
-                            Modifier.fillMaxWidth().pressDim { app.push(Screen.RecipeDetail(item.id)) }.heightIn(min = 64.dp)
+                            Modifier.fillMaxWidth().pressDim(scale = 0.98f) { app.push(Screen.RecipeDetail(item.id)) }.heightIn(min = 64.dp)
                                 .padding(horizontal = Mono.gutter, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -253,7 +286,7 @@ fun RecipeDetailScreen(app: AppState, id: String) {
             IconButton(Ph.trash, "Delete") { app.recipes.delete(id); app.pop() }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.padding(horizontal = Mono.gutter).riseIn(0), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 CapsLabel("Name")
                 Box {
                     if (name.isEmpty()) Text(item.recipe.filmSimulation, fontSize = 17.sp, color = Mono.c.faint, modifier = Modifier.padding(vertical = 8.dp))
@@ -262,8 +295,8 @@ fun RecipeDetailScreen(app: AppState, id: String) {
                 }
                 Hairline()
             }
-            MonoSection("Settings", rows = item.recipe.rows.map { (k, v) -> { Box(Modifier.padding(horizontal = Mono.gutter)) { DataRow(k, v) } } })
-            Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            MonoSection("Settings", index = 1, rows = item.recipe.rows.map { (k, v) -> { Box(Modifier.padding(horizontal = Mono.gutter)) { DataRow(k, v) } } })
+            Column(Modifier.padding(horizontal = Mono.gutter).riseIn(6), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Share recipe card", Modifier.fillMaxWidth()) {
                     val title = name.ifBlank { item.title }
                     val watermark = !app.pro.isPro
@@ -305,8 +338,8 @@ fun ClockSyncScreen(app: AppState) {
         TopBar("Clock sync", onBack = { app.pop() })
         Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
             Text("Camera clocks drift and ignore time zones, which puts photos in the wrong place on the map. Fix it once per camera.",
-                Modifier.padding(horizontal = Mono.gutter), style = Mono.subhead, color = Mono.c.dim)
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Modifier.padding(horizontal = Mono.gutter).riseIn(0), style = Mono.subhead, color = Mono.c.dim)
+            Column(Modifier.fillMaxWidth().riseIn(1), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Box(Modifier.clip(RoundedCornerShape(12.dp)).background(Color.White).padding(14.dp)) {
                     Canvas(Modifier.size(240.dp)) {
                         val n = matrix.width
@@ -314,9 +347,9 @@ fun ClockSyncScreen(app: AppState) {
                         for (y in 0 until n) for (x in 0 until n) if (matrix.get(x, y)) drawRect(Color.Black, Offset(x * cell, y * cell), Size(cell + 0.5f, cell + 0.5f))
                     }
                 }
-                Text(Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm:ss")), style = Mono.data(28.sp, FontWeight.Medium), color = Mono.c.ink)
+                RollingText(Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm:ss")), Mono.data(28.sp, FontWeight.Medium), Mono.c.ink)
             }
-            MonoSection("How", rows = listOf(
+            MonoSection("How", index = 2, rows = listOf(
                 "Turn the screen brightness up and photograph this code with the camera.",
                 "Connect the camera by cable or card.",
                 "Tap Read from camera. Unroll compares the code with the photo’s timestamp.",
@@ -328,20 +361,22 @@ fun ClockSyncScreen(app: AppState) {
                     }
                 }
             })
-            Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.padding(horizontal = Mono.gutter).riseIn(6).animateContentSize(Motion.float()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Read from camera", Modifier.fillMaxWidth(), enabled = app.session != null && !reading, busy = reading) {
                     scope.launch { reading = true; result = readClock(app); reading = false }
                 }
                 if (app.session == null) Text("Connect a camera first.", style = Mono.footnote, color = Mono.c.dim)
-                result?.let { Text(it, style = Mono.subhead.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink) }
+                AnimatedContent(result, label = "clockResult", transitionSpec = {
+                    (fadeIn(tween(220)) + slideInVertically(Motion.bouncy()) { it / 3 }).togetherWith(fadeOut(tween(120)))
+                }) { r -> if (r != null) Text(r, style = Mono.subhead.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink) }
             }
             if (app.settings.clockOffsets.isNotEmpty()) {
-                MonoSection("Corrections in use", rows = app.settings.clockOffsets.toSortedMap().map { (model, off) ->
+                MonoSection("Corrections in use", index = 7, rows = app.settings.clockOffsets.toSortedMap().map { (model, off) ->
                     {
                         Row(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(model, Modifier.weight(1f), color = Mono.c.ink)
                             Text(ClockSync.describe(off), style = Mono.data(14.sp), color = Mono.c.dim)
-                            Box(Modifier.padding(start = 4.dp).size(48.dp).clickable { app.settings.setClockOffset(model, null) }, contentAlignment = Alignment.Center) {
+                            Box(Modifier.padding(start = 4.dp).size(48.dp).clip(CircleShape).pressDim(onClickLabel = "Remove correction") { app.settings.setClockOffset(model, null) }, contentAlignment = Alignment.Center) {
                                 PhIcon(Ph.close, "Remove correction", size = 16.dp, tint = Mono.c.dim)
                             }
                         }
@@ -384,43 +419,49 @@ fun SettingsScreen(app: AppState) {
         TopBar("Settings", onBack = { app.pop() })
         Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
             Column {
-                MonoSection("Import", rows = listOf(
+                MonoSection("Import", index = 0, rows = listOf(
                     { MonoRow("When a camera connects", value = s.autoImport.label, onClick = { pickAuto = !pickAuto }) },
                     { ToggleRow("Keep RAW with JPEG", s.includeRAW) { s.includeRAW = it } },
                     { MonoRow("Save to", value = s.albumMode.label, onClick = { pickAlbum = !pickAlbum }) },
                     { ToggleRow("Eject camera when done", s.autoEject) { s.autoEject = it } },
                 ))
-                if (pickAuto) Choices(AutoImportRule.entries, s.autoImport, { it.label }) { s.autoImport = it; pickAuto = false }
-                if (pickAlbum) Choices(AlbumMode.entries, s.albumMode, { it.label }) { s.albumMode = it; pickAlbum = false }
+                Reveal(pickAuto) { Choices(AutoImportRule.entries, s.autoImport, { it.label }) { s.autoImport = it; pickAuto = false } }
+                Reveal(pickAlbum) { Choices(AlbumMode.entries, s.albumMode, { it.label }) { s.albumMode = it; pickAlbum = false } }
                 Footer("Picks are shots you rated or protected on the camera body. Auto-import of picks is part of Pro. JPG and RAW are saved side by side in DCIM/Unroll under the same name.")
             }
             Column {
-                MonoSection("Location", rows = listOf(
+                MonoSection("Location", index = 3, rows = listOf(
                     { ToggleRow("Add location to imports", s.geotag) { s.geotag = it } },
                     { ToggleRow("Borrow location from phone photos", s.borrowPhoneLocations) { s.borrowPhoneLocations = it } },
                     { MonoRow("Camera clock corrections", value = "${s.clockOffsets.size}", onClick = { app.push(Screen.ClockSync) }) },
                 ))
                 Footer("Uses your Photo Walk trail first, then phone photos taken within 20 minutes. Android galleries only read location from inside the file, so a JPEG that needs one gets a GPS block appended to its EXIF; image data, maker notes and recipe stay byte-identical. RAW files are never changed.")
             }
-            MonoSection("Unroll Pro", rows = buildList {
+            Column {
+                MonoSection("Connections", index = 4, rows = listOf(
+                    { MonoRow("Ricoh GR over Wi‑Fi", detail = "GR III, GR IIIx: join the camera's Wi‑Fi in Android settings first", onClick = { app.connectRicoh() }) },
+                ))
+                Footer("USB cameras and SD cards work from the home screen. Wi‑Fi transfer is only available for Ricoh GR cameras.")
+            }
+            MonoSection("Unroll Pro", index = 5, rows = buildList {
                 if (app.pro.isPro) add { MonoRow("Pro is unlocked. Thank you.", chevron = false) }
                 else {
                     add { MonoRow("See Pro", onClick = { app.showPaywall = true }) }
-                    add { MonoRow("Free imports left today", value = "${app.quota.remaining} of ${Quota.FREE_PER_DAY}", chevron = false) }
+                    add { MonoRow("Free imports left today", chevron = false) { AnimatedCount(app.quota.remaining, Mono.data(15.sp), Mono.c.dim, suffix = " of ${Quota.FREE_PER_DAY}") } }
                 }
                 add { MonoRow("Restore purchases", onClick = { app.pro.restore() }) }
             })
             val uri = androidx.compose.ui.platform.LocalUriHandler.current
-            MonoSection(rows = listOf(
+            MonoSection(index = 7, rows = listOf(
                 { MonoRow("Privacy policy", onClick = { uri.openUri(Legal.PRIVACY) }) },
                 { MonoRow("Support", onClick = { uri.openUri(Legal.SUPPORT) }) },
             ))
-            if (BuildConfig.DEBUG) MonoSection("Developer", rows = listOf(
+            if (BuildConfig.DEBUG) MonoSection("Developer", index = 8, rows = listOf(
                 { ToggleRow("Unlock Pro (testing)", app.pro.debugUnlock) { app.pro.debugUnlock = it } },
                 { MonoRow("Forget import history", chevron = false, onClick = { app.ledger.reset(); app.toast = "Import history cleared" }) },
             ))
             Column {
-                MonoSection(rows = listOf({
+                MonoSection(index = 8, rows = listOf({
                     MonoRow("Version", value = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "—", chevron = false)
                 }))
                 Footer("No account, no analytics, no cloud. Everything stays on your phone.")
@@ -445,13 +486,20 @@ private fun ToggleRow(title: String, on: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
+/** Options that unfold under their row and fold away again. */
+@Composable
+private fun Reveal(open: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(open, enter = expandVertically(Motion.float()) + fadeIn(tween(200)), exit = shrinkVertically(tween(220)) + fadeOut(tween(150))) { content() }
+}
+
 @Composable
 private fun <T> Choices(items: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
     Column(Modifier.padding(start = Mono.gutter * 2, end = Mono.gutter)) {
         items.forEach { item ->
-            Row(Modifier.fillMaxWidth().clickable { onPick(item) }.heightIn(min = 48.dp).padding(horizontal = Mono.gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(label(item), Modifier.weight(1f), style = Mono.body, color = if (item == selected) Mono.c.ink else Mono.c.dim)
-                if (item == selected) PhIcon(Ph.check, "Selected", size = 16.dp)
+            Row(Modifier.fillMaxWidth().pressDim(scale = 0.98f) { onPick(item) }.heightIn(min = 48.dp).padding(horizontal = Mono.gutter, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                val fg by animateColorAsState(if (item == selected) Mono.c.ink else Mono.c.dim, Motion.snap(), label = "choice")
+                Text(label(item), Modifier.weight(1f), style = Mono.body, color = fg)
+                AnimatedVisibility(item == selected, enter = scaleIn(Motion.bouncy()) + fadeIn(), exit = scaleOut() + fadeOut()) { PhIcon(Ph.check, "Selected", size = 16.dp) }
             }
         }
         Hairline()
@@ -463,7 +511,10 @@ private fun <T> Choices(items: List<T>, selected: T, label: (T) -> String, onPic
 @Composable
 fun PaywallSheet(app: AppState, onClose: () -> Unit) {
     val context = LocalContext.current
-    var lifetime by remember { mutableStateOf(true) }
+    var plan by remember { mutableStateOf("lifetime") }
+    val lifetime = plan == "lifetime"
+    var lastSub by remember { mutableStateOf("yearly") }   // keeps the renewal note steady while it collapses
+    LaunchedEffect(plan) { if (!lifetime) lastSub = plan }
     val pro = app.pro
     LaunchedEffect(pro.isPro) { if (pro.isPro) onClose() }
     val perks = listOf(
@@ -479,11 +530,12 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
             Box(Modifier.align(Alignment.TopEnd).padding(end = 4.dp, top = 4.dp)) { TextAction("Not now", onClick = onClose) }
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(30.dp)) {
-            Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(horizontal = Mono.gutter).riseIn(0), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PhIcon(Ph.crown, null, Modifier.popOn(pro.isPro), size = 28.dp, tint = Mono.c.accent)
                 CapsLabel("Unroll Pro")
                 Text("Camera to posted, without the busywork.", style = Mono.largeTitle, color = Mono.c.ink)
             }
-            MonoSection(rows = perks.map { (t, d) ->
+            MonoSection(index = 1, rows = perks.map { (t, d) ->
                 {
                     Column(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(t, style = Mono.body.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink)
@@ -491,23 +543,33 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
                     }
                 }
             })
-            Column(Modifier.padding(horizontal = Mono.gutter), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                PlanRow(lifetime, "Lifetime", pro.lifetimePrice, "Pay once. Founder price.") { lifetime = true }
-                PlanRow(!lifetime, "Yearly", pro.yearlyPrice + " / yr", "7-day free trial") { lifetime = false }
+            Column(Modifier.padding(horizontal = Mono.gutter).riseIn(7), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                PlanRow(plan == "lifetime", "Lifetime", pro.lifetimePrice, "Pay once. Founder price.") { plan = "lifetime" }
+                PlanRow(plan == "yearly", "Yearly", pro.yearlyPrice + " / yr", "7-day free trial. Best value.") { plan = "yearly" }
+                PlanRow(plan == "monthly", "Monthly", pro.monthlyPrice + " / mo", "Cancel anytime") { plan = "monthly" }
+                PlanRow(plan == "weekly", "Weekly", pro.weeklyPrice + " / wk", "For a single trip") { plan = "weekly" }
             }
         }
         Column(Modifier.background(Mono.c.surface).navigationBarsPadding()) {
             Hairline()
             Column(Modifier.padding(horizontal = Mono.gutter, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                PrimaryButton(if (lifetime) "Buy lifetime" else "Start free trial", Modifier.fillMaxWidth(), busy = pro.purchasing) {
-                    val product = if (lifetime) pro.lifetime else pro.yearly
+                val buttonTitle = when (plan) { "lifetime" -> "Buy lifetime"; "yearly" -> "Start free trial"; else -> "Subscribe" }
+                PrimaryButton(buttonTitle, Modifier.fillMaxWidth(), busy = pro.purchasing) {
+                    val product = when (plan) { "lifetime" -> pro.lifetime; "yearly" -> pro.yearly; "monthly" -> pro.monthly; else -> pro.weekly }
                     val activity = context as? Activity
                     if (product == null || activity == null) pro.message = "Google Play isn’t reachable right now. Try again shortly."
                     else pro.buy(activity, product)
                 }
                 pro.message?.let { Text(it, fontSize = 13.sp, color = Mono.c.dim) }
-                if (!lifetime) Text("7 days free, then a yearly charge. Renews automatically until you cancel in Google Play › Subscriptions.",
-                    fontSize = 11.sp, color = Mono.c.dim, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                AnimatedVisibility(!lifetime, enter = expandVertically(Motion.float()) + fadeIn(tween(200)), exit = shrinkVertically(tween(200)) + fadeOut(tween(120))) {
+                    val lead = when (if (lifetime) lastSub else plan) {
+                        "yearly" -> "7 days free, then ${pro.yearlyPrice} a year."
+                        "monthly" -> "${pro.monthlyPrice} a month."
+                        else -> "${pro.weeklyPrice} a week."
+                    }
+                    Text("$lead Renews automatically until you cancel in Google Play › Subscriptions.",
+                        fontSize = 11.sp, color = Mono.c.dim, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
                 val uri = androidx.compose.ui.platform.LocalUriHandler.current
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Restore", Modifier.clickable { pro.restore() }.padding(4.dp), fontSize = 13.sp, color = Mono.c.dim)
@@ -520,10 +582,10 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
 
 @Composable
 private fun PlanRow(on: Boolean, title: String, price: String, note: String, onClick: () -> Unit) {
-    val border = if (on) Mono.c.ink else Mono.c.line
-    val dot by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0f, Motion.snap(), label = "dot")
+    val border by animateColorAsState(if (on) Mono.c.ink else Mono.c.line, Motion.snap(), label = "planBorder")
+    val dot by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0f, spring(dampingRatio = 0.45f, stiffness = 600f), label = "dot")
     Row(
-        Modifier.fillMaxWidth().pressDim(onClick = onClick).clip(Mono.shape)
+        Modifier.fillMaxWidth().pressDim(scale = 0.97f, onClick = onClick).popOn(on, 1.03f).clip(Mono.shape)
             .border(if (on) 1.5.dp else 1.dp, border, Mono.shape).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -547,8 +609,8 @@ fun WalksScreen(app: AppState) {
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding()) {
             val walks = app.walks.walks.reversed()
             if (walks.isEmpty()) QuietMessage("No walks yet", "Start a photo walk before you head out. Imports get their location from it automatically.")
-            walks.forEach { w ->
-                Column(Modifier.padding(horizontal = Mono.gutter, vertical = 6.dp).fillMaxWidth().card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            walks.forEachIndexed { wi, w ->
+                Column(Modifier.padding(horizontal = Mono.gutter, vertical = 6.dp).fillMaxWidth().riseIn(wi, w.id).card().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (w.points.size > 1) {
                         // Drawn off the main thread; the slot keeps its height while it renders.
                         val bmp by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, w.id, w.points.size) {
@@ -558,16 +620,17 @@ fun WalksScreen(app: AppState) {
                                 b.asImageBitmap()
                             }
                         }
-                        val img = bmp
-                        if (img != null) Image(img, null, Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
-                        else Spacer(Modifier.fillMaxWidth().height(140.dp))
+                        Crossfade(bmp, animationSpec = tween(300), label = "route") { img ->
+                            if (img != null) Image(img, null, Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+                            else Box(Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(8.dp)).background(Mono.c.tile).sheen(true, 0.08f))
+                        }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(Instant.ofEpochMilli(w.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.getDefault())),
                             style = Mono.body.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink)
                         if (w.isDemo) { Spacer(Modifier.width(8.dp)); CapsLabel("Demo") }
                         Spacer(Modifier.weight(1f))
-                        Text(if (w.end == null) "Recording" else String.format(Locale.US, "%.2f km", w.distanceMeters / 1000), style = Mono.data(14.sp), color = Mono.c.dim)
+                        Text(modifier = Modifier.breathe(w.end == null), text = if (w.end == null) "Recording" else String.format(Locale.US, "%.2f km", w.distanceMeters / 1000), style = Mono.data(14.sp), color = Mono.c.dim)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val mins = w.durationMillis() / 60_000

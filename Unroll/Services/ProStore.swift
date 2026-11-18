@@ -1,10 +1,12 @@
 import Foundation
 import StoreKit
 
-/// StoreKit 2: yearly subscription + one-time Founder lifetime unlock.
+/// StoreKit 2: weekly / monthly / yearly subscriptions (one group) + one-time Founder lifetime unlock.
 @MainActor
 @Observable
 final class ProStore {
+    static let weeklyID = "com.uranashel.unroll.pro.weekly"
+    static let monthlyID = "com.uranashel.unroll.pro.monthly"
     static let yearlyID = "com.uranashel.unroll.pro.yearly"
     static let lifetimeID = "com.uranashel.unroll.pro.lifetime"
 
@@ -34,11 +36,13 @@ final class ProStore {
         #endif
         return !purchased.isEmpty
     }
+    var weekly: Product? { products.first { $0.id == ProStore.weeklyID } }
+    var monthly: Product? { products.first { $0.id == ProStore.monthlyID } }
     var yearly: Product? { products.first { $0.id == ProStore.yearlyID } }
     var lifetime: Product? { products.first { $0.id == ProStore.lifetimeID } }
 
     func load() async {
-        products = (try? await Product.products(for: [ProStore.yearlyID, ProStore.lifetimeID])) ?? []
+        products = (try? await Product.products(for: [ProStore.weeklyID, ProStore.monthlyID, ProStore.yearlyID, ProStore.lifetimeID])) ?? []
         await refresh()
     }
 

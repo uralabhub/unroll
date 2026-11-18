@@ -19,17 +19,23 @@ import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 
 /**
- * Google Play Billing: a yearly subscription (7-day free trial, set on the base plan's offer in
- * Play Console) and a one-time Founder lifetime unlock. Mirrors the iOS StoreKit products.
+ * Google Play Billing: weekly, monthly and yearly subscriptions (the yearly one has a 7-day free
+ * trial, set on its base plan's offer in Play Console) and a one-time Founder lifetime unlock. Mirrors the iOS StoreKit products.
  */
 class ProStore(context: Context) {
     companion object {
+        const val WEEKLY_ID = "com.uranashel.unroll.pro.weekly"
+        const val MONTHLY_ID = "com.uranashel.unroll.pro.monthly"
         const val YEARLY_ID = "com.uranashel.unroll.pro.yearly"
         const val LIFETIME_ID = "com.uranashel.unroll.pro.lifetime"
     }
 
     private val prefs = context.getSharedPreferences("pro", Context.MODE_PRIVATE)
 
+    var weekly by mutableStateOf<ProductDetails?>(null)
+        private set
+    var monthly by mutableStateOf<ProductDetails?>(null)
+        private set
     var yearly by mutableStateOf<ProductDetails?>(null)
         private set
     var lifetime by mutableStateOf<ProductDetails?>(null)
@@ -72,6 +78,8 @@ class ProStore(context: Context) {
                 set(res.productDetailsList.firstOrNull())
             }
         }
+        query(WEEKLY_ID, ProductType.SUBS) { weekly = it }
+        query(MONTHLY_ID, ProductType.SUBS) { monthly = it }
         query(YEARLY_ID, ProductType.SUBS) { yearly = it }
         query(LIFETIME_ID, ProductType.INAPP) { lifetime = it }
     }
@@ -122,7 +130,7 @@ class ProStore(context: Context) {
         }
     }
 
-    /** Yearly prefers the offer with a free-trial phase (the 7-day trial). */
+    /** Subscriptions prefer an offer with a free-trial phase (the yearly 7-day trial) when there is one. */
     fun buy(activity: Activity, product: ProductDetails) {
         val params = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(product)
         if (product.productType == ProductType.SUBS) {
@@ -139,8 +147,12 @@ class ProStore(context: Context) {
 
     fun restore() = refresh { message = if (isPro) "Pro restored. Welcome back!" else "No previous purchase found." }
 
-    val yearlyPrice: String
-        get() = yearly?.subscriptionOfferDetails?.flatMap { it.pricingPhases.pricingPhaseList }
-            ?.lastOrNull { it.priceAmountMicros > 0 }?.formattedPrice ?: "$14.99"
+    private fun recurringPrice(p: ProductDetails?): String? =
+        p?.subscriptionOfferDetails?.flatMap { it.pricingPhases.pricingPhaseList }
+            ?.lastOrNull { it.priceAmountMicros > 0 }?.formattedPrice
+
+    val weeklyPrice: String get() = recurringPrice(weekly) ?: "$1.99"
+    val monthlyPrice: String get() = recurringPrice(monthly) ?: "$3.99"
+    val yearlyPrice: String get() = recurringPrice(yearly) ?: "$14.99"
     val lifetimePrice: String get() = lifetime?.oneTimePurchaseOfferDetails?.formattedPrice ?: "$29.99"
 }

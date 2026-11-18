@@ -13,7 +13,7 @@ struct RecipesView: View {
                              message: "Import Fujifilm shots and every recipe you used is collected here, ready to share or dial back in.")
                     .listRowInsets(EdgeInsets())
             }
-            ForEach(app.recipes.sorted) { item in
+            ForEach(Array(app.recipes.sorted.enumerated()), id: \.element.id) { i, item in
                 NavigationLink { RecipeDetailView(item: item) } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
@@ -26,6 +26,7 @@ struct RecipesView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .rise(i)
                 .swipeActions { Button("Delete", role: .destructive) { app.recipes.delete(item.id) } }
             }
         }
@@ -111,11 +112,15 @@ struct ClockSyncView: View {
                                 .frame(maxWidth: 240)
                                 .padding(14).background(.white)
                         }
-                        Text(ctx.date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits)))
+                        let clock = ctx.date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits))
+                        Text(clock)
                             .font(Mono.sans(size: 40, weight: .semibold).monospacedDigit())
+                            .contentTransition(.numericText(countsDown: false))
+                            .animation(Motion.snap, value: clock)
                     }
                     .frame(maxWidth: .infinity)
                 }
+                .rise(1)
 
                 MonoSection("How") {
                     step(1, "Turn the screen brightness up and photograph this code with the camera.")
@@ -127,13 +132,21 @@ struct ClockSyncView: View {
                     Button {
                         Task { await read() }
                     } label: {
-                        if reading { ProgressView() } else { Text("Read from camera") }
+                        ZStack {
+                            if reading { ProgressView().transition(.popIn) } else { Text("Read from camera").transition(.swapUp) }
+                        }
+                        .animation(Motion.snap, value: reading)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(app.session == nil || reading)
                     if app.session == nil { Text("Connect a camera first.").font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
-                    if let result { Text(result).font(Mono.sans(.subheadline, weight: .medium)) }
+                    if let result {
+                        Text(result).font(Mono.sans(.subheadline, weight: .medium))
+                            .id(result)
+                            .transition(.swapUp)
+                    }
                 }
+                .animation(Motion.glide, value: result)
                 .padding(.horizontal, Mono.gutter)
 
                 if !app.settings.clockOffsets.isEmpty {
@@ -148,11 +161,14 @@ struct ClockSyncView: View {
                                     .accessibilityLabel("Remove correction")
                             }
                             .padding(.horizontal, Mono.gutter).padding(.vertical, 14)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
                         }
                     }
+                    .transition(.opacity)
                 }
             }
             .padding(.vertical, 16)
+            .animation(Motion.glide, value: app.settings.clockOffsets)
         }
         .background(Mono.bg)
         .navigationTitle("Clock sync")
@@ -228,6 +244,21 @@ struct SettingsView: View {
                 Text("Uses your Photo Walk trail first, then iPhone photos taken within 20 minutes. Originals are never modified — location is attached in Photos.")
             }
 
+            Section {
+                Button {
+                    dismiss()   // leave Settings so the library shows once the camera answers
+                    Task { await app.connectRicoh() }
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Ricoh GR over Wi‑Fi").foregroundStyle(Mono.ink)
+                        Text("GR III, GR IIIx: join the camera’s Wi‑Fi in iOS Settings first")
+                            .font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
+                    }
+                }
+            } header: { Text("Connections") } footer: {
+                Text("USB cameras and SD cards work from the home screen. Wi‑Fi transfer is only available for Ricoh GR cameras.")
+            }
+
             Section("Unroll Pro") {
                 if app.pro.isPro {
                     Text("Pro is unlocked. Thank you.")
@@ -268,7 +299,38 @@ struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var plan: Plan = .lifetime
 
-    enum Plan { case lifetime, yearly }
+    enum Plan { case lifetime, yearly, monthly, weekly }
+
+    private func product(_ p: Plan) -> Product? {
+        switch p {
+        case .lifetime: app.pro.lifetime
+        case .yearly: app.pro.yearly
+        case .monthly: app.pro.monthly
+        case .weekly: app.pro.weekly
+        }
+    }
+
+    private var yearlyPrice: String { app.pro.yearly?.displayPrice ?? "$14.99" }
+    private var monthlyPrice: String { app.pro.monthly?.displayPrice ?? "$3.99" }
+    private var weeklyPrice: String { app.pro.weekly?.displayPrice ?? "$1.99" }
+
+    private var buttonTitle: String {
+        switch plan {
+        case .lifetime: "Buy lifetime"
+        case .yearly: "Start free trial"
+        case .monthly, .weekly: "Subscribe"
+        }
+    }
+
+    private var renewalNote: String? {
+        let tail = "Renews automatically until you cancel in Settings › Apple ID › Subscriptions, at least 24 hours before the period ends."
+        switch plan {
+        case .lifetime: return nil
+        case .yearly: return "7 days free, then \(yearlyPrice) a year. " + tail
+        case .monthly: return "\(monthlyPrice) a month. " + tail
+        case .weekly: return "\(weeklyPrice) a week. " + tail
+        }
+    }
 
     private let perks: [(String, String)] = [
         ("Unlimited imports", "Free plan: \(Quota.freePerDay) a day"),
@@ -289,6 +351,7 @@ struct PaywallView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.horizontal, Mono.gutter)
+                    .rise(0, distance: 28)
 
                     MonoSection {
                         ForEach(perks, id: \.0) { title, sub in
@@ -303,9 +366,12 @@ struct PaywallView: View {
 
                     VStack(spacing: 10) {
                         planRow(.lifetime, title: "Lifetime", price: app.pro.lifetime?.displayPrice ?? "$29.99", note: "Pay once. Founder price.")
-                        planRow(.yearly, title: "Yearly", price: (app.pro.yearly?.displayPrice ?? "$14.99") + " / yr", note: "7-day free trial")
+                        planRow(.yearly, title: "Yearly", price: yearlyPrice + " / yr", note: "7-day free trial. Best value.")
+                        planRow(.monthly, title: "Monthly", price: monthlyPrice + " / mo", note: "Cancel anytime")
+                        planRow(.weekly, title: "Weekly", price: weeklyPrice + " / wk", note: "For a single trip")
                     }
                     .padding(.horizontal, Mono.gutter)
+                    .rise(7, distance: 28)
 
                 }
                 .padding(.vertical, 12)
@@ -316,18 +382,27 @@ struct PaywallView: View {
                     Hairline()
                     VStack(spacing: 12) {
                         Button {
-                            let product = plan == .lifetime ? app.pro.lifetime : app.pro.yearly
-                            guard let product else { app.pro.message = "The App Store isn’t reachable right now. Try again shortly."; return }
+                            guard let product = self.product(plan) else { app.pro.message = "The App Store isn’t reachable right now. Try again shortly."; return }
                             Task { await app.pro.buy(product) }
                         } label: {
-                            if app.pro.purchasing { ProgressView() } else { Text(plan == .lifetime ? "Buy lifetime" : "Start free trial") }
+                            ZStack {
+                                if app.pro.purchasing {
+                                    ProgressView().transition(.popIn)
+                                } else {
+                                    Text(buttonTitle)
+                                        .id(plan)
+                                        .transition(.swapUp)
+                                }
+                            }
+                            .animation(Motion.snap, value: plan)
+                            .animation(Motion.snap, value: app.pro.purchasing)
                         }
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(app.pro.purchasing)
 
                         if let m = app.pro.message { Text(m).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
-                        if plan != .lifetime {
-                            Text("7 days free, then \(app.pro.yearly?.displayPrice ?? "$14.99") a year. Renews automatically until you cancel in Settings › Apple ID › Subscriptions, at least 24 hours before the period ends.")
+                        if let note = renewalNote {
+                            Text(note)
                                 .font(Mono.sans(.caption2)).foregroundStyle(Mono.dim)
                                 .multilineTextAlignment(.center)
                         }
@@ -340,6 +415,7 @@ struct PaywallView: View {
                     }
                     .padding(.horizontal, Mono.gutter)
                     .padding(.top, 12)
+                    .animation(Motion.glide, value: plan)
                 }
                 .background(Mono.bg)
             }
@@ -351,11 +427,12 @@ struct PaywallView: View {
 
     private func planRow(_ p: Plan, title: String, price: String, note: String) -> some View {
         let on = plan == p
-        return Button { plan = p; Haptics.tap() } label: {
+        return Button { withAnimation(Motion.snap) { plan = p }; Haptics.tap() } label: {
             HStack(spacing: 14) {
                 Icon(on ? "radio-button-fill" : "circle", size: 22)
                     .contentTransition(.opacity)
                     .foregroundStyle(on ? Mono.ink : Mono.faint)
+                    .pop(on: on, scale: on ? 1.3 : 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(Mono.sans(.body, weight: .semibold))
                     Text(note).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
@@ -364,11 +441,13 @@ struct PaywallView: View {
                 Text(price).font(Mono.data(.subheadline, weight: .medium))
             }
             .padding(16)
+            .background(on ? Mono.tile : .clear, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Mono.radius, style: .continuous)
                 .strokeBorder(on ? Mono.ink : Mono.line, lineWidth: on ? 1.5 : 1))
+            .scaleEffect(on ? 1 : 0.98)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle(scale: 0.97))
     }
 }
 
@@ -388,15 +467,18 @@ struct ImportStatusBar: View {
                         .contentTransition(.numericText())
                         .animation(Motion.snap, value: title)
                     Text(subtitle).font(Mono.data(.caption)).foregroundStyle(Mono.dim).lineLimit(1)
+                        .rollingText(subtitle)
                 }
                 Spacer()
                 if imp.isRunning {
                     Button("Cancel") { imp.cancelAll() }.buttonStyle(OutlineChipStyle())
+                        .transition(.popIn)
                 } else {
                     Button("Open Photos") {
                         if let u = URL(string: "photos-redirect://") { UIApplication.shared.open(u) }
                     }
                     .buttonStyle(OutlineChipStyle(filled: true))
+                    .transition(.popIn)
                 }
             }
             if imp.isRunning {
@@ -406,12 +488,16 @@ struct ImportStatusBar: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .scaleEffect(x: max(0.02, imp.progress), anchor: .leading)
                         .animation(Motion.progress, value: imp.progress)
+                        .sheen(!imp.isPaused, opacity: 0.55)
                 }
                 .frame(height: 4)
                 .clipShape(Capsule())
+                .transition(.opacity.combined(with: .scale(scale: 0.6, anchor: .leading)))
             }
         }
+        .animation(Motion.glide, value: imp.isRunning)
         .frame(minHeight: 50)
+        .onChange(of: imp.isRunning) { was, now in if was && !now { Haptics.success() } }
     }
 
     private var title: String {
@@ -453,7 +539,7 @@ struct ImportHUD: View {
                     .background(Mono.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Mono.line, lineWidth: 0.5))
                     .padding(.horizontal, 12)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.riseFromBottom)
             }
         }
         .animation(Motion.glide, value: show)
@@ -466,6 +552,7 @@ struct ToastView: View {
         Group {
             if let t = app.toast ?? app.importer.lastError {
                 Text(t)
+                    .id(t)
                     .font(Mono.sans(.subheadline, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Mono.ink)
@@ -473,7 +560,9 @@ struct ToastView: View {
                     .background(Mono.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Mono.line, lineWidth: 0.5))
                     .padding(.horizontal, 20)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .scale(scale: 0.85, anchor: .bottom)).combined(with: .opacity),
+                        removal: .scale(scale: 0.92).combined(with: .opacity)))
                     .task(id: t) {
                         try? await Task.sleep(for: .seconds(3.5))
                         app.toast = nil
@@ -481,7 +570,7 @@ struct ToastView: View {
                     }
             }
         }
-        .animation(Motion.glide, value: app.toast)
-        .animation(Motion.glide, value: app.importer.lastError)
+        .animation(Motion.pop, value: app.toast)
+        .animation(Motion.pop, value: app.importer.lastError)
     }
 }
