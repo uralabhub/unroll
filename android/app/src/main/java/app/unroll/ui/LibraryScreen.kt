@@ -8,6 +8,20 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -54,6 +68,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -129,8 +144,6 @@ private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList()
  * cells, so header reads and import ticks don't re-render the whole grid.
  */
 private class LibrarySnapshot(
-    val days: List<Pair<LocalDate, List<Shot>>>,
-    val visible: List<Shot>,
     val counts: IntArray,
     val picksToImport: List<Shot>,
     val newToImport: List<Shot>,
@@ -139,10 +152,10 @@ private class LibrarySnapshot(
     val videosToImport: List<Shot> = emptyList(),
 )
 
-private fun buildSnapshot(all: List<Shot>, filter: ShotFilter, options: FilterOptions): LibrarySnapshot {
-    val today = LocalDate.now()
+/** Counts and import candidates. The grid's own structure is [buildLayout]. */
+private fun buildSnapshot(all: List<Shot>): LibrarySnapshot {
     var nNew = 0; var nPicks = 0
-    val picks = ArrayList<Shot>(); val fresh = ArrayList<Shot>(); val videos = ArrayList<Shot>(); val vis = ArrayList<Shot>()
+    val picks = ArrayList<Shot>(); val fresh = ArrayList<Shot>(); val videos = ArrayList<Shot>()
     for (s in all) {
         val isNew = !s.wasImported
         val isPick = s.isKeeper
@@ -150,12 +163,24 @@ private fun buildSnapshot(all: List<Shot>, filter: ShotFilter, options: FilterOp
         if (isPick) nPicks++
         if (isNew && !s.isVideo) { fresh += s; if (isPick) picks += s }
         if (isNew && s.isVideo) videos += s
-        if (filter.matches(s) && options.matches(s, today)) vis += s
     }
+    return LibrarySnapshot(intArrayOf(all.size, nNew, nPicks), picks, fresh, all.size, videos)
+}
+
+/**
+ * Just the grid's structure. Kept apart from the counts so an import finishing (which flips
+ * `wasImported`) doesn't rebuild the grid unless the filter actually depends on it ("Not imported").
+ * A data class, so an unchanged layout compares equal and nothing downstream recomposes.
+ */
+private data class GridLayout(val days: List<Pair<LocalDate, List<Shot>>>, val visible: List<Shot>)
+
+private fun buildLayout(all: List<Shot>, filter: ShotFilter, options: FilterOptions): GridLayout {
+    val today = LocalDate.now()
+    val vis = ArrayList<Shot>()
+    for (s in all) if (filter.matches(s) && options.matches(s, today)) vis += s
     val groups = LinkedHashMap<LocalDate, MutableList<Shot>>()
     for (s in vis) groups.getOrPut(day(s.fileDate)) { ArrayList() }.add(s)
-    val days = groups.entries.sortedByDescending { it.key }.map { it.key to it.value as List<Shot> }
-    return LibrarySnapshot(days, vis, intArrayOf(all.size, nNew, nPicks), picks, fresh, all.size, videos)
+    return GridLayout(groups.entries.sortedByDescending { it.key }.map { it.key to it.value as List<Shot> }, vis)
 }
 
 private fun day(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -204,10 +229,14 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
     val shots = session.shots
     // Recomputes only when what it reads changes (the shot list, a filter, a header landing,
     // an import finishing), not on each progress tick.
-    val snap by remember(shots, filter, options) { derivedStateOf { buildSnapshot(shots, filter, options) } }
+    // Counts and the import buttons: read only inside the pieces that show them (lambdas below),
+    // so an import tick recomposes the tab counts and the bottom bar, not this whole screen.
+    val snapState = remember(shots) { derivedStateOf { buildSnapshot(shots) } }
+    val snapOf = { snapState.value }
+    val layout by remember(shots, filter, options) { derivedStateOf(structuralEqualityPolicy()) { buildLayout(shots, filter, options) } }
 
     fun recapCandidates(): List<Shot> {
-        val picked = snap.visible.filter { it.id in selection }
+        val picked = layout.visible.filter { it.id in selection }
         if (picked.isNotEmpty()) return picked
         val keepers = shots.filter { it.isKeeper }
         return keepers.ifEmpty { shots.take(12) }
@@ -215,7 +244,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
 
     Column(Modifier.fillMaxSize().background(Mono.c.bg)) {
         LibraryTopBar(
-            app, session, snap, selecting, gridSize,
+            app, session, snapOf, selecting, gridSize,
             onSelectToggle = { selecting = !selecting; if (!selecting) selection = emptySet() },
             onGridSize = { gridSize = it },
             onRecap = { app.push(Screen.Recap(recapCandidates())) },
@@ -223,20 +252,33 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
         // Pinned filter bar.
         Column(Modifier.background(Mono.c.bg)) {
             Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                TabStrip(ShotFilter.entries, filter, { it.label }, { snap.counts[it.ordinal] }, Modifier.weight(1f)) { filter = it }
+                TabStrip(ShotFilter.entries, filter, { it.label }, { snapOf().counts[it.ordinal] }, Modifier.weight(1f)) { filter = it }
                 FilterMenu(options) { options = it }
                 Spacer(Modifier.width(4.dp))
             }
             ScanProgressLine(session)
         }
 
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        // A filter change dips the grid and lifts it back in, so the change reads as one move.
+        val reduce = LocalReduceMotion.current
+        val swap = remember { Animatable(1f) }
+        var lastFilter by remember { mutableStateOf(filter to options) }
+        LaunchedEffect(filter, options) {
+            if (lastFilter == (filter to options)) return@LaunchedEffect
+            lastFilter = filter to options
+            swap.snapTo(0f)
+            swap.animateTo(1f, if (reduce) tween(180) else spring(dampingRatio = 0.85f, stiffness = 380f))
+        }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().graphicsLayer {
+            alpha = (0.15f + 0.85f * swap.value).coerceIn(0f, 1f)
+            if (!reduce) translationY = (1f - swap.value) * 24.dp.toPx()
+        }) {
             val columns = columnsFor(maxWidth, gridSize)
             val status = session.status
             when {
                 status is SessionStatus.Failed -> QuietMessage("Connection lost", status.message)
-                shots.isEmpty() -> LoadingState(status)
-                snap.visible.isEmpty() -> {
+                shots.isEmpty() -> LoadingState(status, columns)
+                layout.visible.isEmpty() -> {
                     val plain = !options.isActive
                     QuietMessage(
                         if (filter == ShotFilter.NEW && plain) "All caught up" else "Nothing here",
@@ -253,7 +295,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    for ((d, list) in snap.days) {
+                    for ((d, list) in layout.days) {
                         item(span = { GridItemSpan(maxLineSpan) }, key = "day-$d", contentType = "day") {
                             DayHeader(d, list, selecting, selection) { selection = it }
                         }
@@ -262,9 +304,9 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
                                 session, shot, selecting, shot.id in selection,
                                 onTap = {
                                     if (selecting) { Haptics.tick(view); selection = if (shot.id in selection) selection - shot.id else selection + shot.id }
-                                    else app.push(Screen.Detail(snap.visible, shot.id))
+                                    else app.push(Screen.Detail(layout.visible, shot.id))
                                 },
-                                onOpen = { app.push(Screen.Detail(snap.visible, shot.id)) },
+                                onOpen = { app.push(Screen.Detail(layout.visible, shot.id)) },
                                 onImport = { app.importShots(listOf(shot)) },
                                 onSelect = { selecting = true; selection = selection + shot.id },
                             )
@@ -274,7 +316,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
             }
         }
 
-        LibraryBottomBar(app, session, snap, selecting, selection) { selecting = false; selection = emptySet() }
+        LibraryBottomBar(app, session, snapOf, layout.visible, selecting, selection) { selecting = false; selection = emptySet() }
     }
 }
 
@@ -289,25 +331,52 @@ private fun DayHeader(d: LocalDate, list: List<Shot>, selecting: Boolean, select
     Row(Modifier.fillMaxWidth().padding(start = Mono.gutter, end = 4.dp, top = 14.dp, bottom = 4.dp).heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(dayTitle(d), style = Mono.subhead.copy(fontWeight = FontWeight.SemiBold), color = Mono.c.ink)
         Spacer(Modifier.width(8.dp))
-        Text("${list.size}", Modifier.weight(1f), style = Mono.data(13.sp), color = Mono.c.dim)
-        if (selecting) {
+        AnimatedCount(list.size, Mono.data(13.sp), Mono.c.dim)
+        Spacer(Modifier.weight(1f))
+        AnimatedVisibility(selecting, enter = fadeIn(tween(200)) + scaleIn(Motion.bouncy(), initialScale = 0.8f), exit = fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.9f)) {
             val allIn = list.all { it.id in selection }
             Box(Modifier.heightIn(min = 48.dp).pressDim {
                 onSelection(if (allIn) selection - list.map { it.id }.toSet() else selection + list.map { it.id })
             }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                Text(if (allIn) "Deselect" else "Select all", style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink)
+                AnimatedContent(if (allIn) "Deselect" else "Select all", label = "dayAll", transitionSpec = { fadeIn(tween(180)).togetherWith(fadeOut(tween(120))) }) {
+                    Text(it, style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = Mono.c.ink)
+                }
             }
         }
     }
 }
 
+/** Grey tiles with a light sweeping across them while the card is opened and read. One canvas, one sweep. */
 @Composable
-private fun LoadingState(status: SessionStatus) {
-    Column(Modifier.fillMaxWidth().padding(top = 120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        // A spinner only while something is actually loading: a ready, empty card is final.
-        if (status == SessionStatus.Connecting || status is SessionStatus.Cataloging) {
-            Spinner()
-            Spacer(Modifier.height(12.dp))
+private fun SkeletonGrid(columns: Int, rows: Int = 4) {
+    val tile = Mono.c.tile
+    val reduce = LocalReduceMotion.current
+    val sweep = if (reduce) null else rememberSweep(1500)
+    Canvas(Modifier.fillMaxWidth().aspectRatio(columns.toFloat() / rows)) {
+        val gap = 2.dp.toPx()
+        val side = (size.width - gap * (columns - 1)) / columns
+        val t = sweep?.value ?: 0f
+        val band = size.width * 0.6f
+        val x = -band + (size.width + size.height + 2 * band) * t
+        val brush = if (sweep == null) SolidColor(tile) else Brush.linearGradient(
+            listOf(tile, Color(0xFF353535), tile),
+            start = Offset(x - band / 2, 0f), end = Offset(x + band / 2, size.height),
+        )
+        for (r in 0 until rows) for (c in 0 until columns) {
+            // Later tiles fade, so the skeleton suggests "more below" without a hard edge.
+            drawRect(brush, Offset(c * (side + gap), r * (side + gap)), Size(side, side), alpha = 1f - r * 0.22f)
+        }
+    }
+}
+
+@Composable
+private fun LoadingState(status: SessionStatus, columns: Int) {
+    val loading = status == SessionStatus.Connecting || status is SessionStatus.Cataloging
+    Column(Modifier.fillMaxWidth().padding(top = if (loading) 0.dp else 120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // A skeleton only while something is actually loading: a ready, empty card is final.
+        if (loading) {
+            SkeletonGrid(columns)
+            Spacer(Modifier.height(20.dp))
         }
         Text(
             when (status) {
@@ -340,7 +409,7 @@ private val SourceKind.icon: Int get() = when (this) {
 
 @Composable
 private fun LibraryTopBar(
-    app: AppState, session: CameraSession, snap: LibrarySnapshot, selecting: Boolean, gridSize: Int,
+    app: AppState, session: CameraSession, snap: () -> LibrarySnapshot, selecting: Boolean, gridSize: Int,
     onSelectToggle: () -> Unit, onGridSize: (Int) -> Unit, onRecap: () -> Unit,
 ) {
     var connMenu by remember { mutableStateOf(false) }
@@ -358,7 +427,7 @@ private fun LibraryTopBar(
         }
         Column(Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 6.dp)) {
             Text(session.name, style = Mono.headline, color = Mono.c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle(session, snap), style = Mono.data(12.sp), color = Mono.c.dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle(session, snap()), style = Mono.data(12.sp), color = Mono.c.dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         TextAction(if (selecting) "Done" else "Select", bold = selecting, onClick = onSelectToggle)
         Box {
@@ -398,7 +467,8 @@ private fun subtitle(session: CameraSession, snap: LibrarySnapshot): String = wh
 private fun FilterMenu(options: FilterOptions, onChange: (FilterOptions) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton(Ph.filter, if (options.isActive) "More filters, on" else "More filters", tint = if (options.isActive) Mono.c.accent else Mono.c.dim) { open = true }
+        val tint by animateColorAsState(if (options.isActive) Mono.c.accent else Mono.c.dim, Motion.snap(), label = "filterTint")
+        IconButton(Ph.filter, if (options.isActive) "More filters, on" else "More filters", Modifier.popOn(options.isActive, 1.2f), tint = tint) { open = true }
         MonoMenu(open, { open = false }) {
             MenuLabel("Stars")
             MenuItem("Any rating", checked = options.minStars == 0) { onChange(options.copy(minStars = 0)); open = false }
@@ -460,19 +530,20 @@ private fun ScanProgressLine(session: CameraSession) {
         else -> null
     }
     if (progress == null) { Hairline(); return }
-    val p by animateFloatAsState(progress.coerceIn(0f, 1f), tween(250), label = "scan")
+    val p by animateFloatAsState(progress.coerceIn(0f, 1f), spring(dampingRatio = 1f, stiffness = 120f), label = "scan")
     Box(Modifier.fillMaxWidth().height(2.dp).background(Mono.c.line).semantics { contentDescription = "Reading ratings" }) {
         Box(Modifier.fillMaxSize().graphicsLayer {
             scaleX = p.coerceAtLeast(0.02f); transformOrigin = TransformOrigin(0f, 0.5f)
-        }.background(Mono.c.accent))
+        }.background(Mono.c.accent).sheen(true, 0.5f))
     }
 }
 
 // Bottom bar: one smart import button, the selection, or the running import.
 
 @Composable
-private fun LibraryBottomBar(app: AppState, session: CameraSession, snap: LibrarySnapshot, selecting: Boolean, selection: Set<String>, endSelection: () -> Unit) {
+private fun LibraryBottomBar(app: AppState, session: CameraSession, snapOf: () -> LibrarySnapshot, visible: List<Shot>, selecting: Boolean, selection: Set<String>, endSelection: () -> Unit) {
     val context = LocalContext.current
+    val snap = snapOf()
     val mode = when {
         selecting -> 1
         app.importVisible -> 2
@@ -480,19 +551,27 @@ private fun LibraryBottomBar(app: AppState, session: CameraSession, snap: Librar
         else -> -1
     }
     if (mode == -1) { Spacer(Modifier.navigationBarsPadding()); return }
+    val reduce = LocalReduceMotion.current
     Column(Modifier.fillMaxWidth().background(Mono.c.surface)) {
         Hairline()
         AnimatedContent(
             mode, Modifier.fillMaxWidth().navigationBarsPadding(), label = "bar",
-            transitionSpec = { fadeIn(tween(220)).togetherWith(fadeOut(tween(150))) },
+            transitionSpec = {
+                // Bars swap by sliding: the new one comes up from below, the old one drops away.
+                if (reduce) fadeIn(tween(220)).togetherWith(fadeOut(tween(150)))
+                else (slideInVertically(Motion.float()) { it / 2 } + fadeIn(tween(220)) + scaleIn(Motion.float(), initialScale = 0.96f))
+                    .togetherWith(slideOutVertically(tween(180)) { it / 3 } + fadeOut(tween(140)))
+                    .using(SizeTransform(clip = false) { _, _ -> spring(dampingRatio = 0.9f, stiffness = 450f) })
+            },
         ) { m ->
             Box(Modifier.fillMaxWidth().padding(start = Mono.gutter, end = Mono.gutter, top = 10.dp, bottom = 8.dp)) {
                 when (m) {
                     1 -> {
-                        val selected = remember(snap, selection) { snap.visible.filter { it.id in selection } }
+                        val selected = remember(visible, selection) { visible.filter { it.id in selection } }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                Text(if (selected.isEmpty()) "Select photos" else "${selected.size} selected", style = Mono.data(15.sp, FontWeight.SemiBold), color = Mono.c.ink)
+                                if (selected.isEmpty()) Text("Select photos", style = Mono.data(15.sp, FontWeight.SemiBold), color = Mono.c.ink)
+                                else AnimatedCount(selected.size, Mono.data(15.sp, FontWeight.SemiBold), Mono.c.ink, suffix = " selected")
                                 if (selected.isNotEmpty()) Text(Formatter.formatShortFileSize(context, selected.sumOf { it.totalBytes }), style = Mono.data(12.sp), color = Mono.c.dim)
                             }
                             SecondaryButton("Recap", Modifier.widthIn(min = 88.dp), enabled = selected.isNotEmpty()) { app.push(Screen.Recap(selected)) }
@@ -514,7 +593,7 @@ private fun LibraryBottomBar(app: AppState, session: CameraSession, snap: Librar
                                 SecondaryButton("Import ${v.size} ${if (v.size == 1) "video" else "videos"}", Modifier.fillMaxWidth()) { app.importShots(v) }
                             }
                             else -> Row(Modifier.fillMaxWidth().heightIn(min = 50.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                PhIcon(Ph.checkCircle, null, size = 18.dp, tint = Mono.c.dim)
+                                PhIcon(Ph.checkCircle, null, Modifier.riseIn(0, "all-in").popOn(snap.total, 1.3f), size = 18.dp, tint = Mono.c.dim)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Everything here is in Photos", style = Mono.subhead, color = Mono.c.dim)
                             }
@@ -543,6 +622,8 @@ private fun ShotCell(
     LaunchedEffect(thumb != null) { if (thumb != null) fade.animateTo(1f, tween(200)) }
     var menu by remember { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
+    // Pop the "in Photos" check only if the import finished while this cell was on screen.
+    val importedAtStart = remember(shot.id) { shot.wasImported }
 
     Box(
         Modifier.aspectRatio(1f).background(Mono.c.tile)
@@ -579,7 +660,7 @@ private fun ShotCell(
         if (shot.isVideo && thumb != null) {
             PhIcon(Ph.video, null, Modifier.align(Alignment.BottomStart).padding(5.dp), size = 12.dp, tint = Color.White)
         }
-        ImportOverlay(shot, selecting)
+        ImportOverlay(shot, selecting, pop = !importedAtStart)
         if (selecting) SelectionMark(selected, Modifier.align(Alignment.TopEnd))
 
         MonoMenu(menu, { menu = false }) {
@@ -594,7 +675,7 @@ private fun ShotCell(
 
 /** Queued: dimmed. Importing: a thin amber fill along the bottom. Failed: a warning. Done: a small check. */
 @Composable
-private fun ImportOverlay(shot: Shot, selecting: Boolean) {
+private fun ImportOverlay(shot: Shot, selecting: Boolean, pop: Boolean) {
     when (val st = shot.importState) {
         ImportState.Queued -> Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
         is ImportState.Importing -> {
@@ -609,8 +690,11 @@ private fun ImportOverlay(shot: Shot, selecting: Boolean) {
             PhIcon(Ph.warning, "Import failed", size = 18.dp, tint = Color.White)
         }
         else -> if (shot.wasImported && !selecting) {
+            val reduce = LocalReduceMotion.current
+            val k = remember { Animatable(if (pop && !reduce) 0f else 1f) }
+            LaunchedEffect(Unit) { if (k.value < 1f) k.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 500f)) }
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-                Box(Modifier.padding(4.dp).size(16.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.padding(4.dp).size(16.dp).graphicsLayer { scaleX = k.value; scaleY = k.value; alpha = k.value.coerceIn(0f, 1f) }, contentAlignment = Alignment.Center) {
                     Box(Modifier.size(11.dp).background(Color.Black, CircleShape))
                     PhIcon(Ph.checkCircle, null, size = 16.dp, tint = Color.White)
                 }
@@ -621,13 +705,17 @@ private fun ImportOverlay(shot: Shot, selecting: Boolean) {
 
 @Composable
 private fun SelectionMark(selected: Boolean, modifier: Modifier) {
-    if (selected) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
+    val reduce = LocalReduceMotion.current
+    // 0 = empty ring, 1 = filled check; springs with a little overshoot. Finite: nothing loops in cells.
+    val on by animateFloatAsState(if (selected) 1f else 0f, if (reduce) tween(120) else spring(dampingRatio = 0.5f, stiffness = 600f), label = "sel")
+    val scrim = on.coerceIn(0f, 1f)
+    if (scrim > 0f) Box(Modifier.fillMaxSize().graphicsLayer { alpha = scrim }.background(Color.Black.copy(alpha = 0.25f)))
     Box(
-        modifier.padding(6.dp).size(22.dp)
-            .background(if (selected) Color.White else Color.Black.copy(alpha = 0.2f), CircleShape)
+        modifier.padding(6.dp).size(22.dp).graphicsLayer { val k = 0.85f + 0.15f * on; scaleX = k; scaleY = k }
+            .background(lerp(Color.Black.copy(alpha = 0.2f), Color.White, scrim), CircleShape)
             .border(1.5.dp, Color.White, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        if (selected) PhIcon(Ph.check, null, size = 12.dp, tint = Color.Black)
+        if (on > 0.01f) PhIcon(Ph.check, null, Modifier.graphicsLayer { scaleX = on; scaleY = on; alpha = scrim }, size = 12.dp, tint = Color.Black)
     }
 }

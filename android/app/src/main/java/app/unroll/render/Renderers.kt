@@ -9,6 +9,9 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import androidx.core.content.res.ResourcesCompat
+import app.unroll.R
+import app.unroll.UnrollApplication
 import app.unroll.core.FilmRecipe
 import app.unroll.core.FrameGeometry
 import app.unroll.core.FrameOptions
@@ -23,12 +26,13 @@ import kotlin.math.ceil
 enum class Align { LEFT, CENTER, RIGHT }
 
 object Text {
-    /** System sans (Roboto) everywhere; [mono] means tabular figures, so numbers align. */
+    /** Nunito (bundled) everywhere; [mono] means tabular figures, so numbers align. */
     private val cache = HashMap<Int, Typeface>()
 
     private fun face(weight: Int): Typeface = synchronized(cache) {
         cache.getOrPut(weight) {
-            Typeface.create(Typeface.DEFAULT, weight.coerceIn(1, 1000), false)
+            val res = when { weight >= 800 -> R.font.nunito_extrabold; weight >= 700 -> R.font.nunito_bold; weight >= 600 -> R.font.nunito_semibold; weight >= 500 -> R.font.nunito_medium; else -> R.font.nunito_regular }
+            runCatching { ResourcesCompat.getFont(UnrollApplication.context, res) }.getOrNull() ?: Typeface.create(Typeface.DEFAULT, weight.coerceIn(1, 1000), false)
         }
     }
 

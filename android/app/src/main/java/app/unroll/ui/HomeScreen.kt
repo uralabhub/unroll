@@ -5,6 +5,20 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +70,7 @@ import java.util.Locale
 
 /**
  * The screen when nothing is connected: what to do (plug in), the other ways in, and the tools.
- * One calm list; nothing animates while it sits there.
+ * Blocks rise in on arrival; only the "waiting for a camera" dot keeps pulsing while it listens.
  */
 @Composable
 fun HomeScreen(app: AppState) {
@@ -85,8 +99,8 @@ fun HomeScreen(app: AppState) {
             Modifier.statusBarsPadding().fillMaxWidth().heightIn(min = 64.dp).padding(start = Mono.gutter + 4.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Unroll", Modifier.weight(1f).semantics { heading() }, style = Mono.largeTitle, color = Mono.c.ink)
-            IconButton(Ph.gear, "Settings") { app.push(Screen.Settings) }
+            Text("Unroll", Modifier.weight(1f).riseIn(0, "home-title").semantics { heading() }, style = Mono.largeTitle, color = Mono.c.ink)
+            Box(Modifier.riseIn(1, "home-gear")) { IconButton(Ph.gear, "Settings") { app.push(Screen.Settings) } }
         }
         LazyColumn(
             Modifier.fillMaxSize(),
@@ -94,36 +108,36 @@ fun HomeScreen(app: AppState) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item(key = "connect") {
-                Box(Modifier.widthIn(max = 640.dp).padding(horizontal = Mono.gutter).fillMaxWidth().card()) {
+                Box(Modifier.widthIn(max = 640.dp).padding(horizontal = Mono.gutter).fillMaxWidth().riseIn(1, "connect").card().animateContentSize(Motion.float())) {
                     ConnectPanel(app, pickFolder = { pickFolder.launch(null) })
                 }
             }
-            item(key = "tools-title") { GroupTitle("Tools") }
+            item(key = "tools-title") { Box(Modifier.riseIn(3, "tools-title")) { GroupTitle("Tools") } }
             item(key = "tools") {
-                Column(Modifier.widthIn(max = 640.dp).padding(horizontal = Mono.gutter).fillMaxWidth().card()) {
-                    PhotoWalkRow(app)
+                Column(Modifier.widthIn(max = 640.dp).padding(horizontal = Mono.gutter).fillMaxWidth().riseIn(4, "tools").card()) {
+                    Box(Modifier.riseIn(5, "row-walk")) { PhotoWalkRow(app) }
                     Hairline(Modifier.padding(start = 56.dp))
-                    ToolRow(Ph.path, "Walk history", count(app.walks.walks.size)) { app.push(Screen.Walks) }
+                    ToolRow(Ph.path, "Walk history", app.walks.walks.size, 6) { app.push(Screen.Walks) }
                     Hairline(Modifier.padding(start = 56.dp))
-                    ToolRow(Ph.film, "Recipes", count(app.recipes.items.size)) { app.push(Screen.Recipes) }
+                    ToolRow(Ph.film, "Recipes", app.recipes.items.size, 7) { app.push(Screen.Recipes) }
                     Hairline(Modifier.padding(start = 56.dp))
-                    ToolRow(Ph.timer, "Clock sync", count(app.settings.clockOffsets.size)) { app.push(Screen.ClockSync) }
+                    ToolRow(Ph.timer, "Clock sync", app.settings.clockOffsets.size, 8) { app.push(Screen.ClockSync) }
                     Hairline(Modifier.padding(start = 56.dp))
-                    ToolRow(Ph.frame, "Frame a photo", null) {
+                    ToolRow(Ph.frame, "Frame a photo", 0, 8) {
                         pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     }
                 }
             }
             if (!app.pro.isPro) {
                 item(key = "quota") {
-                    Column(Modifier.widthIn(max = 640.dp).padding(top = 28.dp)) {
+                    Column(Modifier.widthIn(max = 640.dp).padding(top = 28.dp).riseIn(8, "quota")) {
                         Row(
-                            Modifier.padding(horizontal = Mono.gutter).fillMaxWidth().card().pressDim { app.showPaywall = true }
+                            Modifier.padding(horizontal = Mono.gutter).fillMaxWidth().pressDim(scale = 0.98f) { app.showPaywall = true }.card()
                                 .heightIn(min = 56.dp).padding(horizontal = Mono.gutter, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text("${app.quota.remaining} of ${Quota.FREE_PER_DAY} free imports left today", style = Mono.data(15.sp), color = Mono.c.ink)
+                                AnimatedCount(app.quota.remaining, Mono.data(15.sp), Mono.c.ink, suffix = " of ${Quota.FREE_PER_DAY} free imports left today")
                                 Text("Pro: unlimited imports, auto-import picks, no watermark", style = Mono.footnote, color = Mono.c.dim)
                             }
                             Spacer(Modifier.width(12.dp))
@@ -133,13 +147,12 @@ fun HomeScreen(app: AppState) {
                     }
                 }
             } else {
-                item(key = "footer") { Box(Modifier.widthIn(max = 640.dp).padding(top = 20.dp)) { Footer("No account. No cloud. Your originals are never modified.") } }
+                item(key = "footer") { Box(Modifier.widthIn(max = 640.dp).padding(top = 20.dp).riseIn(8, "footer")) { Footer("No account. No cloud. Your originals are never modified.") } }
             }
         }
     }
 }
 
-private fun count(n: Int): String? = if (n > 0) "$n" else null
 
 @Composable
 private fun GroupTitle(text: String) {
@@ -155,15 +168,15 @@ private fun Footer(text: String) {
 
 /** Icon + title + optional value, in a list row. */
 @Composable
-private fun ToolRow(icon: Int, title: String, value: String?, onClick: () -> Unit) {
+private fun ToolRow(icon: Int, title: String, value: Int, index: Int, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().pressDim(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = Mono.gutter, vertical = 12.dp),
+        Modifier.fillMaxWidth().riseIn(index, "tool-$title").pressDim(scale = 0.98f, onClick = onClick).heightIn(min = 56.dp).padding(horizontal = Mono.gutter, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         PhIcon(icon, null, size = 20.dp, tint = Mono.c.dim)
         Spacer(Modifier.width(20.dp))
         Text(title, Modifier.weight(1f), style = Mono.body, color = Mono.c.ink)
-        value?.let { Text(it, style = Mono.data(16.sp), color = Mono.c.dim) }
+        if (value > 0) AnimatedCount(value, Mono.data(16.sp), Mono.c.dim)
         Spacer(Modifier.width(10.dp))
         PhIcon(Ph.chevron, null, size = 13.dp, tint = Mono.c.faint)
     }
@@ -181,25 +194,34 @@ private fun ConnectPanel(app: AppState, pickFolder: () -> Unit) {
 
     Column(Modifier.fillMaxWidth().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(7.dp).background(if (denied) Mono.c.faint else Mono.c.accent, CircleShape))
+            // Pulses while listening for a camera; steady once one is found or access is off.
+            val dot by animateColorAsState(if (denied) Mono.c.faint else Mono.c.accent, Motion.snap(), label = "dot")
+            Box(Modifier.popOn(attached != null, 1.8f)) { PulseDot(dot, live = !denied && attached == null) }
             Spacer(Modifier.width(8.dp))
-            Text(
+            AnimatedContent(
                 when {
                     denied -> "USB access is off"
                     attached != null -> "Camera found"
                     else -> "Ready. Waiting for a camera"
                 },
-                style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = Mono.c.dim,
-            )
+                label = "connectStatus",
+                transitionSpec = { (fadeIn(tween(220)) + slideInVertically(Motion.bouncy()) { it / 2 }).togetherWith(fadeOut(tween(120)) + slideOutVertically(tween(150)) { -it / 2 }) },
+            ) { t -> Text(t, style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = Mono.c.dim) }
         }
         Text("Connect your camera", Modifier.padding(top = 14.dp).semantics { heading() }, style = Mono.title, color = Mono.c.ink)
         Text(
             "Plug it in with a USB‑C cable. Newest photos show up first; RAW, star ratings and protected shots come across as they are. Nothing to pair.",
             Modifier.padding(top = 6.dp), style = Mono.subhead, color = Mono.c.dim,
         )
-        usb.lastError?.let { Text(it, Modifier.padding(top = 10.dp), style = Mono.footnote, color = Mono.c.ink) }
+        AnimatedVisibility(usb.lastError != null, enter = fadeIn(tween(200)) + expandVertically(Motion.float()), exit = fadeOut(tween(150)) + shrinkVertically(tween(200))) {
+            Text(usb.lastError ?: "", Modifier.padding(top = 10.dp), style = Mono.footnote, color = Mono.c.ink)
+        }
 
-        if (attached != null || denied) {
+        AnimatedVisibility(
+            attached != null || denied,
+            enter = fadeIn(tween(220)) + expandVertically(Motion.float()) + scaleIn(Motion.bouncy(), initialScale = 0.9f),
+            exit = fadeOut(tween(150)) + shrinkVertically(tween(220)),
+        ) {
             PrimaryButton(
                 if (denied) "Allow USB access" else "Open ${attached?.productName ?: "camera"}",
                 Modifier.fillMaxWidth().padding(top = 18.dp),
@@ -209,12 +231,8 @@ private fun ConnectPanel(app: AppState, pickFolder: () -> Unit) {
             }
         }
 
-        Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton("SD card", Modifier.weight(1f), icon = Ph.sd, enabled = opening == null, onClick = pickFolder)
-            SecondaryButton("Ricoh Wi‑Fi", Modifier.weight(1f), icon = Ph.wifi, enabled = opening == null, busy = opening == "ricoh") {
-                opening = "ricoh"; app.connectRicoh()
-            }
-        }
+        // Brand-specific ways in (Ricoh GR over Wi‑Fi) live in Settings › Connections, not here.
+        SecondaryButton("Open an SD card", Modifier.fillMaxWidth().padding(top = 20.dp), icon = Ph.sd, enabled = opening == null, onClick = pickFolder)
         Row(
             Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp).pressDim(enabled = opening == null) { opening = "demo"; app.openDemo() },
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
@@ -237,12 +255,18 @@ private fun PhotoWalkRow(app: AppState) {
         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = Mono.gutter, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PhIcon(Ph.walk, null, size = 20.dp, tint = if (rec.isRecording) Mono.c.accent else Mono.c.dim)
+        val tint by animateColorAsState(if (rec.isRecording) Mono.c.accent else Mono.c.dim, Motion.snap(), label = "walkTint")
+        PhIcon(Ph.walk, null, Modifier.breathe(rec.isRecording).popOn(rec.isRecording, 1.3f), size = 20.dp, tint = tint)
         Spacer(Modifier.width(20.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("Photo walk", style = Mono.body, color = Mono.c.ink)
-            if (rec.isRecording) WalkTimer(app)
-            else Text("Log your route; imports get locations", style = Mono.footnote, color = Mono.c.dim)
+            AnimatedContent(rec.isRecording, label = "walkDetail", transitionSpec = {
+                (fadeIn(tween(220)) + slideInVertically(Motion.bouncy()) { it / 2 }).togetherWith(fadeOut(tween(120)))
+                    .using(SizeTransform(clip = false))
+            }) { recording ->
+                if (recording) WalkTimer(app)
+                else Text("Log your route; imports get locations", style = Mono.footnote, color = Mono.c.dim)
+            }
         }
         Spacer(Modifier.width(8.dp))
         OutlineChip(if (rec.isRecording) "Stop" else "Start", filled = rec.isRecording) {

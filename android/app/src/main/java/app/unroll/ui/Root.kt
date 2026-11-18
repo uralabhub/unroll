@@ -12,6 +12,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -131,13 +133,20 @@ fun Root(app: AppState) {
                     val forward = targetState.depth >= initialState.depth
                     val photo = targetState.screen is Screen.Detail || initialState.screen is Screen.Detail
                     val base = targetState.screen == null && initialState.screen == null
+                    val ease = androidx.compose.animation.core.FastOutSlowInEasing
                     when {
-                        // Home ↔ library, and grid ↔ photo (the photo itself zooms): a plain cross-fade.
-                        base || photo -> fadeIn(tween(300)).togetherWith(fadeOut(tween(220)))
-                        forward -> (slideInHorizontally(tween(320)) { it / 10 } + fadeIn(tween(300)))
-                            .togetherWith(fadeOut(tween(200)))
-                        else -> fadeIn(tween(300))
-                            .togetherWith(slideOutHorizontally(tween(320)) { it / 10 } + fadeOut(tween(220)))
+                        reduce -> fadeIn(tween(200)).togetherWith(fadeOut(tween(150)))
+                        // Grid ↔ photo: the photo itself zooms (shared element); the rest cross-fades.
+                        photo -> fadeIn(tween(300)).togetherWith(fadeOut(tween(220)))
+                        // Home ↔ library: fade through, the new base growing in from 94 %.
+                        base -> (fadeIn(tween(320, delayMillis = 90)) + scaleIn(tween(380, delayMillis = 90, easing = ease), initialScale = 0.94f))
+                            .togetherWith(fadeOut(tween(160)) + scaleOut(tween(220), targetScale = 1.03f))
+                        // Push: the new screen slides in from the right; the old one drifts left and dims.
+                        forward -> (slideInHorizontally(tween(340, easing = ease)) { it / 4 } + fadeIn(tween(260)))
+                            .togetherWith(slideOutHorizontally(tween(340, easing = ease)) { -it / 10 } + fadeOut(tween(260)))
+                        // Pop: the reverse.
+                        else -> (slideInHorizontally(tween(340, easing = ease)) { -it / 10 } + fadeIn(tween(260)))
+                            .togetherWith(slideOutHorizontally(tween(340, easing = ease)) { it / 4 } + fadeOut(tween(220)))
                     }
                 },
             ) { r ->
@@ -174,7 +183,7 @@ fun Root(app: AppState) {
             }
         }
 
-        // Paywall: a sheet over a dimmed screen. No bounce.
+        // Paywall: a sheet that springs up over a dimmed screen.
         val scrim by animateFloatAsState(if (app.showPaywall) 0.5f else 0f, tween(250), label = "scrim")
         if (scrim > 0f) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = scrim))
@@ -182,8 +191,8 @@ fun Root(app: AppState) {
         }
         AnimatedVisibility(
             app.showPaywall,
-            enter = slideInVertically(tween(320)) { it },
-            exit = slideOutVertically(tween(250)) { it },
+            enter = if (reduce) fadeIn(tween(200)) else slideInVertically(Motion.float()) { it },
+            exit = if (reduce) fadeOut(tween(150)) else slideOutVertically(tween(250)) { it },
         ) {
             Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 24.dp).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))) {
                 PaywallSheet(app) { app.showPaywall = false }
@@ -233,7 +242,17 @@ fun ImportStatusBar(app: AppState, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().heightIn(min = 50.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = Mono.data(15.sp, FontWeight.SemiBold), color = Mono.c.ink, maxLines = 2)
+                val ts = Mono.data(15.sp, FontWeight.SemiBold)
+                when {
+                    running -> Row {
+                        AnimatedCount(minOf(imp.completedInRun + imp.failedInRun + 1, imp.totalInRun), ts, Mono.c.ink, prefix = "Importing ")
+                        AnimatedCount(imp.totalInRun, ts, Mono.c.ink, prefix = " of ")
+                    }
+                    !paused && imp.lastFinishedRun != null -> Row(Modifier.popOn(imp.lastFinishedRun?.endedAt, 1.06f)) {
+                        AnimatedCount(imp.lastFinishedRun?.count ?: 0, ts, Mono.c.ink, suffix = " saved to Photos")
+                    }
+                    else -> Text(title, style = ts, color = Mono.c.ink, maxLines = 2)
+                }
                 Text(subtitle, style = Mono.data(12.sp), color = Mono.c.dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(12.dp))
@@ -249,7 +268,7 @@ fun ImportStatusBar(app: AppState, modifier: Modifier = Modifier) {
         }
         if (running || paused) {
             ProgressLine(if (paused) 1f * imp.completedInRun / maxOf(1, imp.completedInRun + imp.waitingCount) else imp.progress.toFloat(),
-                color = if (paused) Mono.c.dim else Mono.c.accent)
+                color = if (paused) Mono.c.dim else Mono.c.accent, active = running)
         }
     }
 }
@@ -260,8 +279,8 @@ private fun ImportHUD(app: AppState) {
     val show = app.session == null && app.importVisible
     AnimatedVisibility(
         show,
-        enter = slideInVertically(tween(300)) { it / 2 } + fadeIn(tween(300)),
-        exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
+        enter = slideInVertically(Motion.float()) { it } + fadeIn(tween(250)) + scaleIn(Motion.float(), initialScale = 0.9f),
+        exit = slideOutVertically(tween(250)) { it } + fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.95f),
     ) {
         Box(Modifier.padding(horizontal = 12.dp).widthIn(max = 560.dp).overlayPanel(RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 12.dp)) {
             ImportStatusBar(app)
@@ -278,8 +297,8 @@ private fun Toast(app: AppState) {
     }
     AnimatedVisibility(
         text != null,
-        enter = slideInVertically(tween(300)) { it / 2 } + fadeIn(tween(300)),
-        exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
+        enter = slideInVertically(Motion.float()) { it } + fadeIn(tween(220)) + scaleIn(Motion.bouncy(), initialScale = 0.85f),
+        exit = slideOutVertically(tween(220)) { it / 2 } + fadeOut(tween(180)) + scaleOut(tween(180), targetScale = 0.92f),
     ) {
         Text(
             shown ?: "", Modifier.padding(horizontal = 20.dp).widthIn(max = 560.dp).overlayPanel().padding(horizontal = 16.dp, vertical = 11.dp),

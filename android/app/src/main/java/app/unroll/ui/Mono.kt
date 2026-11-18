@@ -1,7 +1,27 @@
 package app.unroll.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,6 +74,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,7 +89,7 @@ import app.unroll.R
  * Unroll's visual language: a dark, neutral photo tool (think Photos, Lightroom, Halide).
  * The photos carry the colour; the chrome is black, white and greys, with one amber accent
  * reserved for progress and live states. System type (Roboto) for words, tabular digits for data.
- * No shadows, no bounce, no decoration that moves on its own.
+ * No shadows. Motion lives in Motion.kt: presses spring, content rises in, live states breathe.
  */
 @Immutable
 data class MonoPalette(
@@ -104,24 +126,30 @@ object Mono {
     val shape = RoundedCornerShape(12.dp)
     val badgeShape = RoundedCornerShape(4.dp)
 
-    /** System font (Roboto). Kept as a name so renderers and text fields can refer to it. */
-    val sans: FontFamily = FontFamily.Default
+    /** Nunito (bundled, OFL) for all text. */
+    val sans: FontFamily = FontFamily(
+        Font(R.font.nunito_regular, FontWeight.Normal),
+        Font(R.font.nunito_medium, FontWeight.Medium),
+        Font(R.font.nunito_semibold, FontWeight.SemiBold),
+        Font(R.font.nunito_bold, FontWeight.Bold),
+        Font(R.font.nunito_extrabold, FontWeight.ExtraBold),
+    )
 
     // Type scale (sp), modelled on the iOS text styles the reference uses.
-    val largeTitle = TextStyle(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
-    val title = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
-    val headline = TextStyle(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
-    val body = TextStyle(fontSize = 16.sp, lineHeight = 22.sp)
-    val subhead = TextStyle(fontSize = 15.sp, lineHeight = 20.sp)
-    val footnote = TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
-    val caption = TextStyle(fontSize = 12.sp, lineHeight = 16.sp)
+    val largeTitle = TextStyle(fontFamily = sans, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
+    val title = TextStyle(fontFamily = sans, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
+    val headline = TextStyle(fontFamily = sans, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
+    val body = TextStyle(fontFamily = sans, fontSize = 16.sp, lineHeight = 22.sp)
+    val subhead = TextStyle(fontFamily = sans, fontSize = 15.sp, lineHeight = 20.sp)
+    val footnote = TextStyle(fontFamily = sans, fontSize = 13.sp, lineHeight = 18.sp)
+    val caption = TextStyle(fontFamily = sans, fontSize = 12.sp, lineHeight = 16.sp)
 
     /** Small section label. Sentence case at footnote size: quiet, not shouty. */
-    fun caps(size: TextUnit = 13.sp) = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = size)
+    fun caps(size: TextUnit = 13.sp) = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = size)
 
     /** EXIF values, counts and times: tabular digits so numbers don't jitter. */
     fun data(size: TextUnit = 15.sp, weight: FontWeight = FontWeight.Normal) =
-        TextStyle(fontWeight = weight, fontSize = size, fontFeatureSettings = "tnum")
+        TextStyle(fontFamily = sans, fontWeight = weight, fontSize = size, fontFeatureSettings = "tnum")
 }
 
 /** Phosphor icons (MIT), shipped as vector drawables, plus a few Material paths. */
@@ -196,7 +224,20 @@ fun UnrollTheme(content: @Composable () -> Unit) {
         error = Color(0xFFFF6B5E), onError = p.bg, inverseSurface = p.ink, inverseOnSurface = p.bg,
     )
     CompositionLocalProvider(LocalMono provides p) {
-        MaterialTheme(colorScheme = scheme, typography = Typography(), content = content)
+        val base = Typography()
+        val typography = Typography(
+            displayLarge = base.displayLarge.copy(fontFamily = Mono.sans), displayMedium = base.displayMedium.copy(fontFamily = Mono.sans),
+            displaySmall = base.displaySmall.copy(fontFamily = Mono.sans), headlineLarge = base.headlineLarge.copy(fontFamily = Mono.sans),
+            headlineMedium = base.headlineMedium.copy(fontFamily = Mono.sans), headlineSmall = base.headlineSmall.copy(fontFamily = Mono.sans),
+            titleLarge = base.titleLarge.copy(fontFamily = Mono.sans), titleMedium = base.titleMedium.copy(fontFamily = Mono.sans),
+            titleSmall = base.titleSmall.copy(fontFamily = Mono.sans), bodyLarge = base.bodyLarge.copy(fontFamily = Mono.sans),
+            bodyMedium = base.bodyMedium.copy(fontFamily = Mono.sans), bodySmall = base.bodySmall.copy(fontFamily = Mono.sans),
+            labelLarge = base.labelLarge.copy(fontFamily = Mono.sans), labelMedium = base.labelMedium.copy(fontFamily = Mono.sans),
+            labelSmall = base.labelSmall.copy(fontFamily = Mono.sans),
+        )
+        MaterialTheme(colorScheme = scheme, typography = typography) {
+            ProvideTextStyle(TextStyle(fontFamily = Mono.sans), content)
+        }
     }
 }
 
@@ -211,19 +252,31 @@ fun DarkSurface(content: @Composable () -> Unit) = content()
 fun Modifier.card(shape: Shape = Mono.shape, @Suppress("UNUSED_PARAMETER") elevation: Dp = 0.dp): Modifier =
     this.clip(shape).background(Mono.c.surface, shape)
 
-/** Press feedback: a quick dim (120 ms), no scale, no ripple. */
+/**
+ * Press feedback: shrinks to [scale] and dims while held, then springs back with a small
+ * overshoot on release. No ripple. Reduce motion keeps only the dim.
+ */
 @Composable
-fun Modifier.pressDim(enabled: Boolean = true, role: Role? = Role.Button, onClickLabel: String? = null, onClick: () -> Unit): Modifier {
+fun Modifier.pressDim(
+    enabled: Boolean = true, role: Role? = Role.Button, onClickLabel: String? = null,
+    scale: Float = Motion.pressScale, onClick: () -> Unit,
+): Modifier {
     val src = remember { MutableInteractionSource() }
     val pressed by src.collectIsPressedAsState()
-    val a by animateFloatAsState(if (pressed) 0.6f else 1f, tween(120), label = "press")
-    return this.clickable(src, null, enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = onClick).graphicsLayer { alpha = a }
+    val reduce = LocalReduceMotion.current
+    val a by animateFloatAsState(if (pressed) 0.7f else 1f, tween(120), label = "press")
+    val k by animateFloatAsState(
+        if (pressed && !reduce) scale else 1f,
+        if (pressed) spring(dampingRatio = 1f, stiffness = 1400f) else Motion.bouncy(), label = "pressScale",
+    )
+    return this.clickable(src, null, enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = onClick)
+        .graphicsLayer { alpha = a; scaleX = k; scaleY = k }
 }
 
-/** Older name for [pressDim]; the scale argument is ignored (no scaling). */
+/** Older name for [pressDim]. */
 @Composable
-fun Modifier.tilePress(@Suppress("UNUSED_PARAMETER") scaleTo: Float = 1f, enabled: Boolean = true, onClick: () -> Unit): Modifier =
-    pressDim(enabled, onClick = onClick)
+fun Modifier.tilePress(scaleTo: Float = Motion.pressScale, enabled: Boolean = true, onClick: () -> Unit): Modifier =
+    pressDim(enabled, scale = scaleTo, onClick = onClick)
 
 // Text
 
@@ -242,8 +295,8 @@ fun Hairline(modifier: Modifier = Modifier) {
 
 /** A titled group of rows on one flat panel, separated by inset hairlines. */
 @Composable
-fun MonoSection(title: String? = null, trailing: String? = null, footer: String? = null, rows: List<@Composable () -> Unit>) {
-    Column(Modifier.padding(horizontal = Mono.gutter)) {
+fun MonoSection(title: String? = null, trailing: String? = null, footer: String? = null, index: Int = 0, rows: List<@Composable () -> Unit>) {
+    Column(Modifier.padding(horizontal = Mono.gutter).riseIn(index)) {
         if (title != null) {
             Row(Modifier.padding(horizontal = Mono.gutter).padding(bottom = 8.dp)) {
                 CapsLabel(title, Modifier.weight(1f))
@@ -252,7 +305,7 @@ fun MonoSection(title: String? = null, trailing: String? = null, footer: String?
         }
         Column(Modifier.fillMaxWidth().card()) {
             rows.forEachIndexed { i, row ->
-                row()
+                Box(Modifier.riseIn(index + i + 1)) { row() }
                 if (i != rows.lastIndex) Hairline(Modifier.padding(start = Mono.gutter))
             }
         }
@@ -271,7 +324,7 @@ fun MonoRow(
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
-        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.pressDim(onClick = onClick) else Modifier)
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.pressDim(scale = 0.98f, onClick = onClick) else Modifier)
             .heightIn(min = 56.dp).padding(horizontal = Mono.gutter, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -301,19 +354,17 @@ fun DataRow(key: String, value: String) {
 /** Solid white button. Press = quick dim, no bounce. */
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (enabled) Mono.c.ink else Mono.c.ink.copy(alpha = 0.1f), Motion.snap(), label = "primaryBg")
+    val fg by animateColorAsState(if (enabled) Mono.c.bg else Mono.c.ink.copy(alpha = 0.4f), Motion.snap(), label = "primaryFg")
     Box(
         modifier.pressDim(enabled && !busy, onClick = onClick)
             .heightIn(min = 50.dp)
             .clip(Mono.shape)
-            .background(if (enabled) Mono.c.ink else Mono.c.ink.copy(alpha = 0.1f), Mono.shape)
+            .background(bg, Mono.shape)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = Mono.c.bg, strokeWidth = 2.dp)
-        else Text(
-            text, style = Mono.body.copy(fontWeight = FontWeight.SemiBold), textAlign = TextAlign.Center,
-            color = if (enabled) Mono.c.bg else Mono.c.ink.copy(alpha = 0.4f), maxLines = 2, overflow = TextOverflow.Ellipsis,
-        )
+        ButtonLabel(if (busy) null else text, FontWeight.SemiBold, fg)
     }
 }
 
@@ -331,10 +382,28 @@ fun SecondaryButton(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
     ) {
-        val fg = Mono.c.ink.copy(alpha = if (enabled) 1f else 0.3f)
+        val fg by animateColorAsState(Mono.c.ink.copy(alpha = if (enabled) 1f else 0.3f), Motion.snap(), label = "secondaryFg")
         if (busy) { CircularProgressIndicator(Modifier.size(18.dp), color = Mono.c.ink, strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
         else if (icon != null) { PhIcon(icon, null, size = 18.dp, tint = fg); Spacer(Modifier.width(8.dp)) }
-        Text(text, style = Mono.body.copy(fontWeight = FontWeight.Medium), color = fg, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        ButtonLabel(text, FontWeight.Medium, fg)
+    }
+}
+
+/** Button text that cross-slides when it changes ("Import 3 picks" → "Import 4 picks"); null shows a spinner. */
+@Composable
+private fun ButtonLabel(text: String?, weight: FontWeight, color: Color) {
+    val reduce = LocalReduceMotion.current
+    AnimatedContent(
+        text, label = "buttonLabel", contentAlignment = Alignment.Center,
+        transitionSpec = {
+            if (reduce) fadeIn(tween(150)).togetherWith(fadeOut(tween(100)))
+            else (fadeIn(tween(200)) + slideInVertically(Motion.bouncy()) { it / 2 })
+                .togetherWith(fadeOut(tween(120)) + slideOutVertically(tween(150)) { -it / 2 })
+                .using(SizeTransform(clip = false))
+        },
+    ) { t ->
+        if (t == null) CircularProgressIndicator(Modifier.size(18.dp), color = color, strokeWidth = 2.dp)
+        else Text(t, style = Mono.body.copy(fontWeight = weight), color = color, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }
 
@@ -354,14 +423,16 @@ fun IconButton(@DrawableRes icon: Int, contentDescription: String?, modifier: Mo
 /** Small inline button (Start / Stop, Cancel, Open Photos…). */
 @Composable
 fun OutlineChip(text: String, filled: Boolean = false, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (filled) Mono.c.ink else Mono.c.tile, Motion.snap(), label = "chipBg")
+    val fg by animateColorAsState(if (filled) Mono.c.bg else Mono.c.ink, Motion.snap(), label = "chipFg")
     Box(
-        Modifier.heightIn(min = 48.dp).pressDim(onClick = onClick),
+        Modifier.heightIn(min = 48.dp).pressDim(onClick = onClick).popOn(filled, 1.08f),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text, Modifier.heightIn(min = 32.dp).background(if (filled) Mono.c.ink else Mono.c.tile, RoundedCornerShape(8.dp))
-                .padding(horizontal = 12.dp, vertical = 7.dp),
-            style = Mono.footnote.copy(fontWeight = FontWeight.SemiBold), color = if (filled) Mono.c.bg else Mono.c.ink, maxLines = 1,
+            text, Modifier.heightIn(min = 32.dp).background(bg, RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 7.dp).animateContentSize(Motion.snap()),
+            style = Mono.footnote.copy(fontWeight = FontWeight.SemiBold), color = fg, maxLines = 1,
         )
     }
 }
@@ -370,37 +441,69 @@ fun OutlineChip(text: String, filled: Boolean = false, onClick: () -> Unit) {
 @Composable
 fun ChipToggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
     val view = androidx.compose.ui.platform.LocalView.current
+    val bg by animateColorAsState(if (on) Mono.c.ink else Mono.c.tile, Motion.snap(), label = "toggleBg")
+    val fg by animateColorAsState(if (on) Mono.c.bg else Mono.c.ink, Motion.snap(), label = "toggleFg")
     Box(
-        Modifier.heightIn(min = 48.dp).semantics { selected = on }.pressDim(role = Role.Checkbox) { Haptics.tick(view); onChange(!on) },
+        Modifier.heightIn(min = 48.dp).semantics { selected = on }.pressDim(role = Role.Checkbox) { Haptics.tick(view); onChange(!on) }.popOn(on, 1.1f),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            label, Modifier.heightIn(min = 34.dp).background(if (on) Mono.c.ink else Mono.c.tile, RoundedCornerShape(8.dp))
+            label, Modifier.heightIn(min = 34.dp).background(bg, RoundedCornerShape(8.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-            style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = if (on) Mono.c.bg else Mono.c.ink, maxLines = 1,
+            style = Mono.footnote.copy(fontWeight = FontWeight.Medium), color = fg, maxLines = 1,
         )
     }
 }
 
-/** Segmented text tabs; the selected one sits on a grey pill. Scrolls horizontally when it doesn't fit. */
+/**
+ * Segmented text tabs; a grey pill slides (with a little spring) to the selected one, and the
+ * counts roll. Scrolls horizontally when it doesn't fit.
+ */
 @Composable
 fun <T> TabStrip(items: List<T>, selection: T, label: (T) -> String, count: ((T) -> Int?)? = null, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
     val view = androidx.compose.ui.platform.LocalView.current
-    Row(modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        items.forEach { item ->
+    val reduce = LocalReduceMotion.current
+    val density = LocalDensity.current
+    // Each tab's x / width inside the row, filled in as they are placed.
+    val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
+    val sel = items.indexOf(selection)
+    val x = remember { Animatable(0f) }
+    val w = remember { Animatable(0f) }
+    val target = bounds[sel]
+    LaunchedEffect(sel, target) {
+        val (tx, tw) = target ?: return@LaunchedEffect
+        if (w.value == 0f || reduce) { x.snapTo(tx); w.snapTo(tw); return@LaunchedEffect }
+        launch { x.animateTo(tx, spring(dampingRatio = 0.75f, stiffness = 520f)) }
+        w.animateTo(tw, spring(dampingRatio = 0.75f, stiffness = 520f))
+    }
+    val pill = Mono.c.tile
+    val pillH = with(density) { 34.dp.toPx() }
+    val corner = with(density) { 8.dp.toPx() }
+    Row(
+        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp).drawBehind {
+            if (w.value > 0f) drawRoundRect(
+                pill, topLeft = Offset(x.value, (size.height - pillH) / 2), size = Size(w.value, pillH),
+                cornerRadius = CornerRadius(corner, corner),
+            )
+        },
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        items.forEachIndexed { i, item ->
             val on = item == selection
-            val bg by animateFloatAsState(if (on) 1f else 0f, tween(220), label = "tab")
+            val fg by animateColorAsState(if (on) Mono.c.ink else Mono.c.dim, Motion.snap(), label = "tabFg")
+            val cfg by animateColorAsState(if (on) Mono.c.dim else Mono.c.faint, Motion.snap(), label = "tabCount")
             Row(
                 Modifier.heightIn(min = 48.dp).semantics { selected = on }
+                    .onPlaced { bounds[i] = it.positionInParent().x to it.size.width.toFloat() }
                     .pressDim(role = Role.Tab) { if (!on) Haptics.tick(view); onSelect(item) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
-                    Modifier.heightIn(min = 34.dp).background(Mono.c.tile.copy(alpha = bg), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                    Modifier.heightIn(min = 34.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Text(label(item), style = Mono.subhead.copy(fontWeight = FontWeight.SemiBold), color = if (on) Mono.c.ink else Mono.c.dim, maxLines = 1)
-                    count?.invoke(item)?.let { Text("$it", style = Mono.data(12.sp), color = if (on) Mono.c.dim else Mono.c.faint, maxLines = 1) }
+                    Text(label(item), style = Mono.subhead.copy(fontWeight = FontWeight.SemiBold), color = fg, maxLines = 1)
+                    count?.invoke(item)?.let { AnimatedCount(it, Mono.data(12.sp), cfg) }
                 }
             }
         }
@@ -413,9 +516,10 @@ fun StarRow(rating: Int, size: Dp = 12.dp, onTap: ((Int) -> Unit)? = null) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (n in 1..5) {
             val on = n <= rating
+            // A star pops when it fills or empties, staggered left to right.
             PhIcon(
                 if (on) Ph.star else Ph.starOutline, null, size = size, tint = if (on) Mono.c.ink else Mono.c.faint,
-                modifier = if (onTap != null) Modifier.clip(CircleShape).clickable { onTap(n) }.padding(6.dp) else Modifier,
+                modifier = (if (onTap != null) Modifier.clip(CircleShape).clickable { onTap(n) }.padding(6.dp) else Modifier).popOn(on, 1.35f),
             )
         }
     }
@@ -425,8 +529,8 @@ fun StarRow(rating: Int, size: Dp = 12.dp, onTap: ((Int) -> Unit)? = null) {
 @Composable
 fun QuietMessage(title: String, message: String? = null) {
     Column(Modifier.fillMaxWidth().padding(horizontal = Mono.gutter, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, style = Mono.headline, color = Mono.c.ink)
-        message?.let { Text(it, style = Mono.subhead, color = Mono.c.dim) }
+        Text(title, Modifier.riseIn(0, title), style = Mono.headline, color = Mono.c.ink)
+        message?.let { Text(it, Modifier.riseIn(1, title), style = Mono.subhead, color = Mono.c.dim) }
     }
 }
 
@@ -465,19 +569,19 @@ fun Spinner(color: Color = Mono.c.dim, size: Dp = 22.dp) = CircularProgressIndic
 /** A chevron that turns when [open] changes. */
 @Composable
 fun Disclosure(open: Boolean, tint: Color = Mono.c.dim) {
-    val r by animateFloatAsState(if (open) 180f else 0f, tween(220), label = "disclosure")
+    val r by animateFloatAsState(if (open) 180f else 0f, Motion.bouncy(), label = "disclosure")
     PhIcon(Ph.caretDown, null, Modifier.rotate(r), size = 13.dp, tint = tint)
 }
 
-/** Thin amber progress bar on a grey track (import progress). */
+/** Thin amber progress bar on a grey track (import progress); a highlight sweeps along it while [active]. */
 @Composable
-fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 4.dp, color: Color = Mono.c.accent, track: Color = Mono.c.tile) {
-    val f by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(250), label = "progress")
+fun ProgressLine(fraction: Float, modifier: Modifier = Modifier, height: Dp = 4.dp, color: Color = Mono.c.accent, track: Color = Mono.c.tile, active: Boolean = true) {
+    val f by animateFloatAsState(fraction.coerceIn(0f, 1f), spring(dampingRatio = 1f, stiffness = 120f), label = "progress")
     Box(modifier.fillMaxWidth().height(height).clip(CircleShape).background(track)) {
         Box(Modifier.fillMaxWidth().height(height).graphicsLayer {
             val k = f.coerceAtLeast(0.02f)
             scaleX = k; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)
-        }.background(color, CircleShape))
+        }.background(color, CircleShape).sheen(active && f in 0.01f..0.995f))
     }
 }
 

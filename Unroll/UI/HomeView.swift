@@ -41,21 +41,25 @@ struct HomeView: View {
             }
 
             Section {
-                PhotoWalkRow()
+                PhotoWalkRow().rise(4)
                 NavigationLink(value: ToolRoute.walks) {
                     ToolRow(icon: "map-trifold", title: "Walk history", value: count(app.location.walks.count))
                 }
+                .rise(5)
                 NavigationLink(value: ToolRoute.recipes) {
                     ToolRow(icon: "film-strip", title: "Recipes", value: count(app.recipes.items.count))
                 }
+                .rise(6)
                 NavigationLink(value: ToolRoute.clockSync) {
                     ToolRow(icon: "clock", title: "Clock sync", value: count(app.settings.clockOffsets.count))
                 }
+                .rise(7)
                 PhotosPicker(selection: $framePick, matching: .images, preferredItemEncoding: .current) {
                     ToolRow(icon: "frame-corners", title: "Frame a photo", value: nil)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle(scale: 0.97))
+                .rise(8)
             } header: {
                 Text("Tools")
             }
@@ -67,14 +71,17 @@ struct HomeView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("\(app.quota.remaining) of \(Quota.freePerDay) free imports left today")
                                     .font(Mono.sans(.subheadline)).monospacedDigit()
+                                    .rollingNumber(app.quota.remaining)
                                 Text("Pro: unlimited imports, auto-import picks, no watermark")
                                     .font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
                             }
                             Spacer()
                             Text("Get Pro").font(Mono.sans(.subheadline, weight: .semibold))
+                                .foregroundStyle(Mono.accent)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle(scale: 0.97))
+                    .rise(9)
                 } footer: {
                     Text("No account. No cloud. Your originals are never modified.")
                 }
@@ -131,9 +138,14 @@ struct ToolRow: View {
             Icon(icon, size: 20).foregroundStyle(Mono.dim).frame(width: 24)
             Text(title).font(Mono.sans(.body))
             Spacer()
-            if let value { Text(value).font(Mono.data(.body)).foregroundStyle(Mono.dim) }
+            if let value {
+                Text(value).font(Mono.data(.body)).foregroundStyle(Mono.dim)
+                    .rollingText(value)
+                    .transition(.popIn)
+            }
         }
         .frame(minHeight: 32)
+        .animation(Motion.snap, value: value)
     }
 }
 
@@ -149,17 +161,28 @@ struct ConnectPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Circle().fill(denied ? Mono.faint : Mono.accent).frame(width: 7, height: 7)
+                    .pulseRing(!denied)
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
                 Text(denied ? "Camera access is off" : "Ready. Waiting for a camera")
                     .font(Mono.sans(.footnote, weight: .medium)).foregroundStyle(Mono.dim)
+                    .contentTransition(.opacity)
             }
-            Text("Connect your camera")
-                .font(Mono.sans(.title2, weight: .bold))
-                .padding(.top, 14)
+            .animation(Motion.snap, value: denied)
+            .rise(0)
+            HStack(alignment: .center, spacing: 12) {
+                Text("Connect your camera")
+                    .font(Mono.sans(.title2, weight: .bold))
+                Spacer(minLength: 0)
+                Icon("usb", size: 26).foregroundStyle(Mono.dim)
+                    .breathe(!denied)
+            }
+            .padding(.top, 14)
+            .rise(1)
             Text("Plug it in with a USB‑C cable. Newest photos show up first; RAW, star ratings and protected shots come across as they are. Nothing to pair.")
                 .font(Mono.sans(.subheadline)).foregroundStyle(Mono.dim)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 6)
+                .rise(2)
 
             if denied {
                 Button("Allow camera access in Settings") {
@@ -169,13 +192,13 @@ struct ConnectPanel: View {
                 .padding(.top, 18)
             }
 
-            // Side by side when they fit; stacked at large text sizes instead of truncating.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) { sourceButtons }
-                VStack(spacing: 10) { sourceButtons }
+            // Brand-specific ways in (Ricoh GR over Wi‑Fi) live in Settings › Connections, not here.
+            Button(action: pickFolder) {
+                Label { Text("Open an SD card") } icon: { Icon("sd-card", size: 18) }
             }
             .buttonStyle(SecondaryButtonStyle())
             .padding(.top, 20)
+            .rise(3)
 
             Button { open("demo") { await app.openDemo() } } label: {
                 HStack(spacing: 8) {
@@ -186,23 +209,13 @@ struct ConnectPanel: View {
                     .frame(maxWidth: .infinity, minHeight: 36)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(PressStyle())
+            .buttonStyle(PressStyle(scale: 0.97))
             .foregroundStyle(Mono.dim)
             .padding(.top, 8)
+            .rise(4)
         }
         .padding(20)
         .disabled(opening != nil)
-    }
-
-    @ViewBuilder private var sourceButtons: some View {
-        Button(action: pickFolder) {
-            Label { Text("SD card").fixedSize() } icon: { Icon("sd-card", size: 18) }
-        }
-        Button { open("ricoh") { await app.connectRicoh() } } label: {
-            Label { Text("Ricoh Wi‑Fi").fixedSize() } icon: {
-                if opening == "ricoh" { ProgressView() } else { Icon("wifi-high", size: 18) }
-            }
-        }
     }
 
     private func open(_ key: String, _ work: @escaping () async -> Void) {
@@ -220,17 +233,23 @@ struct PhotoWalkRow: View {
         let rec = app.location
         HStack(spacing: 14) {
             Image(systemName: "figure.walk").font(.system(size: 18)).foregroundStyle(rec.isRecording ? Mono.accent : Mono.dim).frame(width: 24)
+                .symbolEffect(.pulse, isActive: rec.isRecording)
+                .symbolEffect(.bounce, value: rec.isRecording)
             VStack(alignment: .leading, spacing: 2) {
                     Text("Photo walk").font(Mono.sans(.body))
                     if rec.isRecording, let w = rec.current {
                         TimelineView(.periodic(from: .now, by: 1)) { _ in
-                            Text("Recording · \(Duration.seconds(w.duration).formatted(.time(pattern: .hourMinuteSecond))) · \(String(format: "%.2f km", w.distanceMeters / 1000))")
+                            let line = "Recording · \(Duration.seconds(w.duration).formatted(.time(pattern: .hourMinuteSecond))) · \(String(format: "%.2f km", w.distanceMeters / 1000))"
+                            Text(line)
                                 .font(Mono.data(.footnote)).foregroundStyle(Mono.accent)
+                                .rollingText(line)
                         }
                     } else {
                         Text("Log your route; imports get locations").font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
+                            .transition(.swapUp)
                     }
             }
+            .animation(Motion.snap, value: rec.isRecording)
             Spacer(minLength: 8)
             Button(rec.isRecording ? "Stop" : "Start") {
                 rec.isRecording ? rec.stopWalk() : rec.startWalk()

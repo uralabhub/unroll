@@ -141,15 +141,23 @@ struct LibraryView: View {
     // MARK: Pieces
 
     @ViewBuilder private var content: some View {
-        if case .failed(let msg) = session.status {
-            QuietMessage(title: "Connection lost", message: msg)
-        } else if session.shots.isEmpty {
-            LoadingState(session: session)
-        } else if snapshot.visible.isEmpty {
-            emptyFilter
-        } else {
-            grid
+        Group {
+            if case .failed(let msg) = session.status {
+                QuietMessage(title: "Connection lost", message: msg)
+                    .transition(.opacity)
+            } else if session.shots.isEmpty {
+                LoadingState(session: session)
+                    .transition(.opacity)
+            } else if snapshot.visible.isEmpty {
+                emptyFilter
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            } else {
+                grid
+                    .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 24)),
+                                            removal: .opacity))
+            }
         }
+        .animation(Motion.glide, value: session.shots.isEmpty)
     }
 
     private var filterBar: some View {
@@ -181,6 +189,8 @@ struct LibraryView: View {
         } label: {
             Image(systemName: options.isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle").font(.system(size: 20))
                 .foregroundStyle(options.isActive ? Mono.accent : Mono.dim)
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: options)
                 .frame(width: 40, height: 32)
                 .contentShape(Rectangle())
         }
@@ -194,16 +204,22 @@ struct LibraryView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(dayTitle(day.id)).font(Mono.sans(.subheadline, weight: .semibold))
                     Text("\(day.shots.count)").font(Mono.data(.footnote)).foregroundStyle(Mono.dim)
+                        .rollingNumber(day.shots.count)
                     Spacer()
                     if selecting {
                         let allIn = day.shots.allSatisfy { selection.contains($0.id) }
                         Button(allIn ? "Deselect" : "Select all") {
-                            if allIn { day.shots.forEach { selection.remove($0.id) } } else { day.shots.forEach { selection.insert($0.id) } }
+                            withAnimation(Motion.snap) {
+                                if allIn { day.shots.forEach { selection.remove($0.id) } } else { day.shots.forEach { selection.insert($0.id) } }
+                            }
                             Haptics.select()
                         }
                         .font(Mono.sans(.footnote, weight: .medium))
+                        .buttonStyle(PressStyle(scale: 0.92))
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                     }
                 }
+                .animation(Motion.snap, value: selecting)
                 .padding(.horizontal, Mono.gutter)
                 .padding(.top, 18).padding(.bottom, 8)
                 LazyVGrid(columns: cols, spacing: 2) {
@@ -295,7 +311,9 @@ struct LibraryView: View {
 
     private func tap(_ shot: Shot) {
         if selecting {
-            if selection.contains(shot.id) { selection.remove(shot.id) } else { selection.insert(shot.id) }
+            withAnimation(Motion.snap) {
+                if selection.contains(shot.id) { selection.remove(shot.id) } else { selection.insert(shot.id) }
+            }
             Haptics.select()
         } else {
             detail = ShotRoute(shots: snapshot.visible, startID: shot.id)
@@ -354,6 +372,7 @@ private struct ScanProgressLine: View {
                 Rectangle().fill(Mono.accent).frame(maxWidth: .infinity, alignment: .leading)
                     .scaleEffect(x: max(0.02, p), anchor: .leading)
                     .animation(Motion.progress, value: p)
+                    .sheen(true, opacity: 0.6)
             }
         }
         .frame(height: p == nil ? 0.5 : 2)
@@ -374,15 +393,32 @@ private struct ScanProgressLine: View {
 private struct LoadingState: View {
     let session: CameraSession
     var body: some View {
+        if session.status != .ready {
+            // Still reading: a shimmering grid where the photos will land, and what's happening.
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Icon(session.kind.symbol, size: 16).foregroundStyle(Mono.accent).breathe(true)
+                    Text(text).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
+                        .rollingText(text)
+                }
+                .padding(.top, 20)
+                SkeletonGrid()
+            }
+        } else {
+            empty
+        }
+    }
+
+    private var empty: some View {
         VStack(spacing: 12) {
-            // A spinner only while something is actually loading: a ready, empty card is final.
-            if session.status != .ready { ProgressView() }
-            Text(text).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
+            Icon("sd-card", size: 34).foregroundStyle(Mono.faint).rise(0)
+            Text(text).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim).rise(1)
             if session.status == .ready {
                 // Some cameras (and phones) share their photos only after a prompt on the device.
                 Text("If the camera shows a prompt, confirm it. Photos appear here on their own.")
                     .font(Mono.sans(.caption)).foregroundStyle(Mono.faint)
                     .multilineTextAlignment(.center).padding(.horizontal, 40)
+                    .rise(2)
             }
         }
         .frame(maxWidth: .infinity)
@@ -407,25 +443,32 @@ private struct LibraryBottomBar: View {
     @Binding var selection: Set<String>
     let recap: ([Shot]) -> Void
 
-    var body: some View {
+    @ViewBuilder var body: some View {
         let imp = app.importer
+        // Nothing to offer yet (card still loading, no import running): no bar at all.
+        if selecting || imp.isRunning || imp.showingSummary || !session.shots.isEmpty {
+            bar(imp)
+        }
+    }
+
+    private func bar(_ imp: ImportEngine) -> some View {
         VStack(spacing: 0) {
-            Group {
+            ZStack {
                 if selecting {
-                    selectionBar
+                    selectionBar.transition(.swapUp)
                 } else if imp.isRunning || imp.showingSummary {
-                    ImportStatusBar()
+                    ImportStatusBar().transition(.swapUp)
                 } else {
-                    importBar
+                    importBar.transition(.swapUp)
                 }
             }
             .padding(.horizontal, Mono.gutter)
             .padding(.top, 10)
             .padding(.bottom, 8)
-            .transition(.opacity)
         }
         .animation(Motion.glide, value: selecting)
         .animation(Motion.glide, value: imp.isRunning)
+        .animation(Motion.glide, value: imp.showingSummary)
         .background(.bar)
         .overlay(alignment: .top) { Hairline() }
     }
@@ -444,7 +487,9 @@ private struct LibraryBottomBar: View {
                 }
             }
         } else if !fresh.isEmpty {
-            Button { app.importShots(fresh) } label: { Text("Import \(fresh.count) new \(fresh.count == 1 ? "photo" : "photos")") }
+            Button { app.importShots(fresh) } label: {
+                Text("Import \(fresh.count) new \(fresh.count == 1 ? "photo" : "photos")").rollingNumber(fresh.count)
+            }
                 .buttonStyle(PrimaryButtonStyle())
         } else if !snapshot.videosToImport.isEmpty {
             // Every photo is in; only videos are left. Say so instead of "everything".
@@ -454,6 +499,8 @@ private struct LibraryBottomBar: View {
         } else if !session.shots.isEmpty {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle")
+                    .symbolEffect(.bounce, options: .nonRepeating, value: session.shots.count)
+                    .pop(on: snapshot.total)
                 Text("Everything here is in Photos")
             }
             .font(Mono.sans(.subheadline)).foregroundStyle(Mono.dim)
@@ -462,12 +509,12 @@ private struct LibraryBottomBar: View {
     }
 
     private func importPicks(_ picks: [Shot]) -> some View {
-        Button { app.importShots(picks) } label: { Text("Import \(picks.count) \(picks.count == 1 ? "pick" : "picks")").fixedSize() }
+        Button { app.importShots(picks) } label: { Text("Import \(picks.count) \(picks.count == 1 ? "pick" : "picks")").rollingNumber(picks.count).fixedSize() }
             .buttonStyle(PrimaryButtonStyle())
     }
 
     private func importAll(_ fresh: [Shot]) -> some View {
-        Button { app.importShots(fresh) } label: { Text("All \(fresh.count)").fixedSize() }
+        Button { app.importShots(fresh) } label: { Text("All \(fresh.count)").rollingNumber(fresh.count).fixedSize() }
             .buttonStyle(SecondaryButtonStyle())
     }
 
@@ -477,11 +524,16 @@ private struct LibraryBottomBar: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(selected.isEmpty ? "Select photos" : "\(selected.count) selected")
                     .font(Mono.sans(.subheadline, weight: .semibold)).monospacedDigit()
+                    .rollingNumber(selected.count)
                 if !selected.isEmpty {
-                    Text(ByteCountFormatter.string(fromByteCount: selected.reduce(0) { $0 + $1.totalBytes }, countStyle: .file))
+                    let bytes = ByteCountFormatter.string(fromByteCount: selected.reduce(0) { $0 + $1.totalBytes }, countStyle: .file)
+                    Text(bytes)
                         .font(Mono.data(.caption)).foregroundStyle(Mono.dim)
+                        .rollingText(bytes)
+                        .transition(.opacity.combined(with: .offset(y: 6)))
                 }
             }
+            .animation(Motion.snap, value: selected.isEmpty)
             Spacer()
             Button { recap(selected) } label: { Text("Recap") }
                 .buttonStyle(SecondaryButtonStyle()).frame(minWidth: 90).fixedSize()
@@ -510,7 +562,7 @@ struct ShotCell: View {
             .overlay {
                 if let image {
                     Image(uiImage: image).resizable().scaledToFill()
-                        .transition(.opacity)
+                        .transition(.opacity.combined(with: .scale(scale: 1.08)))
                 } else if shot.isVideo {
                     Icon("video-camera", size: 20).foregroundStyle(Mono.dim)
                 }
@@ -524,13 +576,13 @@ struct ShotCell: View {
                         .padding(5)
                 }
             }
-            .overlay { importOverlay }
+            .overlay { importOverlay.animation(Motion.pop, value: shot.wasImported) }
             .overlay(alignment: .topTrailing) { selectionMark }
             .contentShape(Rectangle())
             .task(id: shot.id) {
                 if let hit = shot.thumbnail { image = hit; return }
                 if let img = await Previews.thumbnail(shot) {
-                    withAnimation(.easeOut(duration: 0.2)) { image = img }
+                    withAnimation(.easeOut(duration: 0.28)) { image = img }
                 }
             }
             .accessibilityElement()
@@ -547,11 +599,12 @@ struct ShotCell: View {
                 }
                 if shot.isLocked { Image(systemName: "lock.fill") }
             }
-            .font(.system(size: 10, weight: .bold).monospacedDigit())
+            .font(Mono.sans(size: 10, weight: .bold).monospacedDigit())
             .foregroundStyle(.white)
             .padding(.horizontal, 5).padding(.vertical, 3)
             .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             .padding(4)
+            .transition(.popIn)
         }
     }
 
@@ -559,7 +612,7 @@ struct ShotCell: View {
     @ViewBuilder private var importOverlay: some View {
         switch shot.importState {
         case .queued:
-            Color.black.opacity(0.35)
+            Color.black.opacity(0.35).transition(.opacity)
         case .importing(let f):
             ZStack(alignment: .bottomLeading) {
                 Color.black.opacity(0.25)
@@ -582,7 +635,7 @@ struct ShotCell: View {
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(.black, .white)
                         .padding(4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.6)))
+                        .transition(.popIn)
                 }
             }
         }
@@ -596,10 +649,12 @@ struct ShotCell: View {
                     .font(.system(size: 20, weight: .regular))
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(selected ? Color.black : .white, .white)
+                    .contentTransition(.symbolEffect(.replace))
                     .shadow(color: .black.opacity(0.35), radius: 1.5)
                     .padding(5)
+                    .pop(on: selected, scale: selected ? 1.3 : 1)
             }
-            .transition(.opacity)
+            .transition(.opacity.combined(with: .scale(scale: 0.6, anchor: .topTrailing)))
             .animation(Motion.snap, value: selected)
             .sensoryFeedback(.selection, trigger: selected)
         }

@@ -7,7 +7,14 @@ import android.text.format.Formatter
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -141,11 +148,20 @@ fun ShotPagerScreen(app: AppState, shots: List<Shot>, startId: String) {
             },
             pageSpacing = 8.dp, beyondViewportPageCount = 1, key = { shots[it].id },
         ) { page ->
-            // The zoom from the grid is keyed on the page being shown now, so closing returns to the right cell.
-            ShotPreview(shots[page], session, shared = page == pager.currentPage)
+            // Neighbouring pages sit slightly smaller and dimmer, and grow into place as they're swiped in.
+            val reduce = LocalReduceMotion.current
+            Box(Modifier.fillMaxSize().graphicsLayer {
+                if (reduce) return@graphicsLayer
+                val off = kotlin.math.abs((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(0f, 1f)
+                val k = 1f - 0.08f * off
+                scaleX = k; scaleY = k; alpha = 1f - 0.35f * off
+            }) {
+                // The zoom from the grid is keyed on the page being shown now, so closing returns to the right cell.
+                ShotPreview(shots[page], session, shared = page == pager.currentPage)
+            }
         }
 
-        AnimatedVisibility(chrome, Modifier.align(Alignment.TopCenter), enter = fadeIn(tween(250)), exit = fadeOut(tween(200))) {
+        AnimatedVisibility(chrome, Modifier.align(Alignment.TopCenter), enter = fadeIn(tween(250)) + slideInVertically(Motion.float()) { -it }, exit = fadeOut(tween(200)) + slideOutVertically(tween(220)) { -it }) {
             Row(
                 Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.55f)).statusBarsPadding().heightIn(min = 56.dp).padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -156,16 +172,16 @@ fun ShotPagerScreen(app: AppState, shots: List<Shot>, startId: String) {
                         current?.captureDate?.atZone(ZoneId.systemDefault())?.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)) ?: "",
                         style = Mono.subhead.copy(fontWeight = FontWeight.SemiBold), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    Text("${pager.currentPage + 1} of ${shots.size}", style = Mono.data(12.sp), color = Mono.c.dim, maxLines = 1)
+                    AnimatedCount(pager.currentPage + 1, Mono.data(12.sp), Mono.c.dim, suffix = " of ${shots.size}")
                 }
                 Spacer(Modifier.width(48.dp))
             }
         }
 
-        AnimatedVisibility(chrome && current != null, Modifier.align(Alignment.BottomCenter), enter = fadeIn(tween(250)), exit = fadeOut(tween(200))) {
+        AnimatedVisibility(chrome && current != null, Modifier.align(Alignment.BottomCenter), enter = fadeIn(tween(250)) + slideInVertically(Motion.float()) { it }, exit = fadeOut(tween(200)) + slideOutVertically(tween(220)) { it }) {
             val s = current ?: return@AnimatedVisibility
             Column(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.78f)).navigationBarsPadding()) {
-                AnimatedVisibility(showInfo, enter = expandVertically(tween(300)) + fadeIn(tween(300)), exit = shrinkVertically(tween(250)) + fadeOut(tween(200))) {
+                AnimatedVisibility(showInfo, enter = expandVertically(Motion.float()) + fadeIn(tween(300)), exit = shrinkVertically(tween(250)) + fadeOut(tween(200))) {
                     ShotInfoPanel(app, s)
                 }
                 Row(
@@ -174,7 +190,7 @@ fun ShotPagerScreen(app: AppState, shots: List<Shot>, startId: String) {
                 ) {
                     if (loadingFrame) Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { Spinner(Color.White, 20.dp) }
                     else IconButton(Ph.frame, "Frame", tint = if (s.isVideo) Mono.c.faint else Color.White) { if (!s.isVideo) openFrame(s) }
-                    IconButton(if (showInfo) Ph.infoFill else Ph.info, if (showInfo) "Hide info" else "Info") { showInfo = !showInfo }
+                    IconButton(if (showInfo) Ph.infoFill else Ph.info, if (showInfo) "Hide info" else "Info", Modifier.popOn(showInfo, 1.2f)) { showInfo = !showInfo }
                     ImportAction(app, s)
                 }
             }
@@ -184,6 +200,21 @@ fun ShotPagerScreen(app: AppState, shots: List<Shot>, startId: String) {
 
 @Composable
 private fun ImportAction(app: AppState, s: Shot) {
+    // Download → progress ring → check: each state pops in over the last.
+    val phase = when {
+        s.importState is ImportState.Importing -> 1
+        s.importState == ImportState.Queued -> 2
+        s.wasImported -> 3
+        else -> 0
+    }
+    AnimatedContent(phase, label = "importAction", transitionSpec = {
+        (scaleIn(spring(dampingRatio = 0.5f, stiffness = 500f), initialScale = 0.4f) + fadeIn(tween(150)))
+            .togetherWith(scaleOut(tween(150), targetScale = 0.6f) + fadeOut(tween(120)))
+    }) { _ -> ImportActionContent(app, s) }
+}
+
+@Composable
+private fun ImportActionContent(app: AppState, s: Shot) {
     when (val st = s.importState) {
         is ImportState.Importing -> Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
@@ -245,7 +276,7 @@ private fun ShotInfoPanel(app: AppState, shot: Shot) {
             .padding(horizontal = Mono.gutter).padding(top = 14.dp, bottom = 4.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.Top) {
+        Row(Modifier.riseIn(0, shot.id), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(m?.cameraName ?: "Unknown camera", style = Mono.headline, color = Mono.c.ink)
                 m?.lens?.let { Text(it, style = Mono.footnote, color = Mono.c.dim) }
@@ -256,21 +287,23 @@ private fun ShotInfoPanel(app: AppState, shot: Shot) {
             }
         }
         if (m != null && m.exposureLine.isNotEmpty()) {
-            Column {
+            Column(Modifier.riseIn(1, shot.id)) {
                 Hairline()
                 Row(Modifier.padding(vertical = 8.dp)) {
-                    for (t in listOfNotNull(m.focalText, m.apertureText, m.shutterText, m.isoText, m.biasText)) {
-                        Text(t, Modifier.weight(1f), style = Mono.data(15.sp, FontWeight.Medium), color = Mono.c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    for ((i, t) in listOfNotNull(m.focalText, m.apertureText, m.shutterText, m.isoText, m.biasText).withIndex()) {
+                        Text(t, Modifier.weight(1f).riseIn(2 + i, shot.id), style = Mono.data(15.sp, FontWeight.Medium), color = Mono.c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Hairline()
             }
         }
         val recipe = m?.recipe
-        if (recipe != null) RecipeSummary(recipe, showRecipe) { showRecipe = !showRecipe }
-        else m?.look?.let { DataRow("Look", it) }
+        Box(Modifier.riseIn(6, shot.id)) {
+            if (recipe != null) RecipeSummary(recipe, showRecipe) { showRecipe = !showRecipe }
+            else m?.look?.let { DataRow("Look", it) }
+        }
 
-        Row(verticalAlignment = Alignment.Top) {
+        Row(Modifier.riseIn(7, shot.id), verticalAlignment = Alignment.Top) {
             Text(app.locationSource(shot), Modifier.weight(1f), style = Mono.data(12.sp), color = Mono.c.dim, maxLines = 2)
             Spacer(Modifier.width(8.dp))
             val size = if (shot.primary.location is FileLocation.Http) "Wi‑Fi" else Formatter.formatShortFileSize(context, shot.totalBytes)
@@ -288,12 +321,14 @@ fun RecipeSummary(recipe: FilmRecipe, expanded: Boolean, onToggle: () -> Unit) {
                 CapsLabel("Recipe")
                 Text(recipe.filmSimulation, style = Mono.subhead.copy(fontWeight = FontWeight.SemiBold), color = Mono.c.ink)
             }
-            Text(if (expanded) "Hide" else "${recipe.rows.size - 1} settings", style = Mono.data(12.sp), color = Mono.c.dim)
+            AnimatedContent(if (expanded) "Hide" else "${recipe.rows.size - 1} settings", label = "recipeToggle", transitionSpec = {
+                (fadeIn(tween(180)) + slideInVertically(Motion.bouncy()) { it / 2 }).togetherWith(fadeOut(tween(120)) + slideOutVertically(tween(150)) { -it / 2 })
+            }) { Text(it, style = Mono.data(12.sp), color = Mono.c.dim) }
             Spacer(Modifier.width(6.dp))
             Disclosure(expanded)
         }
-        AnimatedVisibility(expanded, enter = expandVertically(tween(300)) + fadeIn(tween(300)), exit = shrinkVertically(tween(250)) + fadeOut(tween(200))) {
-            Column(Modifier.padding(top = 6.dp)) { recipe.rows.drop(1).forEach { (k, v) -> DataRow(k, v) } }
+        AnimatedVisibility(expanded, enter = expandVertically(Motion.float()) + fadeIn(tween(300)), exit = shrinkVertically(tween(250)) + fadeOut(tween(200))) {
+            Column(Modifier.padding(top = 6.dp)) { recipe.rows.drop(1).forEachIndexed { i, (k, v) -> Box(Modifier.riseIn(i)) { DataRow(k, v) } } }
         }
     }
 }
@@ -360,7 +395,7 @@ fun FrameStudioScreen(app: AppState, image: Bitmap, meta: ShotMeta?, location: F
             Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                 // Each option change cross-fades to the new render with a slight settle, like a print being swapped.
                 AnimatedContent(preview, label = "frame", transitionSpec = {
-                    fadeIn(tween(220)).togetherWith(fadeOut(tween(160)))
+                    (fadeIn(tween(240)) + scaleIn(Motion.float(), initialScale = 0.97f)).togetherWith(fadeOut(tween(160)) + scaleOut(tween(160), targetScale = 1.01f))
                 }) { b -> if (b != null) Image(b.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Spinner(Color.White) } }
             }
             Hairline()
@@ -370,13 +405,15 @@ fun FrameStudioScreen(app: AppState, image: Bitmap, meta: ShotMeta?, location: F
                     for (s in FrameStyle.entries) {
                         val on = options.style == s
                         val locked = s.isPro && !app.pro.isPro
-                        Column(Modifier.heightIn(min = 48.dp).clickable { if (locked) app.showPaywall = true else options = options.copy(style = s) }, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        val fg by animateColorAsState(if (on) Mono.c.ink else Mono.c.dim, Motion.snap(), label = "styleFg")
+                        val bar by animateFloatAsState(if (on) 1f else 0f, Motion.bouncy(), label = "styleBar")
+                        Column(Modifier.heightIn(min = 48.dp).pressDim { if (locked) app.showPaywall = true else options = options.copy(style = s) }, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(s.label, style = Mono.subhead, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, color = if (on) Mono.c.ink else Mono.c.dim)
+                                Text(s.label, style = Mono.subhead, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, color = fg)
                                 if (locked) PhIcon(Ph.lock, "Pro", size = 11.dp, tint = Mono.c.dim)
                             }
                             Spacer(Modifier.height(7.dp))
-                            Box(Modifier.height(1.5.dp).width(40.dp).background(if (on) Mono.c.ink else Color.Transparent))
+                            Box(Modifier.height(1.5.dp).width(40.dp).graphicsLayer { scaleX = bar; alpha = bar.coerceIn(0f, 1f) }.background(Mono.c.ink))
                         }
                     }
                 }
@@ -385,10 +422,12 @@ fun FrameStudioScreen(app: AppState, image: Bitmap, meta: ShotMeta?, location: F
                     CapsLabel("Ratio", Modifier.width(64.dp))
                     for (a in FrameAspect.entries) {
                         val on = options.aspect == a
-                        Column(Modifier.weight(1f).clickable { options = options.copy(aspect = a) }.heightIn(min = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Text(a.label, style = Mono.data(13.sp, if (on) FontWeight.SemiBold else FontWeight.Normal), color = if (on) Mono.c.ink else Mono.c.dim)
+                        val fg by animateColorAsState(if (on) Mono.c.ink else Mono.c.dim, Motion.snap(), label = "ratioFg")
+                        val bar by animateFloatAsState(if (on) 1f else 0f, Motion.bouncy(), label = "ratioBar")
+                        Column(Modifier.weight(1f).pressDim { options = options.copy(aspect = a) }.heightIn(min = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Text(a.label, style = Mono.data(13.sp, if (on) FontWeight.SemiBold else FontWeight.Normal), color = fg)
                             Spacer(Modifier.height(6.dp))
-                            Box(Modifier.height(1.5.dp).width(28.dp).background(if (on) Mono.c.ink else Color.Transparent))
+                            Box(Modifier.height(1.5.dp).width(28.dp).graphicsLayer { scaleX = bar; alpha = bar.coerceIn(0f, 1f) }.background(Mono.c.ink))
                         }
                     }
                 }

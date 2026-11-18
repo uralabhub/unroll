@@ -38,12 +38,13 @@ struct ShotPagerView: View {
                 VStack(spacing: 0) {
                     if showInfo {
                         ShotInfoPanel(shot: s)
+                            .id(s.id)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                     actions(s)
                 }
                 .background(.ultraThinMaterial)
-                .transition(.opacity)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .toolbar(chrome ? .visible : .hidden, for: .navigationBar)
@@ -54,6 +55,7 @@ struct ShotPagerView: View {
                         .font(Mono.sans(.subheadline, weight: .semibold))
                     if let i = index {
                         Text("\(i + 1) of \(shots.count)").font(Mono.data(.caption)).foregroundStyle(Mono.dim)
+                            .rollingNumber(i)
                     }
                 }
             }
@@ -70,7 +72,7 @@ struct ShotPagerView: View {
             barButton(loadingFrame ? nil : "square.dashed", "Frame") { Task { await openFrame(s) } }
                 .disabled(s.isVideo || loadingFrame)
             Spacer()
-            barButton(showInfo ? "info.circle.fill" : "info.circle", "Info") {
+            barButton(showInfo ? "info.circle.fill" : "info.circle", "Info", bounce: showInfo) {
                 withAnimation(Motion.glide) { showInfo.toggle() }
             }
             Spacer()
@@ -78,18 +80,23 @@ struct ShotPagerView: View {
         }
         .padding(.horizontal, 28)
         .frame(height: 52)
+        .animation(Motion.pop, value: s.wasImported)
     }
 
-    private func barButton(_ symbol: String?, _ label: String, action: @escaping () -> Void) -> some View {
+    private func barButton(_ symbol: String?, _ label: String, bounce: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Group {
-                if let symbol { Image(systemName: symbol) } else { ProgressView() }
+                if let symbol {
+                    Image(systemName: symbol)
+                        .contentTransition(.symbolEffect(.replace))
+                        .symbolEffect(.bounce, value: bounce)
+                } else { ProgressView().transition(.popIn) }
             }
             .font(.system(size: 21))
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressStyle())
+        .buttonStyle(PressStyle(scale: 0.85))
         .accessibilityLabel(label)
     }
 
@@ -102,13 +109,17 @@ struct ShotPagerView: View {
                     .rotationEffect(.degrees(-90)).animation(Motion.progress, value: f)
             }
             .frame(width: 24, height: 24).frame(width: 44, height: 44)
+            .transition(.popIn)
             .accessibilityLabel("Importing")
         case .queued:
             Image(systemName: "clock").font(.system(size: 21)).foregroundStyle(Mono.dim).frame(width: 44, height: 44)
+                .symbolEffect(.pulse)
+                .transition(.popIn)
         default:
             if s.wasImported {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 21)).foregroundStyle(Mono.dim)
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 21)).foregroundStyle(Mono.accent)
                     .frame(width: 44, height: 44).accessibilityLabel("In Photos")
+                    .transition(.popIn)
             } else {
                 barButton(s.importState.isFailed ? "arrow.clockwise" : "square.and.arrow.down", "Import") { app.importShots([s]) }
             }
@@ -144,7 +155,7 @@ struct ShotPreview: View {
                     .transition(.opacity)
             }
             if image == nil && loading {
-                ProgressView().tint(.white).transition(.opacity)
+                ProgressView().tint(.white).transition(.popIn)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -170,8 +181,8 @@ struct ShotInfoPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(m?.cameraName ?? "Unknown camera").font(Mono.sans(.headline))
-                    if let lens = m?.lens { Text(lens).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim) }
+                    Text(m?.cameraName ?? "Unknown camera").font(Mono.sans(.headline)).rise(0)
+                    if let lens = m?.lens { Text(lens).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim).rise(1) }
                 }
                 Spacer()
                 HStack(spacing: 8) {
@@ -182,10 +193,11 @@ struct ShotInfoPanel: View {
 
             if let m, !m.exposureLine.isEmpty {
                 HStack(spacing: 0) {
-                    ForEach([m.focalText, m.apertureText, m.shutterText, m.isoText, m.biasText].compactMap { $0 }, id: \.self) {
-                        Text($0).font(Mono.data(.subheadline, weight: .medium))
+                    ForEach(Array([m.focalText, m.apertureText, m.shutterText, m.isoText, m.biasText].compactMap { $0 }.enumerated()), id: \.element) { i, v in
+                        Text(v).font(Mono.data(.subheadline, weight: .medium))
                             .lineLimit(1).minimumScaleFactor(0.8)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .rise(i + 1, distance: 10)
                     }
                 }
                 .padding(.vertical, 8)
@@ -243,16 +255,17 @@ struct RecipeSummary: View {
                     Spacer()
                     Text(expanded ? "Hide" : "\(recipe.rows.count - 1) settings")
                         .font(Mono.data(.caption2)).foregroundStyle(Mono.dim)
+                        .contentTransition(.opacity)
                     Icon("caret-down", size: 14)
                         .rotationEffect(.degrees(expanded ? 180 : 0)).foregroundStyle(Mono.dim)
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressStyle(scale: 0.98))
             if expanded {
                 VStack(spacing: 0) {
                     ForEach(Array(recipe.rows.dropFirst().enumerated()), id: \.element.0) { i, row in
-                        DataRow(key: row.0, value: row.1)
+                        DataRow(key: row.0, value: row.1).rise(i, step: 0.03, distance: 10)
                     }
                 }
                 .padding(.top, 6)

@@ -4,12 +4,21 @@ import SwiftUI
 struct UnrollApp: App {
     @State private var app = AppState()
 
+    init() {
+        // Navigation titles in Nunito, matching the rest of the type.
+        let nav = UINavigationBar.appearance()
+        nav.titleTextAttributes = [.font: Mono.uiSans(17, weight: .semibold)]
+        nav.largeTitleTextAttributes = [.font: Mono.uiSans(34, weight: .bold)]
+        UIBarButtonItem.appearance().setTitleTextAttributes([.font: Mono.uiSans(17)], for: .normal)
+    }
+
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(app)
+                .font(Mono.sans())
                 .tint(Mono.ink)
                 // A photo tool: dark chrome so the pictures carry the colour (Photos, Lightroom, Halide).
                 .preferredColorScheme(.dark)
@@ -30,10 +39,12 @@ struct RootView: View {
                 if let session = app.session {
                     LibraryView(session: session)
                         .id(session.id)
-                        .transition(.opacity)
+                        .transition(.asymmetric(insertion: .scale(scale: 1.04).combined(with: .opacity),
+                                                removal: .scale(scale: 0.96).combined(with: .opacity)))
                 } else {
                     HomeView()
-                        .transition(.opacity)
+                        .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
+                                                removal: .scale(scale: 1.04).combined(with: .opacity)))
                 }
             }
             .animation(Motion.glide, value: app.session?.id)

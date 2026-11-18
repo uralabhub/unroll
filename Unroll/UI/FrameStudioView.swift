@@ -86,11 +86,13 @@ struct FrameStudioView: View {
                             }
                             .foregroundStyle(on ? Mono.ink : Mono.dim)
                             Rectangle().fill(on ? Mono.ink : .clear).frame(height: 1.5)
+                                .scaleEffect(x: on ? 1 : 0.2)
                         }
                         .fixedSize()
                         .contentShape(Rectangle())
+                        .pop(on: on, scale: on ? 1.08 : 1)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle(scale: 0.92))
                 }
             }
             .padding(.horizontal, Mono.gutter)

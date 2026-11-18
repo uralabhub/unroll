@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Unroll's visual language: a dark, neutral photo tool (think Photos, Lightroom, Halide).
-/// The photos carry the colour; the chrome is black, white and greys. System type (SF Pro) for
-/// words, tabular digits for data. No shadows, no bounce, no decoration that moves on its own.
+/// The photos carry the colour; the chrome is black, white and greys. Nunito for
+/// words, tabular digits for data. No shadows; motion answers touches and live states (see Motion).
 enum Mono {
     static let bg = Color(uiColor: .systemBackground)
     static let raised = Color(uiColor: .secondarySystemBackground)
@@ -24,26 +24,61 @@ enum Mono {
     static let gutter: CGFloat = 16
     static let radius: CGFloat = 12
 
-    // MARK: Type: SF Pro for words, tabular digits for data.
+    // MARK: Type: Nunito for words, tabular digits for data.
 
-    /// System text style, scaling with Dynamic Type. `.headline` is semibold, as the system style is.
-    static func sans(_ style: Font.TextStyle = .body, weight: Font.Weight? = nil) -> Font {
-        let f = Font.system(style)
-        return weight.map { f.weight($0) } ?? f
+    private static func nunitoName(_ w: Font.Weight) -> String {
+        switch w {
+        case .black, .heavy: return "Nunito-ExtraBold"
+        case .bold: return "Nunito-Bold"
+        case .semibold: return "Nunito-SemiBold"
+        case .medium: return "Nunito-Medium"
+        default: return "Nunito-Regular"
+        }
     }
 
-    /// System font at a fixed size (display numbers in renderers and badges).
+    private static func defaults(_ style: Font.TextStyle) -> (CGFloat, Font.Weight) {
+        switch style {
+        case .largeTitle: return (34, .bold)
+        case .title: return (28, .bold)
+        case .title2: return (22, .bold)
+        case .title3: return (20, .semibold)
+        case .headline: return (17, .semibold)
+        case .body: return (17, .regular)
+        case .callout: return (16, .regular)
+        case .subheadline: return (15, .regular)
+        case .footnote: return (13, .regular)
+        case .caption: return (12, .regular)
+        case .caption2: return (11, .regular)
+        @unknown default: return (17, .regular)
+        }
+    }
+
+    /// Nunito at a text style's size, scaling with Dynamic Type. `.headline` is semibold, as the system style is.
+    static func sans(_ style: Font.TextStyle = .body, weight: Font.Weight? = nil) -> Font {
+        let (size, w) = defaults(style)
+        return .custom(nunitoName(weight ?? w), size: size, relativeTo: style)
+    }
+
+    /// Nunito at a fixed size (display numbers in renderers and badges).
     static func sans(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight)
+        .custom(nunitoName(weight), fixedSize: size)
     }
 
     /// UIKit counterpart for renderers and navigation bars.
     static func uiSans(_ size: CGFloat, weight: UIFont.Weight = .regular) -> UIFont {
-        .systemFont(ofSize: size, weight: weight)
+        let name: String
+        switch weight {
+        case .black, .heavy: name = "Nunito-ExtraBold"
+        case .bold: name = "Nunito-Bold"
+        case .semibold: name = "Nunito-SemiBold"
+        case .medium: name = "Nunito-Medium"
+        default: name = "Nunito-Regular"
+        }
+        return UIFont(name: name, size: size) ?? .systemFont(ofSize: size, weight: weight)
     }
 
     /// Small section label. Sentence case at footnote size: quiet, not shouty.
-    static func caps(_ size: CGFloat = 11) -> Font { .system(size: max(size, 12), weight: .semibold) }
+    static func caps(_ size: CGFloat = 11) -> Font { sans(size: max(size, 12), weight: .semibold) }
     /// EXIF values, counts and times: tabular digits so numbers don't jitter.
     static func data(_ style: Font.TextStyle = .body, weight: Font.Weight = .regular) -> Font {
         sans(style, weight: weight).monospacedDigit()
@@ -122,8 +157,8 @@ struct MonoSection<Content: View>: View {
 private struct DividedLayout: _VariadicView_MultiViewRoot {
     func body(children: _VariadicView.Children) -> some View {
         VStack(spacing: 0) {
-            ForEach(children) { child in
-                child
+            ForEach(Array(children.enumerated()), id: \.element.id) { i, child in
+                child.rise(i)
                 Hairline().padding(.leading, child.id == children.last?.id ? 0 : Mono.gutter)
             }
         }
@@ -183,7 +218,7 @@ struct DataRow: View {
 
 // MARK: - Buttons
 
-/// Solid ink button (white on dark, black on light). Press = quick dim, no bounce.
+/// Solid ink button (white on dark, black on light). Press = squeeze + dim, springs back.
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
@@ -195,8 +230,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(enabled ? Mono.bg : Mono.ink.opacity(0.4))
             .background(Mono.ink.opacity(enabled ? 1 : 0.1),
                         in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
-            .opacity(configuration.isPressed ? 0.75 : 1)
-            .animation(Motion.press, value: configuration.isPressed)
+            .pressEffect(configuration.isPressed, scale: 0.96, dim: 0.8)
             .animation(Motion.snap, value: enabled)
             .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: configuration.isPressed) { _, new in new }
     }
@@ -213,8 +247,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .padding(.horizontal, 12)
             .foregroundStyle(Mono.ink.opacity(enabled ? 1 : 0.3))
             .background(Mono.tile, in: RoundedRectangle(cornerRadius: Mono.radius, style: .continuous))
-            .opacity(configuration.isPressed ? 0.7 : 1)
-            .animation(Motion.press, value: configuration.isPressed)
+            .pressEffect(configuration.isPressed, scale: 0.96, dim: 0.75)
     }
 }
 
@@ -227,8 +260,8 @@ struct OutlineChipStyle: ButtonStyle {
             .padding(.horizontal, 12).frame(minHeight: 30)
             .foregroundStyle(filled ? Mono.bg : Mono.ink)
             .background(filled ? Mono.ink : Mono.tile, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .opacity(configuration.isPressed ? 0.7 : 1)
-            .animation(Motion.press, value: configuration.isPressed)
+            .animation(Motion.snap, value: filled)
+            .pressEffect(configuration.isPressed, scale: 0.92, dim: 0.75)
     }
 }
 
@@ -264,6 +297,7 @@ struct TabStrip<T: Hashable>: View {
                         Text(label(item)).font(Mono.sans(.subheadline, weight: .semibold))
                         if let n = count?(item) {
                             Text("\(n)").font(Mono.data(.caption)).foregroundStyle(on ? Mono.ink.opacity(0.6) : Mono.faint)
+                                .rollingNumber(n)
                         }
                     }
                     .foregroundStyle(on ? Mono.ink : Mono.dim)
@@ -276,8 +310,9 @@ struct TabStrip<T: Hashable>: View {
                     }
                     .fixedSize()
                     .contentShape(Rectangle())
+                    .pop(on: on, scale: on ? 1.06 : 1)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle(scale: 0.93))
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
@@ -294,8 +329,9 @@ struct ChipToggle: ToggleStyle {
                 .padding(.horizontal, 12).frame(minHeight: 32)
                 .foregroundStyle(configuration.isOn ? Mono.bg : Mono.ink)
                 .background(configuration.isOn ? Mono.ink : Mono.tile, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .pop(on: configuration.isOn, scale: 1.08)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle(scale: 0.92))
     }
 }
 
@@ -308,8 +344,26 @@ struct StarRow: View {
             ForEach(1...5, id: \.self) { n in
                 Icon(n <= rating ? "star-fill" : "star", size: size + 1)
                     .foregroundStyle(n <= rating ? Mono.ink : Mono.faint)
+                    .modifier(StarIn(index: n, filled: n <= rating))
             }
         }
+    }
+}
+
+/// Filled stars spin up one after another the first time they show.
+private struct StarIn: ViewModifier {
+    let index: Int
+    let filled: Bool
+    @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduce
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(shown || !filled || reduce ? 1 : 0.2)
+            .rotationEffect(.degrees(shown || !filled || reduce ? 0 : -90))
+            .onAppear {
+                guard !shown else { return }
+                withAnimation(Motion.pop.delay(Double(index) * 0.06)) { shown = true }
+            }
     }
 }
 
@@ -320,8 +374,9 @@ struct QuietMessage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(Mono.sans(.headline))
-            if let message { Text(message).font(Mono.sans(.subheadline)).foregroundStyle(Mono.dim) }
+            if let message { Text(message).font(Mono.sans(.subheadline)).foregroundStyle(Mono.dim).rise(1) }
         }
+        .rise(0)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Mono.gutter)
         .padding(.vertical, 28)
