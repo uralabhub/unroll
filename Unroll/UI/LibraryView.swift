@@ -48,6 +48,8 @@ struct LibrarySnapshot: Equatable {
     var counts: [ShotFilter: Int] = [:]
     var picksToImport: [Shot] = []
     var newToImport: [Shot] = []
+    /// Not-yet-imported videos: left out of the bulk buttons (they can be gigabytes).
+    var videosToImport: [Shot] = []
     var total = 0
 
     init() {}
@@ -57,18 +59,20 @@ struct LibrarySnapshot: Equatable {
         let all = session.shots
         total = all.count
         var nNew = 0, nPicks = 0
-        var picks: [Shot] = [], fresh: [Shot] = [], vis: [Shot] = []
+        var picks: [Shot] = [], fresh: [Shot] = [], videos: [Shot] = [], vis: [Shot] = []
         for s in all {
             let isNew = !s.wasImported
             let isPick = s.isKeeper
             if isNew { nNew += 1 }
             if isPick { nPicks += 1 }
             if isNew && !s.isVideo { fresh.append(s); if isPick { picks.append(s) } }
+            if isNew && s.isVideo { videos.append(s) }
             if filter.matches(s) && options.matches(s) { vis.append(s) }
         }
         counts = [.all: all.count, .new: nNew, .picks: nPicks]
         picksToImport = picks
         newToImport = fresh
+        videosToImport = videos
         visible = vis
         let cal = Calendar.current
         var order: [Date] = []
@@ -371,8 +375,15 @@ private struct LoadingState: View {
     let session: CameraSession
     var body: some View {
         VStack(spacing: 12) {
-            ProgressView()
+            // A spinner only while something is actually loading: a ready, empty card is final.
+            if session.status != .ready { ProgressView() }
             Text(text).font(Mono.sans(.footnote)).foregroundStyle(Mono.dim)
+            if session.status == .ready {
+                // Some cameras (and phones) share their photos only after a prompt on the device.
+                Text("If the camera shows a prompt, confirm it. Photos appear here on their own.")
+                    .font(Mono.sans(.caption)).foregroundStyle(Mono.faint)
+                    .multilineTextAlignment(.center).padding(.horizontal, 40)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 120)
@@ -435,6 +446,11 @@ private struct LibraryBottomBar: View {
         } else if !fresh.isEmpty {
             Button { app.importShots(fresh) } label: { Text("Import \(fresh.count) new \(fresh.count == 1 ? "photo" : "photos")") }
                 .buttonStyle(PrimaryButtonStyle())
+        } else if !snapshot.videosToImport.isEmpty {
+            // Every photo is in; only videos are left. Say so instead of "everything".
+            let v = snapshot.videosToImport
+            Button { app.importShots(v) } label: { Text("Import \(v.count) \(v.count == 1 ? "video" : "videos")") }
+                .buttonStyle(SecondaryButtonStyle())
         } else if !session.shots.isEmpty {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle")

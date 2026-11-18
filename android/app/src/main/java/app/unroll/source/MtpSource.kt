@@ -67,6 +67,11 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
         const val SIZE_UNKNOWN_32 = 0xFFFF_FFFFL
         private const val OP_GET_PARTIAL_OBJECT_64 = 0x95C1
         private const val CHUNK = 4 shl 20
+        /** Hung partial reads per camera; kept across the reopen that follows each hang. */
+        private val partialHangsByCamera = java.util.concurrent.ConcurrentHashMap<String, Int>()
+        /** Objects whose partial read hung, per camera: not retried, or every reopen would rescan
+         *  the same file, hang again and drop the session in a loop that never lets an import run. */
+        private val hungObjects = java.util.concurrent.ConcurrentHashMap<String, MutableSet<Int>>()
     }
 
     @Volatile var closed = false
@@ -87,6 +92,10 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
     private val partial64Supported: Boolean by lazy { supports(OP_GET_PARTIAL_OBJECT_64) ?: false }
     /** Set when a camera claimed GetPartialObject64 but refused it: retries use GetObject instead. */
     @Volatile private var partial64Broken = false
+    /** Partial reads that hung. After two, imports use whole-object GetObject (some responders
+     *  stall on GetPartialObject for certain files while GetObject works). */
+    private val cameraKey = "${device.vendorId}:${device.productId}:${runCatching { device.serialNumber }.getOrNull()}"
+    private val partialHangs: Int get() = partialHangsByCamera[cameraKey] ?: 0
 
     /**
      * Runs [block] on the PTP thread. [timeoutMs] counts from when the transaction *starts*, not
@@ -126,8 +135,9 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
 
     suspend fun readPartial(handle: Int, offset: Long, length: Int): ByteArray {
         if (!partialSupported) throw UnsupportedOperationException("This camera can't read part of a file.")
+        if (hungObjects[cameraKey]?.contains(handle) == true) throw IOException("The camera stalled reading this file before.")
         // ~4 MB in 30 s is < 140 KB/s: slower than any working USB 2 link.
-        return op("GetPartialObject", 30_000) {
+        return try { op("GetPartialObject(handle=$handle, offset=$offset, length=$length)", 30_000) {
             val buf = ByteArray(length)
             // GetPartialObject (PTP 0x101B) takes a 32-bit offset; the 64-bit variant is an Android
             // extension most cameras don't implement, so only use it past 4 GB (long videos).
@@ -138,6 +148,10 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
             }
             if (n <= 0) throw IOException("The camera returned no data.")
             if (n.toInt() == length) buf else buf.copyOf(n.toInt())
+        } } catch (e: CameraTimeoutException) {
+            partialHangsByCamera.merge(cameraKey, 1, Int::plus)
+            hungObjects.getOrPut(cameraKey) { java.util.concurrent.ConcurrentHashMap.newKeySet() }.add(handle)
+            throw e
         }
     }
 
@@ -149,7 +163,8 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
      */
     suspend fun copyObject(handle: Int, size: Long, out: OutputStream, progress: (Double) -> Unit, check: () -> Unit) {
         val known = size > 0 && size != SIZE_UNKNOWN_32
-        if (!partialSupported || !known || (size > SIZE_UNKNOWN_32 && (!partial64Supported || partial64Broken))) {
+        if (!partialSupported || !known || partialHangs >= 2 ||
+            (size > SIZE_UNKNOWN_32 && (!partial64Supported || partial64Broken))) {
             importWhole(handle, if (known) size else null, out, progress, check)
             return
         }
@@ -189,7 +204,12 @@ class MtpCamera(val device: UsbDevice, private val connection: UsbDeviceConnecti
         }
     }
 
-    suspend fun thumbnail(handle: Int): ByteArray? = if (closed) null else op("GetThumb", 15_000) { mtp.getThumbnail(handle) }
+    /** GetThumb (0x100A), unless the camera says it doesn't do it: a refused GetThumb answers with
+     *  a response where a data phase is expected, and some responders get out of step after that. */
+    private val thumbSupported: Boolean by lazy { supports(MtpConstants.OPERATION_GET_THUMB) ?: true }
+
+    suspend fun thumbnail(handle: Int): ByteArray? =
+        if (closed || !thumbSupported) null else op("GetThumb", 15_000) { mtp.getThumbnail(handle) }
 
     suspend fun info(handle: Int): MtpObjectInfo? = if (closed) null else op("GetObjectInfo", 10_000) { mtp.getObjectInfo(handle) }
 
@@ -318,10 +338,22 @@ class UsbCameraService(private val context: Context) {
         }
     }
 
+    private var opening = false
+
     private fun open(device: UsbDevice) {
         val make = makeSession ?: return
         if (camera?.device?.deviceName == device.deviceName && camera?.closed == false) return
-        val conn = usb?.openDevice(device)
+        if (opening) return
+        opening = true
+        val reset = resetOnOpen.also { resetOnOpen = false }
+        scope.launch {
+            // USB I/O off the main thread: draining a stuck transfer can take a moment.
+            val conn = withContext(Dispatchers.IO) { usb?.openDevice(device)?.also { clearPipe(it, device, reset) } }
+            try { finishOpen(device, make, conn) } finally { opening = false }
+        }
+    }
+
+    private fun finishOpen(device: UsbDevice, make: (String) -> CameraSession, conn: UsbDeviceConnection?) {
         val mtp = MtpDevice(device)
         if (conn == null || !mtp.open(conn)) {
             conn?.close()
@@ -336,6 +368,7 @@ class UsbCameraService(private val context: Context) {
         cam.onStuck = {
             scope.launch {
                 if (camera === cam) {
+                    resetOnOpen = true      // the hung transfer's data may still be queued in the camera
                     drop("The camera stopped responding. Reconnecting…")
                     delay(1500)
                     scanAttached()
@@ -351,6 +384,44 @@ class UsbCameraService(private val context: Context) {
     }
 
     fun eject() = shutdown()
+
+    /** Set after a hung transaction: the next open also sends PTP Cancel + Device Reset. */
+    private var resetOnOpen = false
+
+    /**
+     * Clears a transfer left half-done (a timeout, a yanked cable, the app killed mid-read). The
+     * camera may still hold the rest of that data phase; the next OpenSession would then read
+     * stale bytes instead of its response, and every reopen fails ("didn't list its files").
+     * Drains the bulk-in pipe; after a hang also sends the PTP-over-USB class requests
+     * Cancel (0x64) and Device Reset (0x66). Cameras that don't support them just stall the
+     * request, which is ignored.
+     */
+    private fun clearPipe(conn: UsbDeviceConnection, device: UsbDevice, reset: Boolean) {
+        val intf = (0 until device.interfaceCount).map { device.getInterface(it) }
+            .firstOrNull { it.interfaceClass == UsbConstants.USB_CLASS_STILL_IMAGE } ?: return
+        if (!conn.claimInterface(intf, true)) { Log.w(TAG, "Couldn't claim the camera to clear its USB pipe"); return }
+        try {
+            if (reset) {
+                // Cancel: code 0x4001 + transaction id (unknown here, so all ones), little-endian.
+                val cancel = byteArrayOf(0x01, 0x40, -1, -1, -1, -1)
+                conn.controlTransfer(0x21, 0x64, 0, intf.id, cancel, cancel.size, 500)
+                conn.controlTransfer(0x21, 0x66, 0, intf.id, null, 0, 500)
+            }
+            val bulkIn = (0 until intf.endpointCount).map { intf.getEndpoint(it) }
+                .firstOrNull { it.type == UsbConstants.USB_ENDPOINT_XFER_BULK && it.direction == UsbConstants.USB_DIR_IN }
+                ?: return
+            val buf = ByteArray(64 * 1024)
+            var total = 0L
+            while (total < 256L shl 20) {
+                val n = conn.bulkTransfer(bulkIn, buf, buf.size, 200)
+                if (n <= 0) break
+                total += n
+            }
+            if (total > 0 || reset) Log.i(TAG, "Cleared the USB pipe: $total stale bytes" + if (reset) ", after PTP cancel/reset" else "")
+        } finally {
+            conn.releaseInterface(intf)
+        }
+    }
 
     private fun shutdown() {
         jobs.forEach { it.cancel() }
@@ -410,7 +481,8 @@ class UsbCameraService(private val context: Context) {
         val storages = cam.storages()
         for (sid in storages) {
             val all = try { cam.handles(sid, 0) } catch (e: CameraTimeoutException) { throw e } catch (_: Exception) { null }
-            if (all != null && all.isNotEmpty()) { out += all.toList(); continue }
+            if (all != null && all.isNotEmpty() && !isShallow(cam, sid, all)) { out += all.toList(); continue }
+            if (all != null) Log.i(TAG, "storage ${Integer.toHexString(sid)}: all-objects listing has ${all.size}; walking folders")
             val queue = ArrayDeque(listOf(-1))                  // -1 = 0xFFFFFFFF = storage root
             var guard = 0
             while (queue.isNotEmpty() && guard++ < 2000) {
@@ -423,6 +495,23 @@ class UsbCameraService(private val context: Context) {
             }
         }
         return if (out.isEmpty() && storages.isEmpty()) null else out.toIntArray()
+    }
+
+    /**
+     * "All objects" (parent 0) should list the whole card, but some responders treat 0 as the
+     * root and return only the top folders (DCIM, MISC): QEMU's MTP device does, and so do some
+     * cameras. A short list holding a folder whose children aren't in it is such a listing.
+     */
+    private suspend fun isShallow(cam: MtpCamera, sid: Int, all: IntArray): Boolean {
+        if (all.size > 64) return false
+        val listed = all.toHashSet()
+        for (h in all) {
+            val info = cam.info(h) ?: continue
+            if (info.format != MtpConstants.FORMAT_ASSOCIATION) continue
+            val kids = try { cam.handles(sid, h) } catch (e: CameraTimeoutException) { throw e } catch (_: Exception) { null } ?: continue
+            if (kids.any { it !in listed }) return true
+        }
+        return false
     }
 
     private suspend fun item(cam: MtpCamera, h: Int): CardItem<Int>? {

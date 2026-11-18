@@ -156,9 +156,11 @@ object Previews {
         // Embedded preview first (RAW-only shots, MPF): a ranged read, never the whole RAW.
         if (shot.meta == null && f.format.isRAW) session?.loadMeta(shot)
         embedded(shot, 360)?.let { return it }
-        // Whole-file decode only from a card or local disk — never over USB / Wi-Fi.
-        if (!f.isRemote && (f.format == ShotFormat.JPEG || f.format == ShotFormat.HEIF)) {
-            if (f.size < 60_000_000) runCatching { f.readAll() }.getOrNull()?.let { return ImageDecode.decode(it, 360) }
+        // Whole-file decode: from a card or local disk, or over USB for a small JPEG/HEIF the camera
+        // has no thumbnail for (screenshots, edited/re-saved files). Never over Wi-Fi.
+        if (f.format == ShotFormat.JPEG || f.format == ShotFormat.HEIF) {
+            val limit = if (l is FileLocation.Mtp) 25_000_000L else if (!f.isRemote) 60_000_000L else 0L
+            if (f.size in 1 until limit) runCatching { f.readAll() }.getOrNull()?.let { return ImageDecode.decode(it, 360) }
         }
         return null
     }

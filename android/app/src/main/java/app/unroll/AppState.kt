@@ -67,6 +67,8 @@ class AppState(private val context: Context) {
     var toast by mutableStateOf<String?>(null)
     /** Shown as a toast once the paywall closes, so it never covers the plans. */
     var paywallNote: String? = null
+    /** The first-import permission prompt runs once per app run, not again on every reconnect. */
+    var askedImportPermissions = false
     /** True for a few seconds after an import run ends, while its summary is on screen. */
     var showingSummary by mutableStateOf(false)
     val stack = mutableStateListOf<Screen>()

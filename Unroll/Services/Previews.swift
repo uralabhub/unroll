@@ -78,6 +78,14 @@ enum Previews {
             let o = shot.meta?.orientation
             img = await Task.detached(priority: .userInitiated) { ImageDecode.downsample(data, maxPixel: 360, orientation: o) }.value
         }
+        // No thumbnail and no embedded preview over USB (screenshots, edited or re-saved JPEGs: the
+        // camera answers ICC error -21000): fetch the small original and scale it ourselves.
+        if img == nil, !Task.isCancelled, case .usb = shot.primary.location,
+           shot.primary.format == .jpeg || shot.primary.format == .heif,
+           shot.primary.size > 0, shot.primary.size < 25_000_000,
+           let data = try? await shot.primary.read(offset: 0, length: Int(shot.primary.size)), !data.isEmpty {
+            img = await Task.detached(priority: .userInitiated) { ImageDecode.downsample(data, maxPixel: 360) }.value
+        }
         if let img { ThumbnailCache.shared.set(img, for: shot.id) }
         return img
     }

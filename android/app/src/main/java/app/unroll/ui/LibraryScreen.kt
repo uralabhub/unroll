@@ -72,6 +72,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -134,24 +135,27 @@ private class LibrarySnapshot(
     val picksToImport: List<Shot>,
     val newToImport: List<Shot>,
     val total: Int,
+    /** Not-yet-imported videos: left out of the bulk buttons (they can be gigabytes). */
+    val videosToImport: List<Shot> = emptyList(),
 )
 
 private fun buildSnapshot(all: List<Shot>, filter: ShotFilter, options: FilterOptions): LibrarySnapshot {
     val today = LocalDate.now()
     var nNew = 0; var nPicks = 0
-    val picks = ArrayList<Shot>(); val fresh = ArrayList<Shot>(); val vis = ArrayList<Shot>()
+    val picks = ArrayList<Shot>(); val fresh = ArrayList<Shot>(); val videos = ArrayList<Shot>(); val vis = ArrayList<Shot>()
     for (s in all) {
         val isNew = !s.wasImported
         val isPick = s.isKeeper
         if (isNew) nNew++
         if (isPick) nPicks++
         if (isNew && !s.isVideo) { fresh += s; if (isPick) picks += s }
+        if (isNew && s.isVideo) videos += s
         if (filter.matches(s) && options.matches(s, today)) vis += s
     }
     val groups = LinkedHashMap<LocalDate, MutableList<Shot>>()
     for (s in vis) groups.getOrPut(day(s.fileDate)) { ArrayList() }.add(s)
     val days = groups.entries.sortedByDescending { it.key }.map { it.key to it.value as List<Shot> }
-    return LibrarySnapshot(days, vis, intArrayOf(all.size, nNew, nPicks), picks, fresh, all.size)
+    return LibrarySnapshot(days, vis, intArrayOf(all.size, nNew, nPicks), picks, fresh, all.size, videos)
 }
 
 private fun day(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
@@ -178,8 +182,10 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
     // starts (that's when they matter), never just for opening a card.
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
     val importing = app.importer.isRunning
-    LaunchedEffect(importing) {
-        if (!importing) return@LaunchedEffect
+    // Waits for the paywall (shown when the free quota can't cover the whole run) to close, so
+    // the system dialogs come one at a time instead of stacking on top of it.
+    LaunchedEffect(importing, app.showPaywall) {
+        if (!importing || app.showPaywall || app.askedImportPermissions) return@LaunchedEffect
         val want = buildList {
             if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
             if (app.settings.borrowPhoneLocations) {
@@ -188,6 +194,7 @@ fun LibraryScreen(app: AppState, session: CameraSession) {
                 add(Manifest.permission.ACCESS_MEDIA_LOCATION)
             }
         }.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+        app.askedImportPermissions = true
         if (want.isNotEmpty()) perms.launch(want.toTypedArray())
     }
 
@@ -297,8 +304,11 @@ private fun DayHeader(d: LocalDate, list: List<Shot>, selecting: Boolean, select
 @Composable
 private fun LoadingState(status: SessionStatus) {
     Column(Modifier.fillMaxWidth().padding(top = 120.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spinner()
-        Spacer(Modifier.height(12.dp))
+        // A spinner only while something is actually loading: a ready, empty card is final.
+        if (status == SessionStatus.Connecting || status is SessionStatus.Cataloging) {
+            Spinner()
+            Spacer(Modifier.height(12.dp))
+        }
         Text(
             when (status) {
                 SessionStatus.Connecting -> "Opening the camera…"
@@ -307,6 +317,15 @@ private fun LoadingState(status: SessionStatus) {
             },
             style = Mono.data(13.sp), color = Mono.c.dim,
         )
+        if (status == SessionStatus.Ready) {
+            // Some cameras (and phones) share their photos only after a prompt on the device.
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "If the camera shows a prompt, confirm it. Photos appear here on their own.",
+                style = Mono.data(12.sp), color = Mono.c.faint, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 40.dp),
+            )
+        }
     }
 }
 
@@ -490,6 +509,10 @@ private fun LibraryBottomBar(app: AppState, session: CameraSession, snap: Librar
                                 if (fresh.size > picks.size) SecondaryButton("All ${fresh.size}", Modifier.widthIn(min = 112.dp)) { app.importShots(fresh) }
                             }
                             fresh.isNotEmpty() -> PrimaryButton("Import ${fresh.size} new ${if (fresh.size == 1) "photo" else "photos"}", Modifier.fillMaxWidth()) { app.importShots(fresh) }
+                            // Every photo is in; only videos are left. Say so instead of "everything".
+                            snap.videosToImport.isNotEmpty() -> snap.videosToImport.let { v ->
+                                SecondaryButton("Import ${v.size} ${if (v.size == 1) "video" else "videos"}", Modifier.fillMaxWidth()) { app.importShots(v) }
+                            }
                             else -> Row(Modifier.fillMaxWidth().heightIn(min = 50.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                                 PhIcon(Ph.checkCircle, null, size = 18.dp, tint = Mono.c.dim)
                                 Spacer(Modifier.width(8.dp))
