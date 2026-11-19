@@ -24,7 +24,7 @@ struct UnrollApp: App {
                 .preferredColorScheme(.dark)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { app.importer.resumeIfPaused() }
+            if phase == .active { app.importer.resumeIfPaused(); Task { await app.pro.refresh() } }
         }
     }
 }

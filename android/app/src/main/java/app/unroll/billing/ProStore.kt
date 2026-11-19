@@ -47,6 +47,9 @@ class ProStore(context: Context) {
     var connected by mutableStateOf(false)
         private set
 
+    /** Products bought in this run: unlocked at once and kept even if a racing query (onResume) lags behind. */
+    private val justBought = mutableSetOf<String>()
+
     private val _debug = mutableStateOf(prefs.getBoolean("debugPro", false))
     /** Developer override (Settings → Developer) for demos and screenshots. */
     var debugUnlock: Boolean
@@ -71,11 +74,17 @@ class ProStore(context: Context) {
         })
     }
 
+    /** Products fail to load when Play is unreachable at launch; the paywall calls this to try again. */
+    fun loadIfNeeded() {
+        if (weekly != null && monthly != null && yearly != null && lifetime != null) return
+        if (connected) load() else start()
+    }
+
     private fun load() {
         fun query(id: String, type: String, set: (ProductDetails?) -> Unit) {
             val p = QueryProductDetailsParams.Product.newBuilder().setProductId(id).setProductType(type).build()
             client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder().setProductList(listOf(p)).build()) { _, res ->
-                set(res.productDetailsList.firstOrNull())
+                res.productDetailsList.firstOrNull()?.let(set)
             }
         }
         query(WEEKLY_ID, ProductType.SUBS) { weekly = it }
@@ -90,6 +99,7 @@ class ProStore(context: Context) {
         var pending = 2
         fun done() {
             if (--pending > 0) return
+            owned += justBought
             purchased = owned
             prefs.edit().putStringSet("owned", owned).apply()
             after?.invoke()
@@ -120,7 +130,12 @@ class ProStore(context: Context) {
             BillingResponseCode.OK -> {
                 purchases.orEmpty().forEach { p ->
                     if (p.purchaseState == Purchase.PurchaseState.PENDING) message = "Purchase pending approval."
-                    if (p.purchaseState == Purchase.PurchaseState.PURCHASED) acknowledge(p)
+                    if (p.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                        justBought += p.products
+                        purchased = purchased + p.products      // unlock now, before the query round-trip
+                        prefs.edit().putStringSet("owned", purchased).apply()
+                        acknowledge(p)
+                    }
                 }
                 refresh()
             }
@@ -141,6 +156,7 @@ class ProStore(context: Context) {
             }
         }
         purchasing = true
+        message = null
         val r = client.launchBillingFlow(activity, BillingFlowParams.newBuilder().setProductDetailsParamsList(listOf(params.build())).build())
         if (r.responseCode != BillingResponseCode.OK) { purchasing = false; message = r.debugMessage.ifBlank { "Google Play isn't available." } }
     }

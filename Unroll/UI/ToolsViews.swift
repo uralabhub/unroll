@@ -383,8 +383,11 @@ struct PaywallView: View {
                     Hairline()
                     VStack(spacing: 12) {
                         Button {
-                            guard let product = self.product(plan) else { app.pro.message = "The App Store isn’t reachable right now. Try again shortly."; return }
-                            Task { await app.pro.buy(product) }
+                            Task {
+                                if self.product(plan) == nil { await app.pro.loadIfNeeded() }
+                                guard let product = self.product(plan) else { app.pro.message = "The App Store isn’t reachable right now. Try again shortly."; return }
+                                await app.pro.buy(product)
+                            }
                         } label: {
                             ZStack {
                                 if app.pro.purchasing {
@@ -423,6 +426,7 @@ struct PaywallView: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Not now") { dismiss() } } }
         }
         .onChange(of: app.pro.isPro) { _, isPro in if isPro { dismiss() } }
+        .task { app.pro.message = nil; await app.pro.loadIfNeeded() }
         .presentationDragIndicator(.visible)
     }
 

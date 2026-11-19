@@ -519,6 +519,7 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
     LaunchedEffect(plan) { if (!lifetime) lastSub = plan }
     val pro = app.pro
     LaunchedEffect(pro.isPro) { if (pro.isPro) onClose() }
+    LaunchedEffect(Unit) { pro.message = null; pro.loadIfNeeded() }
     val perks = listOf(
         "Unlimited imports" to "Free plan: ${Quota.FREE_PER_DAY} a day",
         "Auto-import picks" to "Plug in and your rated or protected shots go straight to the library",
@@ -558,8 +559,8 @@ fun PaywallSheet(app: AppState, onClose: () -> Unit) {
                 val buttonTitle = when (plan) { "lifetime" -> "Buy lifetime"; "yearly" -> "Start free trial"; else -> "Subscribe" }
                 PrimaryButton(buttonTitle, Modifier.fillMaxWidth(), busy = pro.purchasing) {
                     val product = when (plan) { "lifetime" -> pro.lifetime; "yearly" -> pro.yearly; "monthly" -> pro.monthly; else -> pro.weekly }
-                    val activity = context as? Activity
-                    if (product == null || activity == null) pro.message = "Google Play isn’t reachable right now. Try again shortly."
+                    val activity = context.findActivity()
+                    if (product == null || activity == null) { pro.loadIfNeeded(); pro.message = "Google Play isn’t reachable right now. Try again shortly." }
                     else pro.buy(activity, product)
                 }
                 pro.message?.let { Text(it, fontSize = 13.sp, color = Mono.c.dim) }
@@ -649,3 +650,9 @@ fun WalksScreen(app: AppState) {
     }
 }
 
+
+private tailrec fun android.content.Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
