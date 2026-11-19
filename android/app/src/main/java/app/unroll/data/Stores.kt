@@ -200,6 +200,9 @@ class Settings(context: Context, private val disk: Disk) {
     private val _autoEject = mutableStateOf(p.getBoolean("autoEject", false))
     var autoEject: Boolean get() = _autoEject.value; set(v) { _autoEject.value = v; p.edit().putBoolean("autoEject", v).apply() }
 
+    private val _onboarded = mutableStateOf(p.getBoolean("onboarded", false))
+    var hasOnboarded: Boolean get() = _onboarded.value; set(v) { _onboarded.value = v; p.edit().putBoolean("onboarded", v).apply() }
+
     /** Seconds the camera clock runs AHEAD of true time, per camera model. */
     private val _offsets = mutableStateOf(disk.load(offsetsSerializer, "clock-offsets.json") ?: emptyMap())
     val clockOffsets: Map<String, Double> get() = _offsets.value

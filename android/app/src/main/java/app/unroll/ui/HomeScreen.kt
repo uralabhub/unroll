@@ -100,6 +100,7 @@ fun HomeScreen(app: AppState) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Unroll", Modifier.weight(1f).riseIn(0, "home-title").semantics { heading() }, style = Mono.largeTitle, color = Mono.c.ink)
+            Box(Modifier.riseIn(1, "home-help")) { IconButton(Ph.question, "How Unroll works") { app.showTour = true } }
             Box(Modifier.riseIn(1, "home-gear")) { IconButton(Ph.gear, "Settings") { app.push(Screen.Settings) } }
         }
         LazyColumn(

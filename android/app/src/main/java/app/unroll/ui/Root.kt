@@ -199,6 +199,11 @@ fun Root(app: AppState) {
             }
         }
 
+        // Feature tour: covers everything, first launch and on request.
+        AnimatedVisibility(app.showTour, enter = fadeIn(tween(250)), exit = fadeOut(tween(250)) + scaleOut(tween(250), targetScale = 1.04f)) {
+            TourScreen(app)
+        }
+
         // Floating import status only when no library is there to host it (a paused run outliving its session).
         if (!app.showPaywall) {
             Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 8.dp)) { ImportHUD(app) }

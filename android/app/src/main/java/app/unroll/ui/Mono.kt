@@ -196,6 +196,7 @@ object Ph {
     val moreVert = R.drawable.ic_more_vert
     val retry = R.drawable.ic_retry
     val walk = R.drawable.ic_walk
+    val question = R.drawable.ph_question
 }
 
 @Composable

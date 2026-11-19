@@ -24,7 +24,7 @@ final class USBImportRun: XCTestCase {
     }
 
     func testImportAllWhileHostTogglesUSB() throws {
-        app.launchArguments += ["-debugPro", "YES"]   // DEBUG-only Pro unlock: no 10-a-day cap
+        app.launchArguments += ["-debugPro", "YES", "-onboarded", "YES"]   // DEBUG-only Pro unlock: no 10-a-day cap
         app.launch()
         let all = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "^All( new)? \\d+$")).firstMatch
         guard all.waitForExistence(timeout: 20) else {

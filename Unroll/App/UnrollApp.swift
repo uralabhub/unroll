@@ -54,6 +54,7 @@ struct RootView: View {
         .sheet(isPresented: $app.showPaywall, onDismiss: {
             if let note = app.paywallNote { app.toast = note; app.paywallNote = nil }
         }) { PaywallView() }
+        .fullScreenCover(isPresented: $app.showTour) { TourView() }
         .alert("Photos access is off", isPresented: $app.photosDenied) {
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }

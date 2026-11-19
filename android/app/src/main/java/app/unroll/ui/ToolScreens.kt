@@ -453,6 +453,7 @@ fun SettingsScreen(app: AppState) {
             })
             val uri = androidx.compose.ui.platform.LocalUriHandler.current
             MonoSection(index = 7, rows = listOf(
+                { MonoRow("How Unroll works", onClick = { app.showTour = true }) },
                 { MonoRow("Privacy policy", onClick = { uri.openUri(Legal.PRIVACY) }) },
                 { MonoRow("Terms of use", onClick = { uri.openUri(Legal.TERMS) }) },
                 { MonoRow("Support", onClick = { uri.openUri(Legal.SUPPORT) }) },

@@ -277,6 +277,7 @@ struct SettingsView: View {
             #endif
 
             Section {
+                Button("How Unroll works") { app.showTour = true }
                 Link("Privacy policy", destination: Legal.privacy)
                 Link("Terms of use", destination: Legal.terms)
                 Link("Support", destination: Legal.support)

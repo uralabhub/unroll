@@ -17,6 +17,8 @@ final class AppState {
 
     var session: CameraSession?
     var showPaywall = false
+    /// The feature tour: first launch, then on request from Home or Settings.
+    var showTour = false
     var photosDenied = false
     var toast: String?
     /// Shown as a toast once the paywall closes, so it never covers the plans.
@@ -24,6 +26,7 @@ final class AppState {
     @ObservationIgnored private var securityScoped: URL?
 
     init() {
+        showTour = !settings.hasOnboarded
         usb.makeSession = { [unowned self] name in
             CameraSession(kind: .usb, name: name, metaCache: self.metaCache, ledger: self.ledger)
         }

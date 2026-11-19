@@ -64,6 +64,8 @@ class AppState(private val context: Context) {
     var session by mutableStateOf<CameraSession?>(null)
         private set
     var showPaywall by mutableStateOf(false)
+    /** The feature tour: first launch, then on request from Home or Settings. */
+    var showTour by mutableStateOf(!settings.hasOnboarded)
     var toast by mutableStateOf<String?>(null)
     /** Shown as a toast once the paywall closes, so it never covers the plans. */
     var paywallNote: String? = null

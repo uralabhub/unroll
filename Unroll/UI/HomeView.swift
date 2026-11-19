@@ -93,6 +93,10 @@ struct HomeView: View {
         .navigationTitle("Unroll")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button { app.showTour = true } label: { Image(systemName: "questionmark.circle").font(.system(size: 20)) }
+                    .accessibilityLabel("How Unroll works")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: ToolRoute.settings) { Icon("gear-six", size: 22) }
                     .accessibilityLabel("Settings")
             }

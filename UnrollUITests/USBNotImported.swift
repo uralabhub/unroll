@@ -4,7 +4,7 @@ import XCTest
 final class USBNotImported: XCTestCase {
     func testShowNotImported() throws {
         let app = XCUIApplication()
-        app.launchArguments += ["-debugPro", "YES"]
+        app.launchArguments += ["-debugPro", "YES", "-onboarded", "YES"]
         app.launch()
         let tab = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Not imported")).firstMatch
         guard tab.waitForExistence(timeout: 30) else { throw XCTSkip("no USB library on screen") }
